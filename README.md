@@ -4,6 +4,16 @@ A simple, local-first PDF reader built with Python, PySide6, and PyMuPDF.
 
 PDFReader by Sparsh is meant to be a clean desktop utility: open PDFs, read them one page at a time, search, copy text, merge, split, and save compressed copies without uploading documents anywhere.
 
+## Screenshots
+
+![PDFReader by Sparsh main window](assets/screenshot-main.png)
+
+![PDFReader by Sparsh search view](assets/screenshot-search.png)
+
+## Why I Built This
+
+I built PDFReader by Sparsh as a local-first alternative for reading and handling PDFs without uploading private documents to cloud services. The project helped me learn desktop GUI development, PDF processing, OCR fallback handling, and Windows executable packaging while creating a practical tool people can actually use.
+
 ## Features
 
 - Native-looking PySide6 desktop UI.
@@ -116,6 +126,16 @@ For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract in
 - Windows users can download and run the `.exe` release.
 - macOS users need a `.app` built on macOS. The repository includes a macOS build script and CI workflow, but a Windows-built `.exe` cannot be converted into a native Mac app.
 - Unsigned macOS builds may trigger Gatekeeper warnings. For broad distribution, Apple recommends Developer ID signing and notarization.
+
+## Roadmap
+
+- Dark mode.
+- Recent files list.
+- Multi-tab PDF support.
+- Highlight and annotation tools.
+- Better OCR setup instructions.
+- Windows installer package.
+- Code signing for smoother public downloads.
 
 ## Project Structure
 
