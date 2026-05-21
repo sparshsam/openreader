@@ -1,6 +1,6 @@
 # PDFReader by Sparsh
 
-A simple, local-first PDF reader built with Python, PySide6, and PyMuPDF.
+A simple, local-first, non-commercial PDF reader built with Python, PySide6, and PyMuPDF.
 
 PDFReader by Sparsh is meant to be a clean desktop utility: open PDFs, read them one page at a time, search, copy text, merge, split, and save compressed copies without uploading documents anywhere.
 
@@ -38,6 +38,14 @@ I built PDFReader by Sparsh as a local-first alternative for reading and handlin
 ## Privacy
 
 PDFReader by Sparsh processes PDFs locally. It does not use network services and does not upload PDFs.
+
+## License and Use
+
+PDFReader by Sparsh is free to use, share, study, and modify for non-commercial purposes under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+
+Commercial use, resale, paid redistribution, or bundling in a commercial product is not permitted without separate written permission from the copyright holder.
+
+Note: earlier published versions may have been released under MIT. This license applies to the current codebase and releases from this license change forward.
 
 ## Requirements
 
@@ -156,4 +164,4 @@ For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract in
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+PolyForm Noncommercial License 1.0.0. See [LICENSE](LICENSE).

@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Changed project licensing from MIT to PolyForm Noncommercial License 1.0.0 for future versions.
+
 ## 0.1.0
 
 - Native PySide6 desktop PDF reader.
