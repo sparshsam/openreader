@@ -1,4 +1,5 @@
 from pathlib import Path
+import argparse
 import struct
 import sys
 
@@ -89,7 +90,35 @@ def write_ico(path: Path, sizes=(16, 24, 32, 48, 64, 128, 256)):
             file.write(png)
 
 
+def write_png_iconset(path: Path):
+    icon_sizes = {
+        "icon_16x16.png": 16,
+        "icon_16x16@2x.png": 32,
+        "icon_32x32.png": 32,
+        "icon_32x32@2x.png": 64,
+        "icon_128x128.png": 128,
+        "icon_128x128@2x.png": 256,
+        "icon_256x256.png": 256,
+        "icon_256x256@2x.png": 512,
+        "icon_512x512.png": 512,
+        "icon_512x512@2x.png": 1024,
+    }
+    path.mkdir(parents=True, exist_ok=True)
+    for file_name, size in icon_sizes.items():
+        image = QImage()
+        image.loadFromData(make_png(size), "PNG")
+        image.save(str(path / file_name), "PNG")
+
+
 if __name__ == "__main__":
     app = QApplication.instance() or QApplication(sys.argv)
-    write_ico(ICON_PATH)
-    print(ICON_PATH)
+    parser = argparse.ArgumentParser(description="Create app icon assets.")
+    parser.add_argument("--ico", default=str(ICON_PATH), help="Path for the Windows .ico output.")
+    parser.add_argument("--png-iconset", help="Optional macOS .iconset directory to create.")
+    args = parser.parse_args()
+
+    write_ico(Path(args.ico))
+    print(args.ico)
+    if args.png_iconset:
+        write_png_iconset(Path(args.png_iconset))
+        print(args.png_iconset)

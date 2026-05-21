@@ -1,0 +1,51 @@
+name: Build macOS App
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            artifact-name: PDFReader-by-Sparsh-macOS-Apple-Silicon
+          - runner: macos-15-intel
+            artifact-name: PDFReader-by-Sparsh-macOS-Intel
+
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Build app bundle
+        run: |
+          QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
+          iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
+          pyinstaller --windowed --onedir --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+
+      - name: Package app bundle
+        run: |
+          ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.artifact-name }}.zip"
+
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact-name }}
+          path: ${{ matrix.artifact-name }}.zip

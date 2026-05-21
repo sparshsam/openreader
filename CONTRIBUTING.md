@@ -23,6 +23,19 @@ The executable is created at:
 dist\PDFReader by Sparsh.exe
 ```
 
+## Build on macOS
+
+```bash
+chmod +x scripts/build_macos.sh
+./scripts/build_macos.sh
+```
+
+The app bundle is created at:
+
+```text
+dist/PDFReader by Sparsh.app
+```
+
 ## Pull Requests
 
 - Keep the UI simple and native-looking.

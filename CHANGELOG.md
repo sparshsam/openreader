@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-- Native PySide6 desktop PDF reader for Windows.
+- Native PySide6 desktop PDF reader.
 - PDF rendering with PyMuPDF.
 - Open PDFs from disk or through Windows "Open with".
 - Page navigation, jump to page, fit width, and zoom controls.
@@ -13,3 +13,4 @@
 - Split PDFs by page or page range.
 - Save compressed PDF copies.
 - Custom app icon and PyInstaller Windows build.
+- macOS source build script and GitHub Actions macOS app build workflow.

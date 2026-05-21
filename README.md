@@ -1,6 +1,6 @@
 # PDFReader by Sparsh
 
-A simple, local-first Windows PDF reader built with Python, PySide6, and PyMuPDF.
+A simple, local-first PDF reader built with Python, PySide6, and PyMuPDF.
 
 PDFReader by Sparsh is meant to be a clean desktop utility: open PDFs, read them one page at a time, search, copy text, merge, split, and save compressed copies without uploading documents anywhere.
 
@@ -9,6 +9,7 @@ PDFReader by Sparsh is meant to be a clean desktop utility: open PDFs, read them
 - Native-looking PySide6 desktop UI.
 - Open PDFs from disk.
 - Open PDFs directly from Windows **Open with**.
+- macOS source/build support, including a GitHub Actions macOS app build.
 - Display one page at a time.
 - Previous/next page navigation.
 - Page number indicator and jump-to-page input.
@@ -30,7 +31,8 @@ PDFReader by Sparsh processes PDFs locally. It does not use network services and
 
 ## Requirements
 
-- Windows
+- Windows for the packaged `.exe`
+- macOS for source builds or macOS GitHub Actions artifacts
 - Python 3.11 or newer for development
 
 The packaged `.exe` does not require Python to be installed.
@@ -72,6 +74,27 @@ You can also run PyInstaller directly:
 pyinstaller --noconsole --onefile --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
 ```
 
+## Build the macOS App
+
+The Windows `.exe` does not run on macOS. Mac users need a macOS build because PyInstaller packages native binaries for the operating system it runs on.
+
+On a Mac:
+
+```bash
+git clone https://github.com/sparshsam/pdfreader-by-sparsh.git
+cd pdfreader-by-sparsh
+chmod +x scripts/build_macos.sh
+./scripts/build_macos.sh
+```
+
+The app bundle will be created at:
+
+```text
+dist/PDFReader by Sparsh.app
+```
+
+See [docs/macos.md](docs/macos.md) for macOS setup, "Open With" notes, icon generation, OCR notes, and code-signing/notarization caveats.
+
 ## Use as Default PDF App
 
 Windows does not allow apps to silently take over file defaults. To make this your default PDF app:
@@ -88,11 +111,18 @@ Normal text selection works for PDFs that already contain text.
 
 For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract integration. If Tesseract OCR data is not available on the computer, the app shows a clear message and continues working for normal PDFs.
 
+## Compatibility Notes
+
+- Windows users can download and run the `.exe` release.
+- macOS users need a `.app` built on macOS. The repository includes a macOS build script and CI workflow, but a Windows-built `.exe` cannot be converted into a native Mac app.
+- Unsigned macOS builds may trigger Gatekeeper warnings. For broad distribution, Apple recommends Developer ID signing and notarization.
+
 ## Project Structure
 
 ```text
 .
 ├── assets/                  # App icon asset
+├── docs/                    # Platform notes
 ├── scripts/                 # Build scripts
 ├── tools/                   # Developer utilities, including icon generation
 ├── main.py                  # Main PySide6 app
