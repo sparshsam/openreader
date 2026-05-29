@@ -38,7 +38,7 @@ jobs:
         run: |
           QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
           iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
-          pyinstaller --windowed --onedir --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+          pyinstaller --windowed --onedir --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
 
       - name: Package app bundle
         run: |

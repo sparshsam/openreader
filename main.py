@@ -1,4 +1,5 @@
 import sys
+from collections import OrderedDict
 from pathlib import Path
 
 import fitz
@@ -22,6 +23,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+class PdfSafetyError(Exception):
+    pass
 
 
 class PdfPageLabel(QLabel):
@@ -78,6 +83,12 @@ class PdfPageLabel(QLabel):
 
 class PdfReaderWindow(QMainWindow):
     APP_NAME = "PDFReader by Sparsh"
+    MAX_PDF_SIZE_BYTES = 500 * 1024 * 1024
+    MAX_PAGE_DIMENSION_POINTS = 14400
+    MAX_RENDER_PIXELS = 80_000_000
+    MAX_SEARCH_MATCHES = 20_000
+    MAX_SPLIT_PAGES = 1000
+    MAX_OCR_CACHE_PAGES = 3
     MIN_ZOOM = 0.25
     MAX_ZOOM = 5.0
     ZOOM_STEP = 0.15
@@ -99,7 +110,7 @@ class PdfReaderWindow(QMainWindow):
         self.current_render_zoom = 1.0
         self.selected_text = ""
         self.selected_rects = []
-        self.ocr_text_pages = {}
+        self.ocr_text_pages = OrderedDict()
         self.ocr_warning_shown = False
 
         self._build_ui()
@@ -273,19 +284,16 @@ class PdfReaderWindow(QMainWindow):
             self,
             "Open PDF",
             start_dir,
-            "PDF Files (*.pdf);;All Files (*)",
+            "PDF Files (*.pdf)",
         )
         if file_name:
             self.load_pdf(file_name)
 
     def load_pdf(self, file_name):
         try:
-            document = fitz.open(file_name)
-            if document.page_count == 0:
-                document.close()
-                raise ValueError("The PDF does not contain any pages.")
+            document = self._safe_open_pdf(file_name)
         except Exception as exc:
-            QMessageBox.critical(self, "Could Not Open PDF", f"Unable to open this file:\n\n{exc}")
+            self._show_error("Could Not Open PDF", "Unable to open this PDF file.", exc)
             self.statusBar().showMessage("Failed to open PDF", 5000)
             return
 
@@ -295,7 +303,7 @@ class PdfReaderWindow(QMainWindow):
         self.current_page = 0
         self.search_results = []
         self.current_result_index = -1
-        self.ocr_text_pages = {}
+        self.ocr_text_pages = OrderedDict()
         self.clear_text_selection(render=False)
         self.search_count_label.setText("0 matches")
         self.page_spin.blockSignals(True)
@@ -308,6 +316,57 @@ class PdfReaderWindow(QMainWindow):
         self.render_page()
         self._update_controls()
         self.statusBar().showMessage(f"Opened {Path(file_name).name}", 5000)
+
+    def _safe_open_pdf(self, file_name):
+        path = self._validate_pdf_path(file_name)
+        document = None
+        try:
+            document = fitz.open(str(path))
+            if document.page_count == 0:
+                raise PdfSafetyError("The PDF does not contain any pages.")
+            self._validate_document_pages(document)
+            return document
+        except Exception:
+            if document is not None:
+                document.close()
+            raise
+
+    def _validate_pdf_path(self, file_name):
+        path = Path(file_name).expanduser()
+        if not path.exists() or not path.is_file():
+            raise PdfSafetyError("The selected file does not exist.")
+        if path.suffix.lower() != ".pdf":
+            raise PdfSafetyError("Only .pdf files are supported.")
+
+        size = path.stat().st_size
+        if size <= 0:
+            raise PdfSafetyError("The selected file is empty.")
+        if size > self.MAX_PDF_SIZE_BYTES:
+            max_mb = self.MAX_PDF_SIZE_BYTES // (1024 * 1024)
+            raise PdfSafetyError(f"The selected PDF is larger than the {max_mb} MB safety limit.")
+
+        with path.open("rb") as file:
+            header = file.read(1024)
+        if b"%PDF-" not in header:
+            raise PdfSafetyError("The selected file does not look like a valid PDF.")
+        return path
+
+    def _validate_document_pages(self, document):
+        for page_index in range(document.page_count):
+            page = document.load_page(page_index)
+            if (
+                page.rect.width <= 0
+                or page.rect.height <= 0
+                or page.rect.width > self.MAX_PAGE_DIMENSION_POINTS
+                or page.rect.height > self.MAX_PAGE_DIMENSION_POINTS
+            ):
+                raise PdfSafetyError(
+                    f"Page {page_index + 1} is outside the supported page size limits."
+                )
+
+    def _show_error(self, title, public_message, exception):
+        detail = str(exception) if isinstance(exception, PdfSafetyError) else "The file could not be processed safely."
+        QMessageBox.critical(self, title, f"{public_message}\n\n{detail}")
 
     def close_document(self):
         if self.document is not None:
@@ -324,6 +383,7 @@ class PdfReaderWindow(QMainWindow):
             page = self.document.load_page(self.current_page)
             zoom = self._effective_zoom(page)
             self.current_render_zoom = zoom
+            self._validate_render_size(page, zoom)
             matrix = fitz.Matrix(zoom, zoom)
             highlight_rects = self._active_highlight_rects()
             pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=True)
@@ -339,7 +399,7 @@ class PdfReaderWindow(QMainWindow):
             if self.selected_rects:
                 self._paint_selection(image, page, self.selected_rects, zoom)
         except Exception as exc:
-            QMessageBox.critical(self, "Render Error", f"Unable to render this page:\n\n{exc}")
+            self._show_error("Render Error", "Unable to render this page.", exc)
             return
 
         self.page_label.setPixmap(QPixmap.fromImage(image))
@@ -355,6 +415,11 @@ class PdfReaderWindow(QMainWindow):
         viewport_width = max(1, self.scroll_area.viewport().width() - 24)
         page_width = max(1, page.rect.width)
         return max(self.MIN_ZOOM, min(self.MAX_ZOOM, viewport_width / page_width))
+
+    def _validate_render_size(self, page, zoom):
+        pixels = int(page.rect.width * zoom) * int(page.rect.height * zoom)
+        if pixels > self.MAX_RENDER_PIXELS:
+            raise PdfSafetyError("This page is too large to render at the current zoom level.")
 
     def _active_highlight_rects(self):
         if self.current_result_index < 0 or not self.search_results:
@@ -459,11 +524,13 @@ class PdfReaderWindow(QMainWindow):
                     "OCR Not Available",
                     "This PDF page appears to need OCR, but OCR is not available on this computer.\n\n"
                     "PyMuPDF uses Tesseract OCR data for this feature. Install Tesseract OCR and English "
-                    "language data, then reopen the app to select text from scanned/image-only PDFs.\n\n"
-                    f"Details: {exc}",
+                    "language data, then reopen the app to select text from scanned/image-only PDFs.",
                 )
             return None
         self.ocr_text_pages[self.current_page] = textpage
+        self.ocr_text_pages.move_to_end(self.current_page)
+        while len(self.ocr_text_pages) > self.MAX_OCR_CACHE_PAGES:
+            self.ocr_text_pages.popitem(last=False)
         return textpage
 
     def _text_from_words(self, words):
@@ -496,7 +563,7 @@ class PdfReaderWindow(QMainWindow):
             self,
             "Select PDFs to Merge",
             start_dir,
-            "PDF Files (*.pdf);;All Files (*)",
+            "PDF Files (*.pdf)",
         )
         if not file_names:
             return
@@ -519,7 +586,7 @@ class PdfReaderWindow(QMainWindow):
         opened_docs = []
         try:
             for file_name in file_names:
-                source = fitz.open(file_name)
+                source = self._safe_open_pdf(file_name)
                 opened_docs.append(source)
                 merged.insert_pdf(source)
             merged.save(
@@ -532,7 +599,7 @@ class PdfReaderWindow(QMainWindow):
                 compression_effort=9,
             )
         except Exception as exc:
-            QMessageBox.critical(self, "Merge Failed", f"Could not merge the selected PDFs:\n\n{exc}")
+            self._show_error("Merge Failed", "Could not merge the selected PDFs.", exc)
             return
         finally:
             for source in opened_docs:
@@ -568,6 +635,10 @@ class PdfReaderWindow(QMainWindow):
 
         try:
             if mode == "Every page into separate PDFs":
+                if self.document.page_count > self.MAX_SPLIT_PAGES:
+                    raise PdfSafetyError(
+                        f"Splitting every page is limited to {self.MAX_SPLIT_PAGES} pages at a time."
+                    )
                 saved_paths = self._split_every_page(Path(output_dir))
                 message = f"Saved {len(saved_paths)} PDFs to:\n\n{output_dir}"
             else:
@@ -582,7 +653,7 @@ class PdfReaderWindow(QMainWindow):
                 saved_path = self._extract_pages(Path(output_dir), pages)
                 message = f"Saved extracted pages:\n\n{saved_path}"
         except Exception as exc:
-            QMessageBox.critical(self, "Split Failed", f"Could not split this PDF:\n\n{exc}")
+            self._show_error("Split Failed", "Could not split this PDF.", exc)
             return
 
         QMessageBox.information(self, "Split Complete", message)
@@ -663,7 +734,7 @@ class PdfReaderWindow(QMainWindow):
 
         try:
             source_size = input_path.stat().st_size
-            source = fitz.open(self.current_path)
+            source = self._safe_open_pdf(self.current_path)
             try:
                 source.save(
                     output_path,
@@ -679,7 +750,7 @@ class PdfReaderWindow(QMainWindow):
                 source.close()
             output_size = Path(output_path).stat().st_size
         except Exception as exc:
-            QMessageBox.critical(self, "Compression Failed", f"Could not compress this PDF:\n\n{exc}")
+            self._show_error("Compression Failed", "Could not compress this PDF.", exc)
             return
 
         saved = source_size - output_size
@@ -768,6 +839,13 @@ class PdfReaderWindow(QMainWindow):
             rects = page.search_for(needle)
             for rect in rects:
                 self.search_results.append({"page": page_index, "rects": [rect]})
+                if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
+                    self.statusBar().showMessage(
+                        f"Search stopped after {self.MAX_SEARCH_MATCHES:,} matches.", 5000
+                    )
+                    break
+            if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
+                break
 
         if self.search_results:
             first_on_or_after_page = next(

@@ -20,6 +20,13 @@ dist/
 .env
 .env.*
 *.log
+*.pem
+*.key
+*.cert
+*.crt
+*.p12
+*.pfx
+*.mobileprovision
 
 # OS/editor files
 .DS_Store

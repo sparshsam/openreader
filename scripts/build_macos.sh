@@ -28,6 +28,7 @@ fi
 .venv/bin/pyinstaller \
   --windowed \
   --onedir \
+  --noupx \
   --name "PDFReader by Sparsh" \
   --argv-emulation \
   "${ICON_ARGS[@]}" \

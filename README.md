@@ -39,6 +39,20 @@ I built PDFReader by Sparsh as a local-first alternative for reading and handlin
 
 PDFReader by Sparsh processes PDFs locally. It does not use network services and does not upload PDFs.
 
+## PDF Safety Limits
+
+PDFReader by Sparsh includes basic safety checks before opening and rendering documents:
+
+- Accepts `.pdf` files only.
+- Checks for a PDF header before parsing.
+- Rejects empty files and files over 500 MB.
+- Rejects pages outside the supported page-size limit.
+- Caps render pixel allocation to reduce PDF-bomb/OOM risk.
+- Limits all-pages search result storage.
+- Keeps only a small OCR page cache in memory.
+
+These checks reduce risk from malformed or oversized PDFs, but PDF parsing still depends on PyMuPDF/MuPDF. Keep dependencies updated and avoid opening PDFs from untrusted sources.
+
 ## License and Use
 
 PDFReader by Sparsh is free to use, share, study, and modify for non-commercial purposes under the [PolyForm Noncommercial License 1.0.0](LICENSE).
@@ -144,6 +158,7 @@ For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract in
 - Better OCR setup instructions.
 - Windows installer package.
 - Code signing for smoother public downloads.
+- Stronger PDF sandboxing for hostile/untrusted documents.
 
 ## Project Structure
 

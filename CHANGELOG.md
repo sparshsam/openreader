@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Changed project licensing from MIT to PolyForm Noncommercial License 1.0.0 for future versions.
+- Added PDF safety pre-validation, render size limits, bounded search/OCR memory use, sanitized error dialogs, security scanning workflow, sensitive-file ignore patterns, and disabled UPX in release builds.
 
 ## 0.1.0
 
