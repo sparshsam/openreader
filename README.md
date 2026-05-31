@@ -227,16 +227,6 @@ Items in active or planned development.
 - **PDF version comparison** — diff two PDFs side-by-side and visually highlight text changes, insertions, and deletions
 - **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
 - **Offline semantic search** — search by meaning rather than exact keyword using local embeddings, entirely offline
-- **Auto-update integration** ✅ — in-app update checks against GitHub releases with one-click download and install. Auto-updates from v0.1.6 onward.
-
-### Mid-Term
-Ambitious but achievable additions that meaningfully expand the app's capabilities.
-
-- **Full-library indexed search** — build a local search index over a folder of PDFs for instant, cross-document text search
-- **Workspace and session restoration** — remember which documents were open, which page you were on, and restore on next launch
-- **PDF version comparison** — diff two PDFs side-by-side and visually highlight text changes, insertions, and deletions
-- **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
-- **Offline semantic search** — search by meaning rather than exact keyword using local embeddings, entirely offline
 - **Code signing** — signed Windows and macOS releases for smoother downloads without SmartScreen or Gatekeeper warnings
 - **Stronger sandboxing guidance** — documented approaches for running the app in an OS sandbox when opening documents from untrusted sources
 
