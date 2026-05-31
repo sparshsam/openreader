@@ -1230,11 +1230,14 @@ class PdfReaderWindow(QMainWindow):
             "    goto wait\n"
             ")\n"
             "\n"
-            f'copy /Y "{dest}" "{current_exe}" >nul\n'
+            "rem Extra buffer for Defender / cleanup\n"
+            "timeout /t 2 /nobreak >nul\n"
+            "\n"
+            ":retry\n"
+            f'copy /Y /V "{dest}" "{current_exe}" >nul\n'
             "if errorlevel 1 (\n"
-            "    echo Update failed.\n"
-            "    pause\n"
-            "    exit /b 1\n"
+            "    timeout /t 1 /nobreak >nul\n"
+            "    goto retry\n"
             ")\n"
             "\n"
             f'powershell -Command "Unblock-File -Path \"{current_exe}\"" >nul 2>&1\n'
