@@ -1,10 +1,18 @@
+import json
+import os
+import platform
+import re
+import subprocess
 import sys
+import tempfile
+import zipfile
 from collections import OrderedDict
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QRect, QSettings, QSize, QTimer, Qt, Signal
+from PySide6.QtCore import QByteArray, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QAction, QColor, QImage, QKeySequence, QPainter, QPixmap
+from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -13,6 +21,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
+    QProgressDialog,
     QPushButton,
     QInputDialog,
     QScrollArea,
@@ -23,6 +32,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+
+
+__version__ = "0.1.3"
+GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 
 
 class PdfSafetyError(Exception):
@@ -112,6 +125,15 @@ class PdfReaderWindow(QMainWindow):
         self.selected_rects = []
         self.ocr_text_pages = OrderedDict()
         self.ocr_warning_shown = False
+
+        # Update system
+        self._update_nam = QNetworkAccessManager(self)
+        self._update_nam.finished.connect(self._on_update_check_reply)
+        self._download_nam = QNetworkAccessManager(self)
+        self._download_nam.finished.connect(self._on_download_finished)
+        self._update_progress = None  # QProgressDialog
+        self._update_latest_tag = None
+        self._update_download_path = None
 
         self._build_ui()
         self._build_actions()
@@ -259,6 +281,11 @@ class PdfReaderWindow(QMainWindow):
         compress_action = QAction("Compress", self)
         compress_action.triggered.connect(self.compress_pdf)
         toolbar.addAction(compress_action)
+
+        toolbar.addSeparator()
+        self.update_action = QAction("Check for Updates", self)
+        self.update_action.triggered.connect(self.check_for_updates)
+        toolbar.addAction(self.update_action)
 
         find_action = QAction("Find", self)
         find_action.setShortcut(QKeySequence.Find)
@@ -931,6 +958,281 @@ class PdfReaderWindow(QMainWindow):
         super().resizeEvent(event)
         if self.fit_to_window and self.document is not None:
             self.render_page()
+
+    # --------------------------------------------------------------------------
+    # Auto-update system
+    # --------------------------------------------------------------------------
+
+    @staticmethod
+    def _parse_version(tag):
+        """Parse a version tag like 'v0.1.3' into a comparable tuple."""
+        match = re.search(r"(\d+)\.(\d+)\.(\d+)", tag)
+        if not match:
+            return None
+        return tuple(int(x) for x in match.groups())
+
+    @staticmethod
+    def _is_packaged():
+        """Return True if running from a PyInstaller bundle."""
+        return getattr(sys, "frozen", False)
+
+    def _get_platform_asset(self, assets):
+        """Pick the right download asset for the current platform."""
+        system = platform.system()
+        if system == "Windows":
+            for a in assets:
+                name = a.get("name", "")
+                if name.endswith(".exe"):
+                    return a["browser_download_url"], a["name"]
+        elif system == "Darwin":
+            is_arm = platform.machine() in ("arm64", "aarch64")
+            for a in assets:
+                name = a.get("name", "")
+                if is_arm and "Apple-Silicon" in name and name.endswith(".zip"):
+                    return a["browser_download_url"], a["name"]
+            for a in assets:
+                name = a.get("name", "")
+                if "macOS" in name and name.endswith(".zip"):
+                    return a["browser_download_url"], a["name"]
+        return None, None
+
+    def check_for_updates(self):
+        """Check GitHub for a newer release. Called from the UI."""
+        if self._update_progress is not None:
+            return  # already in progress
+
+        self.update_action.setEnabled(False)
+        self.statusBar().showMessage("Checking for updates...")
+
+        url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
+        request = QNetworkRequest(url)
+        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setTransferTimeout(15000)
+        self._update_nam.get(request)
+
+    def _on_update_check_reply(self, reply):
+        """Handle the GitHub API response for the update check."""
+        self.update_action.setEnabled(True)
+
+        if reply.error() != QNetworkReply.NoError:
+            self.statusBar().showMessage("Could not check for updates — check your internet connection", 5000)
+            reply.deleteLater()
+            return
+
+        try:
+            data = json.loads(bytes(reply.readAll()).decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            self.statusBar().showMessage("Update check failed — unexpected response", 5000)
+            reply.deleteLater()
+            return
+        finally:
+            reply.deleteLater()
+
+        latest_tag = data.get("tag_name", "")
+        latest_version = self._parse_version(latest_tag)
+        current_version = self._parse_version(__version__)
+
+        if latest_version is None or current_version is None:
+            QMessageBox.information(
+                self,
+                "Update Check",
+                f"Current version: {__version__}\nLatest release: {latest_tag}\n\nCould not compare versions.",
+            )
+            return
+
+        assets = data.get("assets", [])
+        asset_url, asset_name = self._get_platform_asset(assets)
+
+        if latest_version <= current_version:
+            QMessageBox.information(
+                self,
+                "Up to Date",
+                f"You're running {__version__}, which is the latest version.",
+            )
+            self.statusBar().showMessage(f"PDFReader is up to date (v{__version__})", 5000)
+            return
+
+        # An update is available
+        release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
+        release_notes = (data.get("body") or "")[:500]
+
+        msg = (
+            f"<h3>Update Available</h3>"
+            f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> → <b>{latest_tag}</b></p>"
+        )
+        if release_notes:
+            msg += f"<hr><pre style='white-space:pre-wrap'>{release_notes}</pre>"
+
+        btn = QMessageBox(self)
+        btn.setWindowTitle("Update Available")
+        btn.setTextFormat(Qt.RichText)
+        btn.setText(msg)
+
+        if asset_url and asset_name:
+            download_button = btn.addButton("Download & Install", QMessageBox.AcceptRole)
+        skip_button = btn.addButton("Skip This Version", QMessageBox.RejectRole)
+        _ = btn.addButton("Later", QMessageBox.DestructiveRole)
+
+        btn.exec()
+
+        if btn.clickedButton() == skip_button:
+            self.statusBar().showMessage("Update skipped", 3000)
+            return
+
+        if asset_url and btn.clickedButton() == download_button:
+            self._start_download(asset_url, asset_name, latest_tag)
+        elif not asset_url:
+            # No platform binary — open the releases page
+            import webbrowser
+            webbrowser.open(release_url)
+            self.statusBar().showMessage(
+                "No installer for your platform. Opening releases page.", 5000
+            )
+
+    def _start_download(self, asset_url, asset_name, latest_tag):
+        """Download the update asset with progress feedback."""
+        self._update_latest_tag = latest_tag
+        self._update_download_path = None
+
+        self._update_progress = QProgressDialog(
+            f"Downloading {asset_name}…", "Cancel", 0, 0, self
+        )
+        self._update_progress.setWindowTitle("Downloading Update")
+        self._update_progress.setWindowModality(Qt.WindowModal)
+        self._update_progress.setMinimumDuration(0)
+        self._update_progress.setValue(0)
+        self._update_progress.canceled.connect(self._cancel_download)
+        self._update_progress.show()
+
+        self.update_action.setEnabled(False)
+        self.statusBar().showMessage(f"Downloading {asset_name}…")
+
+        request = QNetworkRequest(QUrl(asset_url))
+        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setTransferTimeout(300000)  # 5 min
+        reply = self._download_nam.get(request)
+        reply.downloadProgress.connect(self._on_download_progress)
+
+    def _on_download_progress(self, received, total):
+        """Update the progress dialog during download."""
+        if self._update_progress is None:
+            return
+        if total > 0:
+            self._update_progress.setMaximum(int(total))
+            self._update_progress.setValue(int(received))
+            mb_rec = received / (1024 * 1024)
+            mb_tot = total / (1024 * 1024)
+            self._update_progress.setLabelText(
+                f"Downloading update… {mb_rec:.1f} / {mb_tot:.1f} MB"
+            )
+        else:
+            self._update_progress.setMaximum(0)
+            self._update_progress.setValue(0)
+
+    def _cancel_download(self):
+        """Cancel an in-progress download."""
+        self._download_nam.finished.disconnect(self._on_download_finished)
+        self._download_nam = QNetworkAccessManager(self)
+        self._download_nam.finished.connect(self._on_download_finished)
+        self._update_progress = None
+        self._update_latest_tag = None
+        self.update_action.setEnabled(True)
+        self.statusBar().showMessage("Download cancelled", 3000)
+
+    def _on_download_finished(self, reply):
+        """Save the downloaded file and start the install."""
+        self.update_action.setEnabled(True)
+
+        if self._update_progress is not None:
+            self._update_progress.close()
+            self._update_progress = None
+
+        if reply.error() != QNetworkReply.NoError:
+            QMessageBox.critical(
+                self,
+                "Download Failed",
+                f"Could not download the update:\n{reply.errorString()}",
+            )
+            reply.deleteLater()
+            return
+
+        # Save to a temp location
+        try:
+            temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
+            temp_dir.mkdir(parents=True, exist_ok=True)
+            file_name = Path(reply.url().path()).name or f"update_{self._update_latest_tag}"
+            dest = temp_dir / file_name
+            data = reply.readAll()
+            with open(dest, "wb") as f:
+                f.write(bytes(data))
+            self._update_download_path = dest
+        except Exception as exc:
+            QMessageBox.critical(
+                self,
+                "Download Failed",
+                f"Could not save the downloaded file:\n{exc}",
+            )
+            reply.deleteLater()
+            return
+        finally:
+            reply.deleteLater()
+
+        self._apply_update()
+
+    def _apply_update(self):
+        """Launch the downloaded update and close the current app."""
+        dest = self._update_download_path
+        if dest is None or not dest.exists():
+            QMessageBox.critical(self, "Update Error", "Update file not found.")
+            return
+
+        system = platform.system()
+        tag = self._update_latest_tag or "latest"
+
+        if system == "Windows" and dest.suffix.lower() == ".exe":
+            # Launch the downloaded installer; it will replace the running binary
+            try:
+                subprocess.Popen([str(dest), "/SILENT", "/CLOSEAPPLICATIONS", f"/TASKS=desktopicon"])
+            except Exception as exc:
+                QMessageBox.critical(
+                    self, "Update Error",
+                    f"Could not launch the installer.\n\nYou can install manually from:\n{dest}",
+                )
+                return
+        elif system == "Darwin" and dest.suffix.lower() == ".zip":
+            # Extract the .app from the zip and launch it
+            try:
+                extract_dir = dest.parent / f"extracted_{tag}"
+                extract_dir.mkdir(parents=True, exist_ok=True)
+                with zipfile.ZipFile(str(dest), "r") as zf:
+                    zf.extractall(str(extract_dir))
+                # Find the .app inside the extracted folder
+                app_bundles = list(extract_dir.rglob("*.app"))
+                if app_bundles:
+                    subprocess.Popen(["open", str(app_bundles[0])])
+                else:
+                    # Just open the folder
+                    subprocess.Popen(["open", str(extract_dir)])
+            except Exception as exc:
+                QMessageBox.critical(
+                    self, "Update Error",
+                    f"Could not extract the update.\n\nYou can install manually from:\n{dest}",
+                )
+                return
+        else:
+            QMessageBox.information(
+                self,
+                "Update Downloaded",
+                f"The update has been saved to:\n\n{dest}\n\nPlease install it manually.",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Update Starting",
+            f"The {tag} installer is launching. The app will close to complete the update.",
+        )
+        QTimer.singleShot(500, self.close)
 
     def closeEvent(self, event):
         self.close_document()
