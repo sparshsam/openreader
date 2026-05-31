@@ -6,15 +6,7 @@ cd "$(dirname "$0")/.."
 # Inject version from latest git tag directly into main.py
 VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")
 VERSION="${VERSION#v}"
-python3 -c "
-import re
-with open('main.py') as f:
-    src = f.read()
-src = re.sub(r'__version__ = \"[^\"]+\"', '__version__ = \"$VERSION\"', src)
-with open('main.py', 'w') as f:
-    f.write(src)
-"
-echo "Injected version: $VERSION"
+python3 scripts/inject_version.py "$VERSION"
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 is required. Install Python 3.11 or newer from https://www.python.org/downloads/macos/."

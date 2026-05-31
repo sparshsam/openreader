@@ -8,9 +8,7 @@ $tag = git describe --tags --abbrev=0 2>$null
 if ($tag) {
     $version = $tag -replace '^v', ''
 }
-$mainPy = Get-Content main.py -Raw
-$mainPy = $mainPy -replace '__version__ = "[^"]*"', "__version__ = ""$version"""
-Set-Content -Path main.py -Value $mainPy -NoNewline
+python scripts/inject_version.py $version
 Write-Host "Injected version: $version"
 
 if (!(Test-Path -LiteralPath ".\.venv")) {

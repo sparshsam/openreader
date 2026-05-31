@@ -25,15 +25,7 @@ jobs:
         run: |
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")
           VERSION="${VERSION#v}"
-          python -c "
-import re
-with open('main.py') as f:
-    src = f.read()
-src = re.sub(r'__version__ = \"[^\"]+\"', '__version__ = \"$VERSION\"', src)
-with open('main.py', 'w') as f:
-    f.write(src)
-"
-          echo "Injected version: $VERSION"
+          python scripts/inject_version.py "$VERSION"
 
       - name: Install dependencies
         run: |
