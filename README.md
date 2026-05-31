@@ -178,12 +178,16 @@ For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract in
 
 ## Roadmap
 
+### ✓ v0.1.9 — Completed
+These features are shipped in the latest release.
+
+- **Multi-tab PDF support** — open several documents in a single window with tabbed navigation. Ctrl+T new tab, Ctrl+W close tab.
+- **Dark mode** — system-aware Catppuccin Mocha theme with Auto/Light/Dark toggle
+- **Recent files list** — last 10 documents in File → Open Recent
+
 ### Near-Term
 Items in active or planned development.
 
-- **Dark mode** — system-aware theme toggle for comfortable reading in any lighting
-- **Recent files list** — quick access to recently opened documents
-- **Multi-tab PDF support** — open several documents in a single window with tabbed navigation
 - **Highlight and annotation tools** — select, highlight, underline, and add sticky notes; saved as PDF annotations (not a separate overlay)
 - **Better OCR setup instructions** — clearer per-platform guidance for installing Tesseract OCR data
 - **Windows installer package** — a professional installer (Inno Setup or MSI) with file-association registration and Start Menu entry
