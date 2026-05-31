@@ -60,7 +60,11 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 |---|---|
 | Reading | Open PDFs, one-page view, previous/next navigation, page jump, fit-width, zoom in/out |
 | Multi-tab | Open several documents in a single window with movable, closeable tabs. Ctrl+T, Ctrl+W |
-| Search | Full-document text search, match count, next/previous result navigation |
+| Session restore | Remembers open PDFs and page positions across restarts. Auto or manual restore |
+| Search (keyword) | Full-document text search, match count, next/previous result navigation |
+| Search (semantic) | TF-IDF cosine similarity search across indexed library. Toggle "Semantic" in search bar |
+| Library search | SQLite FTS5 full-text index over entire folders. Cross-document search ranked by BM25 |
+| PDF comparison | Side-by-side diff with color-coded changes (red delete, green insert) |
 | Copying | Drag-select text from the visible page and copy with `Ctrl+C` or the Copy button |
 | OCR fallback | Attempts OCR-assisted selection on scanned/image-based pages when Tesseract OCR data is available |
 | Annotations | Highlight, underline, and strikethrough selected text; sticky notes on any page. Saved as native PDF annotations |
@@ -208,8 +212,18 @@ sudo pacman -S tesseract tesseract-data-eng
 
 ## Roadmap
 
-### ✓ v0.2.0 — Completed
+### ✓ v0.3.0 — Completed
 These features are shipped in the latest release.
+
+- **Workspace and session restoration** — remembers which PDFs were open and what page you were on. Auto-restore on launch (toggle in File menu).
+- **Full-library indexed search** — SQLite FTS5-based full-text index over entire folders of PDFs. Manage folders via Library dialog, search across all documents instantly.
+- **PDF version comparison** — side-by-side diff view with color-coded changes (red deletions, green insertions). Compares page by page.
+- **Offline semantic search** — TF-IDF cosine similarity search (no ML dependencies). Toggle "Semantic" checkbox in the search bar for meaning-based matching across your indexed library.
+- **Compare button** in toolbar and **Tools → Compare PDFs** menu entry.
+- **Library button** in toolbar and **View → Library Search** menu entry with Ctrl+Shift+F shortcut.
+- **Semantic search toggle** (checkbox) integrated into the main search bar.
+
+### ✓ v0.2.0 — Completed
 
 - **Highlight and annotation tools** — select, highlight, underline, and add sticky notes directly on PDFs; saved as native PDF annotations, not overlays
 - **Multi-tab PDF support** — open several documents in a single window with tabbed navigation. Ctrl+T new tab, Ctrl+W close tab
@@ -222,11 +236,7 @@ These features are shipped in the latest release.
 ### Near-Term
 Items in active or planned development.
 
-- **Full-library indexed search** — build a local search index over a folder of PDFs for instant, cross-document text search
-- **Workspace and session restoration** — remember which documents were open, which page you were on, and restore on next launch
-- **PDF version comparison** — diff two PDFs side-by-side and visually highlight text changes, insertions, and deletions
 - **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
-- **Offline semantic search** — search by meaning rather than exact keyword using local embeddings, entirely offline
 - **Code signing** — signed Windows and macOS releases for smoother downloads without SmartScreen or Gatekeeper warnings
 - **Stronger sandboxing guidance** — documented approaches for running the app in an OS sandbox when opening documents from untrusted sources
 

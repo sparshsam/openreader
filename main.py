@@ -16,11 +16,17 @@ from PySide6.QtGui import QAction, QColor, QImage, QKeySequence, QPainter, QPixm
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
+    QCheckBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QGroupBox,
     QHBoxLayout,
     QInputDialog,
     QLabel,
     QLineEdit,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMenu,
     QMenuBar,
@@ -29,19 +35,29 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QSplitter,
     QStatusBar,
     QStyle,
     QTabBar,
+    QTextEdit,
     QToolBar,
     QVBoxLayout,
     QWidget,
 )
 
 
-__version__ = "0.2.0-dev"
+__version__ = "0.3.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
+
+# Optional modules (graceful if missing)
+try:
+    from pdfreader_lib import search_index as lib_idx
+    from pdfreader_lib import comparison as pdf_compare
+    HAS_LIB_MODULES = True
+except ImportError:
+    HAS_LIB_MODULES = False
 
 
 # ---------------------------------------------------------------------------
@@ -423,6 +439,10 @@ class PdfReaderWindow(QMainWindow):
         # ---- Recent files ----
         self._recent_files = self._load_recent_files()
 
+        # ---- Workspace session ----
+        self._auto_restore = self.settings.value("autoRestore", True, bool)
+        self._session_data: list[dict] | None = None
+
         # ---- Update system ----
         self._update_nam = QNetworkAccessManager(self)
         self._update_nam.finished.connect(self._on_update_check_reply)
@@ -442,6 +462,9 @@ class PdfReaderWindow(QMainWindow):
 
         # Listen for system theme changes
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
+
+        # Restore workspace if available
+        QTimer.singleShot(100, self._restore_session)
 
     # ------------------------------------------------------------------
     # UI Construction
@@ -529,9 +552,17 @@ class PdfReaderWindow(QMainWindow):
         self.merge_button = QPushButton("Merge")
         self.split_button = QPushButton("Split")
         self.compress_button = QPushButton("Compress")
+        self.compare_button = QPushButton("Compare")
+        self.library_button = QPushButton("Library")
+        self.semantic_cb = QCheckBox("Semantic")
+        self.semantic_cb.setToolTip("Enable semantic (meaning-based) search instead of keyword exact match")
         controls.addWidget(self.merge_button)
         controls.addWidget(self.split_button)
         controls.addWidget(self.compress_button)
+        controls.addSpacing(4)
+        controls.addWidget(self.compare_button)
+        controls.addWidget(self.library_button)
+        controls.addWidget(self.semantic_cb)
 
         controls.addSpacing(4)
         self.search_input = QLineEdit()
@@ -583,6 +614,8 @@ class PdfReaderWindow(QMainWindow):
         self.merge_button.clicked.connect(self.merge_pdfs)
         self.split_button.clicked.connect(self.split_pdf)
         self.compress_button.clicked.connect(self.compress_pdf)
+        self.compare_button.clicked.connect(self._open_compare_dialog)
+        self.library_button.clicked.connect(self._open_library_dialog)
         self.search_input.returnPressed.connect(self.search)
         self.search_input.textChanged.connect(self._search_text_changed)
         self.search_prev_button.clicked.connect(self.previous_search_result)
@@ -758,6 +791,13 @@ class PdfReaderWindow(QMainWindow):
 
         view_menu.addSeparator()
 
+        search_lib_action = QAction("Library Search", self)
+        search_lib_action.setShortcut(QKeySequence("Ctrl+Shift+F"))
+        search_lib_action.triggered.connect(self._open_library_dialog)
+        view_menu.addAction(search_lib_action)
+
+        view_menu.addSeparator()
+
         self.show_annots_action = QAction("Show Annotations", self, checkable=True)
         self.show_annots_action.setChecked(True)
         self.show_annots_action.triggered.connect(self._toggle_annotations_visible)
@@ -776,6 +816,9 @@ class PdfReaderWindow(QMainWindow):
         annot_menu.addAction("Delete All Annotations on This Page", self._delete_page_annotations)
         annot_menu.addAction("Delete All Annotations in Document", self._delete_all_annotations)
 
+        tools_menu.addSeparator()
+        tools_menu.addAction("Compare PDFs", self._open_compare_dialog)
+        tools_menu.addAction("Library Search", self._open_library_dialog)
         tools_menu.addSeparator()
         tools_menu.addAction("Merge PDFs", self.merge_pdfs)
         tools_menu.addAction("Split PDF", self.split_pdf)
@@ -1946,12 +1989,15 @@ class PdfReaderWindow(QMainWindow):
         self.sticky_button.setEnabled(has_document)
         self.split_button.setEnabled(has_document)
         self.compress_button.setEnabled(has_document)
+        self.compare_button.setEnabled(HAS_LIB_MODULES)
+        self.library_button.setEnabled(HAS_LIB_MODULES)
         self.merge_button.setEnabled(True)
         if hasattr(self, "copy_action"):
             self.copy_action.setEnabled(has_document and has_selection)
         self.search_input.setEnabled(has_document)
         self.search_prev_button.setEnabled(has_document and has_matches)
         self.search_next_button.setEnabled(has_document and has_matches)
+        self.semantic_cb.setEnabled(has_document and HAS_LIB_MODULES)
 
     # ------------------------------------------------------------------
     # Events
@@ -2369,14 +2415,478 @@ class PdfReaderWindow(QMainWindow):
         )
         QTimer.singleShot(500, self.close)
 
+    # ------------------------------------------------------------------
+    # Workspace Session Restoration
+    # ------------------------------------------------------------------
+
+    def _restore_session(self, force=False):
+        if not self._auto_restore and not force:
+            return
+        session = self.settings.value("session", [])
+        if not session:
+            return
+        if not force:
+            reply = QMessageBox.question(
+                self, "Restore Session",
+                "You had documents open when you last closed PDFReader.\n"
+                "Would you like to restore them?",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply != QMessageBox.Yes:
+                return
+        for entry in session:
+            path = entry.get("path", "")
+            page = entry.get("page", 0)
+            if path and Path(path).exists():
+                self.open_pdf(path)
+                if page > 0 and self.document is not None:
+                    self.current_page = min(page, self.document.page_count - 1)
+                    self.render_page()
+
+    def _toggle_auto_restore(self, checked):
+        self._auto_restore = checked
+        self.settings.setValue("autoRestore", checked)
+
     def closeEvent(self, event):
         self._save_current_state()
+        # Save workspace session
+        session = []
+        for tab_id, tab in self.tabs.items():
+            if tab.path and Path(tab.path).exists():
+                session.append({"path": tab.path, "page": tab.current_page})
+        self.settings.setValue("session", session)
+        # Close docs
         for tab_id, tab in self.tabs.items():
             if tab.document is not None:
                 tab.document.close()
         self.tabs.clear()
         super().closeEvent(event)
 
+    # ------------------------------------------------------------------
+    # Library / Full-Text Search
+    # ------------------------------------------------------------------
+
+    def _open_library_dialog(self):
+        if not HAS_LIB_MODULES:
+            QMessageBox.information(self, "Library", "Library modules not available.")
+            return
+        dlg = _LibraryDialog(self)
+        dlg.exec()
+
+    # ------------------------------------------------------------------
+    # PDF Comparison
+    # ------------------------------------------------------------------
+
+    def _open_compare_dialog(self):
+        if not HAS_LIB_MODULES:
+            QMessageBox.information(self, "Compare", "Comparison modules not available.")
+            return
+        start_dir = self.settings.value("lastFolder", str(Path.home()))
+        path_a, _ = QFileDialog.getOpenFileName(self, "Select First PDF (older version)", start_dir, "PDF Files (*.pdf)")
+        if not path_a:
+            return
+        path_b, _ = QFileDialog.getOpenFileName(self, "Select Second PDF (newer version)", str(Path(path_a).parent), "PDF Files (*.pdf)")
+        if not path_b:
+            return
+        dlg = _CompareDialog(path_a, path_b, self)
+        dlg.exec()
+
+    # ------------------------------------------------------------------
+    # Semantic Search (integrated with search bar)
+    # ------------------------------------------------------------------
+
+    def search(self):
+        if self.document is None:
+            return
+        needle = self.search_input.text().strip()
+        if not needle:
+            self._search_text_changed()
+            return
+
+        # Semantic search on indexed library
+        if HAS_LIB_MODULES and self.semantic_cb.isChecked():
+            self._semantic_search(needle)
+            return
+
+        # Regular keyword search (existing logic)
+        self._keyword_search(needle)
+
+    def _keyword_search(self, needle):
+        self.search_text = needle
+        self.search_results = []
+        for page_index in range(self.document.page_count):
+            page = self.document.load_page(page_index)
+            rects = page.search_for(needle)
+            for rect in rects:
+                self.search_results.append({"page": page_index, "rects": [rect]})
+                if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
+                    self.statusBar().showMessage(
+                        f"Search stopped after {self.MAX_SEARCH_MATCHES:,} matches.", 5000
+                    )
+                    break
+            if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
+                break
+
+        if self.search_results:
+            first_on_or_after_page = next(
+                (index for index, item in enumerate(self.search_results) if item["page"] >= self.current_page),
+                0,
+            )
+            self.current_result_index = first_on_or_after_page
+            self.current_page = self.search_results[self.current_result_index]["page"]
+            self.clear_text_selection(render=False)
+            self.search_count_label.setText(self._search_count_text())
+        else:
+            self.current_result_index = -1
+            self.search_count_label.setText("0")
+            self.statusBar().showMessage("No matches found", 4000)
+        self.render_page()
+
+    def _semantic_search(self, needle):
+        self.statusBar().showMessage("Searching library...")
+        QApplication.processEvents()
+        try:
+            idx = lib_idx.get_tfidf()
+            results = idx.search(needle, max_results=50)
+        except Exception as exc:
+            self.statusBar().showMessage(f"Search error: {exc}", 5000)
+            return
+
+        if not results:
+            self.statusBar().showMessage("No semantic matches found. Try keyword search or index some PDFs first.", 5000)
+            return
+
+        dlg = _LibrarySearchResultsDialog(results, self)
+        if dlg.exec() and dlg.selected_result:
+            r = dlg.selected_result
+            # Open the PDF at the matching page
+            if self.current_path != r.path:
+                self.open_pdf(r.path)
+            if self.document is not None:
+                self.current_page = min(r.page - 1, self.document.page_count - 1)
+                self.render_page()
+                self.statusBar().showMessage(f"Opened: {r.filename} — page {r.page}", 5000)
+
+
+# ---------------------------------------------------------------------------
+# Library Search Dialog
+# ---------------------------------------------------------------------------
+
+class _LibraryDialog(QDialog):
+    """Manage indexed folders and search across the library."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.setWindowTitle("PDF Library Search")
+        self.resize(700, 500)
+
+        layout = QVBoxLayout(self)
+
+        # Folder management
+        folder_group = QGroupBox("Tracked Folders")
+        folder_layout = QVBoxLayout(folder_group)
+
+        self.folder_list = QListWidget()
+        self._refresh_folder_list()
+
+        folder_buttons = QHBoxLayout()
+        add_btn = QPushButton("Add Folder")
+        add_btn.clicked.connect(self._add_folder)
+        remove_btn = QPushButton("Remove Folder")
+        remove_btn.clicked.connect(self._remove_folder)
+        reindex_btn = QPushButton("Re-index All")
+        reindex_btn.clicked.connect(self._reindex)
+        folder_buttons.addWidget(add_btn)
+        folder_buttons.addWidget(remove_btn)
+        folder_buttons.addWidget(reindex_btn)
+        folder_buttons.addStretch()
+
+        folder_layout.addWidget(self.folder_list)
+        folder_layout.addLayout(folder_buttons)
+        layout.addWidget(folder_group)
+
+        # Search
+        search_group = QGroupBox("Full-Text Search")
+        search_layout = QVBoxLayout(search_group)
+
+        search_row = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search across all indexed PDFs...")
+        self.search_input.returnPressed.connect(self._do_search)
+        search_btn = QPushButton("Search")
+        search_btn.clicked.connect(self._do_search)
+        search_row.addWidget(self.search_input, 1)
+        search_row.addWidget(search_btn)
+        search_layout.addLayout(search_row)
+
+        self.results_list = QListWidget()
+        self.results_list.itemDoubleClicked.connect(self._open_result)
+        search_layout.addWidget(self.results_list, 1)
+
+        layout.addWidget(search_group, 1)
+
+        # Close button
+        btn_box = QDialogButtonBox(QDialogButtonBox.Close)
+        btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
+
+    def _refresh_folder_list(self):
+        self.folder_list.clear()
+        for folder in lib_idx.get_indexed_folders():
+            self.folder_list.addItem(folder)
+
+    def _add_folder(self):
+        folder = QFileDialog.getExistingDirectory(self, "Select folder with PDFs")
+        if folder:
+            self._reindex_folder(folder)
+            self._refresh_folder_list()
+
+    def _remove_folder(self):
+        current = self.folder_list.currentItem()
+        if current:
+            folder = current.text()
+            count = lib_idx.remove_folder(folder)
+            QMessageBox.information(
+                self, "Folder Removed",
+                f"Removed {count} document(s) from '{Path(folder).name}'.",
+            )
+            self._refresh_folder_list()
+
+    def _reindex(self):
+        folders = lib_idx.get_indexed_folders()
+        if not folders:
+            QMessageBox.information(self, "Library", "No folders added yet. Add a folder first.")
+            return
+        lib_idx.clear_index()
+        for folder in folders:
+            self._reindex_folder(folder)
+        self._refresh_folder_list()
+        QMessageBox.information(self, "Library", "Re-indexing complete.")
+
+    def _reindex_folder(self, folder):
+        progress = QProgressDialog(f"Indexing {Path(folder).name}...", "Cancel", 0, 0, self)
+        progress.setWindowTitle("Indexing PDFs")
+        progress.setWindowModality(Qt.WindowModal)
+        progress.show()
+        QApplication.processEvents()
+        try:
+            files, chars = lib_idx.index_folder(folder)
+            progress.close()
+            if files > 0:
+                self.parent_window.statusBar().showMessage(
+                    f"Indexed {files} PDF(s) ({chars:,} chars)", 5000
+                )
+            else:
+                self.parent_window.statusBar().showMessage("No PDFs found in that folder", 5000)
+        except Exception as exc:
+            progress.close()
+            QMessageBox.critical(self, "Index Error", f"Could not index folder:\n\n{exc}")
+
+    def _do_search(self):
+        query = self.search_input.text().strip()
+        if not query:
+            return
+        self.results_list.clear()
+        try:
+            results = lib_idx.search_keyword(query, max_results=100)
+        except Exception as exc:
+            self.parent_window.statusBar().showMessage(f"Search error: {exc}", 5000)
+            return
+        if not results:
+            self.results_list.addItem("(No results)")
+            return
+        for r in results:
+            item = QListWidgetItem(f"{r.filename} — page {r.page}  (score: {r.score:.2f})\n   {r.snippet}")
+            item.setData(Qt.UserRole, r)
+            item.setToolTip(r.path)
+            self.results_list.addItem(item)
+
+    def _open_result(self, item):
+        r = item.data(Qt.UserRole)
+        if r:
+            self.parent_window.open_pdf(r.path)
+            if self.parent_window.document is not None:
+                self.parent_window.current_page = min(r.page - 1, self.parent_window.document.page_count - 1)
+                self.parent_window.render_page()
+                self.parent_window.statusBar().showMessage(
+                    f"Library: {r.filename} — page {r.page}", 5000
+                )
+            self.accept()
+
+
+# ---------------------------------------------------------------------------
+# Semantic Search Results Dialog
+# ---------------------------------------------------------------------------
+
+class _LibrarySearchResultsDialog(QDialog):
+    """Results from semantic search — user picks one to open."""
+
+    def __init__(self, results: list, parent=None):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.selected_result = None
+        self.setWindowTitle("Semantic Search Results")
+        self.resize(600, 400)
+
+        layout = QVBoxLayout(self)
+
+        label = QLabel(f"Found {len(results)} semantically similar result(s)")
+        layout.addWidget(label)
+
+        self.list_widget = QListWidget()
+        for r in results:
+            item = QListWidgetItem(f"{r.filename} — page {r.page}  (score: {r.score:.4f})")
+            item.setData(Qt.UserRole, r)
+            item.setToolTip(r.path)
+            self.list_widget.addItem(item)
+        self.list_widget.itemDoubleClicked.connect(self._select)
+        layout.addWidget(self.list_widget, 1)
+
+        btn_layout = QHBoxLayout()
+        open_btn = QPushButton("Open")
+        open_btn.clicked.connect(self._select)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        btn_layout.addStretch()
+        btn_layout.addWidget(open_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+
+    def _select(self):
+        item = self.list_widget.currentItem()
+        if item:
+            self.selected_result = item.data(Qt.UserRole)
+            self.accept()
+
+
+# ---------------------------------------------------------------------------
+# PDF Comparison Dialog
+# ---------------------------------------------------------------------------
+
+class _CompareDialog(QDialog):
+    """Show two PDFs side by side with diff highlighting."""
+
+    def __init__(self, path_a, path_b, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(f"Compare: {Path(path_a).name} ↔ {Path(path_b).name}")
+        self.resize(1000, 700)
+
+        layout = QVBoxLayout(self)
+
+        # Page navigation
+        nav = QHBoxLayout()
+        nav.addWidget(QLabel(f"<b>A:</b> {Path(path_a).name}"))
+        nav.addStretch()
+        nav.addWidget(QLabel(f"<b>B:</b> {Path(path_b).name}"))
+        layout.addLayout(nav)
+
+        # Side-by-side panels
+        splitter = QSplitter(Qt.Horizontal)
+
+        self.panel_a = QTextEdit()
+        self.panel_a.setReadOnly(True)
+        self.panel_b = QTextEdit()
+        self.panel_b.setReadOnly(True)
+
+        splitter.addWidget(self.panel_a)
+        splitter.addWidget(self.panel_b)
+        layout.addWidget(splitter, 1)
+
+        # Summary
+        self.summary_label = QLabel("Running comparison...")
+        layout.addWidget(self.summary_label)
+
+        # Close
+        btn_box = QDialogButtonBox(QDialogButtonBox.Close)
+        btn_box.rejected.connect(self.reject)
+        layout.addWidget(btn_box)
+
+        # Run comparison
+        QTimer.singleShot(50, lambda: self._run(path_a, path_b))
+
+    def _run(self, path_a, path_b):
+        self.summary_label.setText("Extracting text and diffing...")
+        QApplication.processEvents()
+        try:
+            result = pdf_compare.compare_pdfs(path_a, path_b)
+        except Exception as exc:
+            self.summary_label.setText(f"Comparison failed: {exc}")
+            return
+
+        # Render first page
+        self._render_page(result, 0)
+
+        # Page navigation
+        page_row = QHBoxLayout()
+        self.page_label = QLabel(f"Page 1 of {len(result.pages)}")
+        prev_btn = QPushButton("← Prev")
+        next_btn = QPushButton("Next →")
+        page_row.addWidget(prev_btn)
+        page_row.addWidget(self.page_label)
+        page_row.addWidget(next_btn)
+        page_row.addStretch()
+
+        # Insert page nav above the splitter
+        nav_layout = self.layout().itemAt(1)  # splitter
+        self.layout().insertLayout(1, page_row)
+
+        self._current_diff_page = 0
+        self._diff_result = result
+
+        def go_prev():
+            if self._current_diff_page > 0:
+                self._current_diff_page -= 1
+                self._render_page(result, self._current_diff_page)
+
+        def go_next():
+            if self._current_diff_page < len(result.pages) - 1:
+                self._current_diff_page += 1
+                self._render_page(result, self._current_diff_page)
+
+        prev_btn.clicked.connect(go_prev)
+        next_btn.clicked.connect(go_next)
+
+        self.summary_label.setText(pdf_compare.generate_diff_summary(result))
+        self.summary_label.setWordWrap(True)
+
+    def _render_page(self, result, idx):
+        if idx < 0 or idx >= len(result.pages):
+            return
+        dp = result.pages[idx]
+        self.page_label.setText(f"Page {dp.page_a} of {len(result.pages)}")
+
+        html_a = self._segments_to_html(dp.segments_a, "left")
+        html_b = self._segments_to_html(dp.segments_b, "right")
+
+        self.panel_a.setHtml(f"<html><body style='font-family:monospace; font-size:11pt;'>\n{html_a}\n</body></html>")
+        self.panel_b.setHtml(f"<html><body style='font-family:monospace; font-size:11pt;'>\n{html_b}\n</body></html>")
+
+    @staticmethod
+    def _segments_to_html(segments, side):
+        parts = []
+        for seg in segments:
+            text = seg.text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            text = text.replace("\n", "<br>")
+            if seg.tag == "equal":
+                parts.append(text)
+            elif seg.tag == "delete":
+                parts.append(f"<span style='background-color:#ffcccc;color:#cc0000;'>{text}</span>")
+            elif seg.tag == "insert":
+                parts.append(f"<span style='background-color:#ccffcc;color:#006600;'>{text}</span>")
+            elif seg.tag == "replace_old":
+                parts.append(f"<span style='background-color:#ffcccc;color:#cc0000;text-decoration:line-through;'>{text}</span>")
+            elif seg.tag == "replace_new":
+                parts.append(f"<span style='background-color:#ccffcc;color:#006600;'>{text}</span>")
+            if text:
+                parts.append("<br>")
+        return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------------
+# Entry Point
+# ---------------------------------------------------------------------------
 
 def main():
     app = QApplication(sys.argv)
