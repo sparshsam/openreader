@@ -19,3 +19,9 @@
 - Save compressed PDF copies.
 - Custom app icon and PyInstaller Windows build.
 - macOS source build script and GitHub Actions macOS app build workflow.
+
+## v0.1.8 - Unreleased
+- Switched from onefile to onedir PyInstaller mode (fixes DLL loading error)
+  - Removed --runtime-tmpdir workarounds
+  - Removed Unblock-File workaround (no longer needed)
+- Mark-of-the-Web no longer affects app since no Temp extraction occurs
