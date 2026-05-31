@@ -37,10 +37,14 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconsole --onefile --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+
+      - name: Package as ZIP
+        run: |
+          Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
         with:
           name: PDFReader-by-Sparsh-Windows
-          path: dist/PDFReader by Sparsh.exe
+          path: PDFReader-by-Sparsh-Windows.zip
