@@ -1146,6 +1146,10 @@ class PdfReaderWindow(QMainWindow):
         """Save the downloaded file and start the install."""
         self.update_action.setEnabled(True)
 
+        # Snapshot before closing progress (closing emits canceled -> _cancel_download -> nulls these)
+        asset_name = self._update_asset_name
+        latest_tag = self._update_latest_tag
+
         if self._update_progress is not None:
             self._update_progress.close()
             self._update_progress = None
@@ -1164,7 +1168,7 @@ class PdfReaderWindow(QMainWindow):
             temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
             temp_dir.mkdir(parents=True, exist_ok=True)
             # Use the original asset name (GitHub CDN redirects strip it)
-            file_name = self._update_asset_name or f"update_{self._update_latest_tag}"
+            file_name = asset_name or f"update_{latest_tag}"
             dest = temp_dir / file_name
             data = reply.readAll()
             with open(dest, "wb") as f:
@@ -1181,9 +1185,9 @@ class PdfReaderWindow(QMainWindow):
         finally:
             reply.deleteLater()
 
-        self._apply_update()
+        self._apply_update(latest_tag)
 
-    def _apply_update(self):
+    def _apply_update(self, tag="latest"):
         """Seamlessly replace the running app and restart."""
         dest = self._update_download_path
         if dest is None or not dest.exists():
@@ -1191,7 +1195,7 @@ class PdfReaderWindow(QMainWindow):
             return
 
         system = platform.system()
-        tag = self._update_latest_tag or "latest"
+        tag = tag or "latest"
 
         if system == "Windows" and dest.suffix.lower() == ".exe":
             self._apply_update_windows(dest, tag)
