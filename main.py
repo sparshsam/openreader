@@ -7,10 +7,11 @@ import sys
 import tempfile
 import zipfile
 from collections import OrderedDict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
+from PySide6.QtCore import QByteArray, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QAction, QColor, QImage, QKeySequence, QPainter, QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
@@ -20,6 +21,8 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMenu,
+    QMenuBar,
     QMessageBox,
     QProgressDialog,
     QPushButton,
@@ -28,6 +31,7 @@ from PySide6.QtWidgets import (
     QSpinBox,
     QStatusBar,
     QStyle,
+    QTabBar,
     QToolBar,
     QVBoxLayout,
     QWidget,
@@ -36,7 +40,253 @@ from PySide6.QtWidgets import (
 
 __version__ = "0.0.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
+RECENT_FILES_MAX = 10
+SETTINGS_RECENT_KEY = "recentFiles"
 
+
+# ---------------------------------------------------------------------------
+# Per-tab state container
+# ---------------------------------------------------------------------------
+
+@dataclass
+class TabData:
+    name: str
+    path: str | None = None
+    document: fitz.Document | None = None
+    current_page: int = 0
+    zoom: float = 1.25
+    fit_to_window: bool = True
+    search_text: str = ""
+    search_results: list = field(default_factory=list)
+    current_result_index: int = -1
+    current_render_zoom: float = 1.0
+    selected_text: str = ""
+    selected_rects: list = field(default_factory=list)
+    ocr_text_pages: OrderedDict = field(default_factory=OrderedDict)
+    ocr_warning_shown: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Stylesheets
+# ---------------------------------------------------------------------------
+
+DARK_STYLESHEET = """
+QMainWindow, QWidget {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+}
+QMainWindow::separator {
+    background-color: #313244;
+}
+QPushButton {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    padding: 4px 12px;
+    border-radius: 4px;
+    min-height: 22px;
+}
+QPushButton:hover {
+    background-color: #45475a;
+}
+QPushButton:pressed {
+    background-color: #585b70;
+}
+QPushButton:checked {
+    background-color: #89b4fa;
+    color: #1e1e2e;
+    border-color: #89b4fa;
+}
+QPushButton:disabled {
+    background-color: #313244;
+    color: #585b70;
+    border-color: #313244;
+}
+QLineEdit {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    padding: 4px 6px;
+    border-radius: 4px;
+    selection-background-color: #89b4fa;
+    selection-color: #1e1e2e;
+}
+QLineEdit:focus {
+    border-color: #89b4fa;
+}
+QSpinBox {
+    background-color: #313244;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    padding: 4px;
+    border-radius: 4px;
+}
+QSpinBox:focus {
+    border-color: #89b4fa;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #45475a;
+    border: none;
+    width: 18px;
+}
+QLabel {
+    color: #cdd6f4;
+    background-color: transparent;
+}
+QStatusBar {
+    background-color: #181825;
+    color: #a6adc8;
+    border-top: 1px solid #313244;
+}
+QScrollArea {
+    background-color: #1e1e2e;
+    border: none;
+}
+QToolBar {
+    background-color: #181825;
+    border: none;
+    border-bottom: 1px solid #313244;
+    spacing: 4px;
+    padding: 2px 4px;
+}
+QToolBar QToolButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    padding: 4px 6px;
+    color: #cdd6f4;
+}
+QToolBar QToolButton:hover {
+    background-color: #313244;
+}
+QToolBar QToolButton:pressed {
+    background-color: #45475a;
+}
+QToolBar QToolButton:disabled {
+    color: #585b70;
+}
+QTabBar::tab {
+    background-color: #181825;
+    color: #a6adc8;
+    padding: 6px 18px;
+    border: none;
+    border-right: 1px solid #313244;
+    min-height: 24px;
+}
+QTabBar::tab:selected {
+    background-color: #1e1e2e;
+    color: #89b4fa;
+    border-bottom: 2px solid #89b4fa;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #313244;
+    color: #cdd6f4;
+}
+QTabBar::close-button {
+    image: none;
+    background-color: transparent;
+    border: none;
+    padding: 2px;
+    margin: 2px;
+    color: #a6adc8;
+}
+QTabBar::close-button:hover {
+    background-color: #f38ba8;
+    border-radius: 3px;
+    color: #1e1e2e;
+}
+QMenuBar {
+    background-color: #181825;
+    color: #cdd6f4;
+    border-bottom: 1px solid #313244;
+    padding: 2px;
+}
+QMenuBar::item {
+    padding: 4px 10px;
+    background-color: transparent;
+    border-radius: 4px;
+}
+QMenuBar::item:selected {
+    background-color: #313244;
+}
+QMenu {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+    padding: 4px;
+}
+QMenu::item {
+    padding: 6px 28px 6px 20px;
+    border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: #45475a;
+}
+QMenu::item:disabled {
+    color: #585b70;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #313244;
+    margin: 4px 8px;
+}
+QProgressDialog {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+    border: 1px solid #45475a;
+}
+QMessageBox {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+}
+QMessageBox QLabel {
+    color: #cdd6f4;
+}
+QMessageBox QPushButton {
+    min-width: 80px;
+}
+QInputDialog {
+    background-color: #1e1e2e;
+    color: #cdd6f4;
+}
+QScrollBar:horizontal {
+    background-color: #181825;
+    height: 10px;
+    border: none;
+}
+QScrollBar::handle:horizontal {
+    background-color: #45475a;
+    border-radius: 5px;
+    min-width: 30px;
+}
+QScrollBar::handle:horizontal:hover {
+    background-color: #585b70;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+QScrollBar:vertical {
+    background-color: #181825;
+    width: 10px;
+    border: none;
+}
+QScrollBar::handle:vertical {
+    background-color: #45475a;
+    border-radius: 5px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #585b70;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+"""
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
 
 class PdfSafetyError(Exception):
     pass
@@ -94,6 +344,10 @@ class PdfPageLabel(QLabel):
         painter.end()
 
 
+# ---------------------------------------------------------------------------
+# Main Window
+# ---------------------------------------------------------------------------
+
 class PdfReaderWindow(QMainWindow):
     APP_NAME = "PDFReader by Sparsh"
     MAX_PDF_SIZE_BYTES = 500 * 1024 * 1024
@@ -106,12 +360,19 @@ class PdfReaderWindow(QMainWindow):
     MAX_ZOOM = 5.0
     ZOOM_STEP = 0.15
 
+    # Dark mode constants
+    THEME_AUTO = 0
+    THEME_LIGHT = 1
+    THEME_DARK = 2
+
     def __init__(self):
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
         self.resize(1000, 800)
 
         self.settings = QSettings("Sparsh", "PDFReader by Sparsh")
+
+        # ---- Single-document state (swapped on tab switch) ----
         self.document = None
         self.current_path = None
         self.current_page = 0
@@ -126,28 +387,67 @@ class PdfReaderWindow(QMainWindow):
         self.ocr_text_pages = OrderedDict()
         self.ocr_warning_shown = False
 
-        # Update system
+        # ---- Tab management ----
+        self.tabs: dict[int, TabData] = {}
+        self.tab_counter = 0
+        self.current_tab_id: int | None = None
+
+        # ---- Dark mode ----
+        self._theme = self.settings.value("theme", self.THEME_AUTO, int)
+        self._dark_mode = self._compute_dark_mode()
+
+        # ---- Recent files ----
+        self._recent_files = self._load_recent_files()
+
+        # ---- Update system ----
         self._update_nam = QNetworkAccessManager(self)
         self._update_nam.finished.connect(self._on_update_check_reply)
         self._download_nam = QNetworkAccessManager(self)
         self._download_nam.finished.connect(self._on_download_finished)
-        self._update_progress = None  # QProgressDialog
+        self._update_progress = None
         self._update_latest_tag = None
         self._update_asset_name = None
         self._update_download_path = None
 
         self._build_ui()
         self._build_actions()
+        self._build_menus()
+        self._apply_theme()
         self._update_controls()
+        self._update_recent_menu()
+
+        # Listen for system theme changes
+        QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
+
+    # ------------------------------------------------------------------
+    # UI Construction
+    # ------------------------------------------------------------------
 
     def _build_ui(self):
         central = QWidget(self)
         root = QVBoxLayout(central)
-        root.setContentsMargins(8, 8, 8, 8)
-        root.setSpacing(6)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
-        controls = QHBoxLayout()
+        # Tab bar
+        self.tab_bar = QTabBar()
+        self.tab_bar.setTabsClosable(True)
+        self.tab_bar.setMovable(True)
+        self.tab_bar.setExpanding(False)
+        self.tab_bar.setDocumentMode(True)
+        self.tab_bar.setDrawBase(False)
+        self.tab_bar.setUsesScrollButtons(True)
+        self.tab_bar.tabBarDoubleClicked.connect(self._on_tab_double_click)
+        self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
+        self.tab_bar.currentChanged.connect(self._on_tab_switch)
+        root.addWidget(self.tab_bar)
+
+        # Controls bar
+        controls_widget = QWidget()
+        controls_widget.setContentsMargins(8, 6, 8, 6)
+        controls = QHBoxLayout(controls_widget)
         controls.setSpacing(6)
+        controls.setContentsMargins(0, 0, 0, 0)
 
         self.open_button = QPushButton("Open")
         self.prev_button = QPushButton("Previous")
@@ -158,7 +458,7 @@ class PdfReaderWindow(QMainWindow):
         self.page_spin.setFixedWidth(80)
         self.page_count_label = QLabel("/ 0")
 
-        self.zoom_out_button = QPushButton("Zoom -")
+        self.zoom_out_button = QPushButton("Zoom \u2212")
         self.zoom_in_button = QPushButton("Zoom +")
         self.fit_button = QPushButton("Fit Width")
         self.fit_button.setCheckable(True)
@@ -197,8 +497,9 @@ class PdfReaderWindow(QMainWindow):
         controls.addWidget(self.search_prev_button)
         controls.addWidget(self.search_next_button)
         controls.addWidget(self.search_count_label)
-        root.addLayout(controls)
+        root.addWidget(controls_widget)
 
+        # Page content
         self.page_label = PdfPageLabel("Open a PDF to begin")
         self.page_label.setAlignment(Qt.AlignCenter)
         self.page_label.setBackgroundRole(self.page_label.backgroundRole())
@@ -213,13 +514,14 @@ class PdfReaderWindow(QMainWindow):
         self.setCentralWidget(central)
         self.setStatusBar(QStatusBar(self))
 
+        # Signal connections
         self.open_button.clicked.connect(self.open_pdf)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.page_spin.valueChanged.connect(self.jump_to_page)
         self.zoom_out_button.clicked.connect(self.zoom_out)
         self.zoom_in_button.clicked.connect(self.zoom_in)
-        self.fit_button.toggled.connect(self.set_fit_to_window)
+        self.fit_button.toggled.connect(self._on_fit_toggled)
         self.copy_button.clicked.connect(self.copy_selected_text)
         self.merge_button.clicked.connect(self.merge_pdfs)
         self.split_button.clicked.connect(self.split_pdf)
@@ -293,6 +595,18 @@ class PdfReaderWindow(QMainWindow):
         find_action.triggered.connect(self.focus_search)
         self.addAction(find_action)
 
+        # Close Tab
+        close_tab_action = QAction("Close Tab", self)
+        close_tab_action.setShortcut(QKeySequence("Ctrl+W"))
+        close_tab_action.triggered.connect(self._close_current_tab)
+        self.addAction(close_tab_action)
+
+        # New Tab
+        new_tab_action = QAction("New Tab", self)
+        new_tab_action.setShortcut(QKeySequence("Ctrl+T"))
+        new_tab_action.triggered.connect(self.open_pdf)
+        self.addAction(new_tab_action)
+
         for action in (
             open_action,
             prev_action,
@@ -306,44 +620,446 @@ class PdfReaderWindow(QMainWindow):
         ):
             self.addAction(action)
 
-    def open_pdf(self):
-        start_dir = self.settings.value("lastFolder", str(Path.home()))
-        file_name, _ = QFileDialog.getOpenFileName(
-            self,
-            "Open PDF",
-            start_dir,
-            "PDF Files (*.pdf)",
-        )
-        if file_name:
-            self.load_pdf(file_name)
+    def _build_menus(self):
+        """File / View / Tools / Help menu bar."""
+        menubar = self.menuBar()
+
+        # ── File ──
+        file_menu = menubar.addMenu("File")
+
+        file_open = QAction("Open PDF", self)
+        file_open.setShortcut(QKeySequence.Open)
+        file_open.triggered.connect(self.open_pdf)
+        file_menu.addAction(file_open)
+
+        file_menu.addSeparator()
+
+        self._recent_menu = QMenu("Open Recent", self)
+        file_menu.addMenu(self._recent_menu)
+
+        file_menu.addSeparator()
+
+        close_tab = QAction("Close Tab", self)
+        close_tab.setShortcut(QKeySequence("Ctrl+W"))
+        close_tab.triggered.connect(self._close_current_tab)
+        file_menu.addAction(close_tab)
+
+        close_all = QAction("Close All Tabs", self)
+        close_all.setShortcut(QKeySequence("Ctrl+Shift+W"))
+        close_all.triggered.connect(self._close_all_tabs)
+        file_menu.addAction(close_all)
+
+        file_menu.addSeparator()
+
+        quit_action = QAction("Quit", self)
+        quit_action.setShortcut(QKeySequence.Quit)
+        quit_action.triggered.connect(self.close)
+        file_menu.addAction(quit_action)
+
+        # ── View ──
+        view_menu = menubar.addMenu("View")
+
+        self.theme_menu = QMenu("Theme", self)
+        view_menu.addMenu(self.theme_menu)
+
+        self.theme_auto_action = QAction("System (Auto)", self, checkable=True)
+        self.theme_auto_action.triggered.connect(lambda: self.set_theme(self.THEME_AUTO))
+        self.theme_menu.addAction(self.theme_auto_action)
+
+        self.theme_light_action = QAction("Light", self, checkable=True)
+        self.theme_light_action.triggered.connect(lambda: self.set_theme(self.THEME_LIGHT))
+        self.theme_menu.addAction(self.theme_light_action)
+
+        self.theme_dark_action = QAction("Dark", self, checkable=True)
+        self.theme_dark_action.triggered.connect(lambda: self.set_theme(self.THEME_DARK))
+        self.theme_menu.addAction(self.theme_dark_action)
+
+        self._sync_theme_menu_checks()
+        view_menu.addSeparator()
+
+        zoom_in_action = QAction("Zoom In", self)
+        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
+        zoom_in_action.triggered.connect(self.zoom_in)
+        view_menu.addAction(zoom_in_action)
+
+        zoom_out_action = QAction("Zoom Out", self)
+        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
+        zoom_out_action.triggered.connect(self.zoom_out)
+        view_menu.addAction(zoom_out_action)
+
+        fit_action = QAction("Fit Width", self, checkable=True)
+        fit_action.setChecked(True)
+        fit_action.triggered.connect(self._on_fit_toggled)
+        view_menu.addAction(fit_action)
+        self._fit_menu_action = fit_action
+
+        # ── Tools ──
+        tools_menu = menubar.addMenu("Tools")
+        tools_menu.addAction("Merge PDFs", self.merge_pdfs)
+        tools_menu.addAction("Split PDF", self.split_pdf)
+        tools_menu.addAction("Compress PDF", self.compress_pdf)
+
+        # ── Help ──
+        help_menu = menubar.addMenu("Help")
+        help_menu.addAction("Check for Updates", self.check_for_updates)
+        help_menu.addSeparator()
+        about_action = QAction("About PDFReader", self)
+        about_action.triggered.connect(self._show_about)
+        help_menu.addAction(about_action)
+
+    # ------------------------------------------------------------------
+    # Theme / Dark Mode
+    # ------------------------------------------------------------------
+
+    def _compute_dark_mode(self) -> bool:
+        if self._theme == self.THEME_LIGHT:
+            return False
+        if self._theme == self.THEME_DARK:
+            return True
+        # Auto: check system
+        scheme = QApplication.styleHints().colorScheme()
+        return scheme == Qt.ColorScheme.Dark
+
+    def _on_system_theme_change(self, scheme):
+        if self._theme == self.THEME_AUTO:
+            self._dark_mode = scheme == Qt.ColorScheme.Dark
+            self._apply_theme()
+
+    def _sync_theme_menu_checks(self):
+        self.theme_auto_action.setChecked(self._theme == self.THEME_AUTO)
+        self.theme_light_action.setChecked(self._theme == self.THEME_LIGHT)
+        self.theme_dark_action.setChecked(self._theme == self.THEME_DARK)
+
+    def set_theme(self, theme):
+        self._theme = theme
+        self.settings.setValue("theme", theme)
+        self._sync_theme_menu_checks()
+        self._dark_mode = self._compute_dark_mode()
+        self._apply_theme()
+
+    def _apply_theme(self):
+        if self._dark_mode:
+            self.setStyleSheet(DARK_STYLESHEET)
+        else:
+            self.setStyleSheet("")
+
+    # ------------------------------------------------------------------
+    # Recent Files
+    # ------------------------------------------------------------------
+
+    def _load_recent_files(self) -> list[str]:
+        raw = self.settings.value(SETTINGS_RECENT_KEY, [])
+        if raw is None:
+            return []
+        if isinstance(raw, str):
+            raw = [raw]
+        return [p for p in raw if p and Path(p).exists()]
+
+    def _save_recent_files(self):
+        self.settings.setValue(SETTINGS_RECENT_KEY, self._recent_files)
+
+    def _add_recent_file(self, path: str):
+        if path in self._recent_files:
+            self._recent_files.remove(path)
+        self._recent_files.insert(0, path)
+        if len(self._recent_files) > RECENT_FILES_MAX:
+            self._recent_files = self._recent_files[:RECENT_FILES_MAX]
+        self._save_recent_files()
+        self._update_recent_menu()
+
+    def _update_recent_menu(self):
+        self._recent_menu.clear()
+        if not self._recent_files:
+            empty_action = self._recent_menu.addAction("(No recent files)")
+            empty_action.setEnabled(False)
+            return
+        for p in self._recent_files:
+            entry = Path(p)
+            label = entry.name
+            # Truncate long names
+            if len(label) > 50:
+                label = label[:47] + "..."
+            action = self._recent_menu.addAction(label)
+            action.setToolTip(str(entry))
+            action.triggered.connect(lambda _=False, path=p: self._open_recent(path))
+        self._recent_menu.addSeparator()
+        clear_action = self._recent_menu.addAction("Clear Recent Files")
+        clear_action.triggered.connect(self._clear_recent_files)
+
+    def _open_recent(self, path: str):
+        if not Path(path).exists():
+            QMessageBox.information(
+                self, "File Not Found",
+                f"The file no longer exists:\n\n{path}\n\nIt will be removed from the recent list."
+            )
+            self._recent_files = [p for p in self._recent_files if p != path]
+            self._save_recent_files()
+            self._update_recent_menu()
+            return
+        self.open_pdf(path)
+
+    def _clear_recent_files(self):
+        self._recent_files = []
+        self._save_recent_files()
+        self._update_recent_menu()
+
+    # ------------------------------------------------------------------
+    # Tab Management
+    # ------------------------------------------------------------------
+
+    def _next_tab_name(self) -> str:
+        self.tab_counter += 1
+        return f"Tab {self.tab_counter}"
+
+    def _save_current_state(self):
+        """Dump live state into the current TabData."""
+        if self.current_tab_id is not None and self.current_tab_id in self.tabs:
+            tab = self.tabs[self.current_tab_id]
+            tab.document = self.document
+            tab.path = self.current_path
+            tab.current_page = self.current_page
+            tab.zoom = self.zoom
+            tab.fit_to_window = self.fit_to_window
+            tab.search_text = self.search_text
+            tab.search_results = self.search_results
+            tab.current_result_index = self.current_result_index
+            tab.current_render_zoom = self.current_render_zoom
+            tab.selected_text = self.selected_text
+            tab.selected_rects = self.selected_rects
+            tab.ocr_text_pages = self.ocr_text_pages
+            tab.ocr_warning_shown = self.ocr_warning_shown
+
+    def _restore_state(self, tab_id: int):
+        """Load state from a TabData into the live instance variables."""
+        tab = self.tabs[tab_id]
+        self.document = tab.document
+        self.current_path = tab.path
+        self.current_page = tab.current_page
+        self.zoom = tab.zoom
+        self.fit_to_window = tab.fit_to_window
+        self.search_text = tab.search_text
+        self.search_results = tab.search_results
+        self.current_result_index = tab.current_result_index
+        self.current_render_zoom = tab.current_render_zoom
+        self.selected_text = tab.selected_text
+        self.selected_rects = tab.selected_rects
+        self.ocr_text_pages = tab.ocr_text_pages
+        self.ocr_warning_shown = tab.ocr_warning_shown
+        self.current_tab_id = tab_id
+
+    def _on_tab_double_click(self, index: int):
+        """Double-clicking a tab opens a new PDF."""
+        self.open_pdf()
+
+    def _on_tab_switch(self, index: int):
+        """Save old tab state, restore new tab state."""
+        if index < 0 or index >= self.tab_bar.count():
+            return
+        new_tab_id = self.tab_bar.tabData(index)
+        if new_tab_id is None or new_tab_id == self.current_tab_id:
+            return
+
+        # Save old
+        self._save_current_state()
+        self._save_current_tab_controls()
+
+        # Restore new
+        self._restore_state(new_tab_id)
+        self._restore_current_tab_controls()
+        self.clear_text_selection(render=False)
+        self.render_page()
+        self._update_controls()
+
+    def _save_current_tab_controls(self):
+        """Save UI controls state that isn't in TabData (fit_button checkstate)."""
+        if self.current_tab_id is not None and self.current_tab_id in self.tabs:
+            pass  # fit_to_window is already saved via _save_current_state
+
+    def _restore_current_tab_controls(self):
+        """Restore UI controls from current tab state."""
+        if self.fit_button.isChecked() != self.fit_to_window:
+            self.fit_button.blockSignals(True)
+            self.fit_button.setChecked(self.fit_to_window)
+            self.fit_button.blockSignals(False)
+        if hasattr(self, "_fit_menu_action") and self._fit_menu_action.isChecked() != self.fit_to_window:
+            self._fit_menu_action.blockSignals(True)
+            self._fit_menu_action.setChecked(self.fit_to_window)
+            self._fit_menu_action.blockSignals(False)
+        self.search_input.blockSignals(True)
+        self.search_input.setText(self.search_text)
+        self.search_input.blockSignals(False)
+        if self.search_results:
+            self.search_count_label.setText(self._search_count_text())
+        else:
+            self.search_count_label.setText("0 matches")
+
+    def _create_tab(self, tab_data: TabData) -> int:
+        """Register a tab and add it to the tab bar."""
+        tab_id = id(tab_data)
+        self.tabs[tab_id] = tab_data
+        idx = self.tab_bar.addTab(tab_data.name)
+        self.tab_bar.setTabData(idx, tab_id)
+        self.tab_bar.setCurrentIndex(idx)
+        return tab_id
+
+    def _on_tab_close_requested(self, index: int):
+        """Bridge: tab bar close button clicked → resolve tab_id."""
+        tab_id = self.tab_bar.tabData(index)
+        if tab_id is not None:
+            self._close_tab(tab_id)
+
+    def _close_current_tab(self):
+        if self.current_tab_id is not None:
+            self._close_tab(self.current_tab_id)
+
+    def _close_tab(self, tab_id: int):
+        """Close a single tab by its integer ID."""
+        if tab_id not in self.tabs:
+            return
+
+        tab = self.tabs[tab_id]
+        was_current = tab_id == self.current_tab_id
+
+        # Close the document
+        if tab.document is not None:
+            tab.document.close()
+
+        # Remove from tab bar — this may fire currentChanged and switch tabs
+        for i in range(self.tab_bar.count()):
+            if self.tab_bar.tabData(i) == tab_id:
+                self.tab_bar.removeTab(i)
+                break
+
+        del self.tabs[tab_id]
+
+        if not self.tabs:
+            # Last tab closed — clear all state
+            self.current_tab_id = None
+            self.document = None
+            self.current_path = None
+            self.current_page = 0
+            self.zoom = 1.25
+            self.fit_to_window = True
+            self.search_text = ""
+            self.search_results = []
+            self.current_result_index = -1
+            self.selected_text = ""
+            self.selected_rects = []
+            self.ocr_text_pages = OrderedDict()
+            self.ocr_warning_shown = False
+            self.setWindowTitle(self.APP_NAME)
+            self.page_label.setText("Open a PDF to begin")
+            self.page_label.setPixmap(QPixmap())
+            self.page_label.adjustSize()
+            self._update_controls()
+            return
+
+        # If the closed tab was the current one, the tab bar's currentChanged
+        # should have already selected a new tab via _on_tab_switch.
+        # But guard against the case where removeTab did NOT trigger a switch.
+        if was_current and self.current_tab_id is not None and self.current_tab_id not in self.tabs:
+            # Fallback: pick the first available
+            fallback_id = next(iter(self.tabs.keys()))
+            self._restore_state(fallback_id)
+            self._restore_current_tab_controls()
+            self.clear_text_selection(render=False)
+            self.render_page()
+            self._update_controls()
+
+    def _close_all_tabs(self):
+        """Close all open tabs."""
+        tab_ids = list(self.tabs.keys())
+        for tid in tab_ids:
+            if tid in self.tabs:
+                tab = self.tabs[tid]
+                if tab.document is not None:
+                    tab.document.close()
+        self.tabs.clear()
+        self.tab_bar.clear()
+        self.current_tab_id = None
+        self.document = None
+        self.current_path = None
+        self.current_page = 0
+        self.search_results = []
+        self.current_result_index = -1
+        self.selected_text = ""
+        self.selected_rects = []
+        self.ocr_text_pages = OrderedDict()
+        self.ocr_warning_shown = False
+        self.setWindowTitle(self.APP_NAME)
+        self.page_label.setText("Open a PDF to begin")
+        self.page_label.setPixmap(QPixmap())
+        self.page_label.adjustSize()
+        self._update_controls()
+
+    # ------------------------------------------------------------------
+    # PDF File Operations
+    # ------------------------------------------------------------------
+
+    def open_pdf(self, file_name: str | None = None):
+        """Open a PDF — if no path given, show file dialog."""
+        if file_name is None:
+            start_dir = self.settings.value("lastFolder", str(Path.home()))
+            file_name, _ = QFileDialog.getOpenFileName(
+                self,
+                "Open PDF",
+                start_dir,
+                "PDF Files (*.pdf)",
+            )
+        if not file_name:
+            return
+
+        tab_data = TabData(name=Path(file_name).name)
+        self._create_tab(tab_data)
+        self.load_pdf(file_name)
 
     def load_pdf(self, file_name):
+        """Load a PDF into the *current* tab."""
         try:
             document = self._safe_open_pdf(file_name)
         except Exception as exc:
             self._show_error("Could Not Open PDF", "Unable to open this PDF file.", exc)
             self.statusBar().showMessage("Failed to open PDF", 5000)
+            self._close_tab(self.current_tab_id)
             return
 
-        self.close_document()
+        if self.current_tab_id is not None and self.current_tab_id in self.tabs:
+            self.tabs[self.current_tab_id].document = document
+            self.tabs[self.current_tab_id].path = file_name
+
         self.document = document
         self.current_path = file_name
         self.current_page = 0
         self.search_results = []
         self.current_result_index = -1
         self.ocr_text_pages = OrderedDict()
+        self.ocr_warning_shown = False
         self.clear_text_selection(render=False)
         self.search_count_label.setText("0 matches")
+
         self.page_spin.blockSignals(True)
         self.page_spin.setMaximum(self.document.page_count)
         self.page_spin.setValue(1)
         self.page_spin.blockSignals(False)
         self.page_count_label.setText(f"/ {self.document.page_count}")
+
         self.settings.setValue("lastFolder", str(Path(file_name).parent))
-        self.setWindowTitle(f"{self.APP_NAME} - {Path(file_name).name}")
+        self._add_recent_file(str(Path(file_name).resolve()))
+
+        # Update tab name
+        name = Path(file_name).name
+        if self.current_tab_id is not None:
+            self.tabs[self.current_tab_id].name = name
+            for i in range(self.tab_bar.count()):
+                if self.tab_bar.tabData(i) == self.current_tab_id:
+                    self.tab_bar.setTabText(i, name)
+                    self.tab_bar.setTabToolTip(i, str(file_name))
+                    break
+
+        self.setWindowTitle(f"{self.APP_NAME} - {name}")
         self.render_page()
         self._update_controls()
-        self.statusBar().showMessage(f"Opened {Path(file_name).name}", 5000)
+        self.statusBar().showMessage(f"Opened {name}", 5000)
 
     def _safe_open_pdf(self, file_name):
         path = self._validate_pdf_path(file_name)
@@ -400,6 +1116,10 @@ class PdfReaderWindow(QMainWindow):
         if self.document is not None:
             self.document.close()
         self.document = None
+
+    # ------------------------------------------------------------------
+    # Page Rendering
+    # ------------------------------------------------------------------
 
     def render_page(self):
         if self.document is None:
@@ -578,12 +1298,199 @@ class PdfReaderWindow(QMainWindow):
             lines.append(" ".join(current_words))
         return "\n".join(lines)
 
+    # ------------------------------------------------------------------
+    # Text Selection & Copy
+    # ------------------------------------------------------------------
+
     def copy_selected_text(self):
         if not self.selected_text:
             self.statusBar().showMessage("Drag over text on the page first, then copy.", 4000)
             return
         QApplication.clipboard().setText(self.selected_text)
         self.statusBar().showMessage("Copied selected text", 3000)
+
+    def clear_text_selection(self, render=True):
+        self.selected_text = ""
+        self.selected_rects = []
+        self.page_label.clear_drag_selection()
+        if render and self.document is not None:
+            self.render_page()
+
+    # ------------------------------------------------------------------
+    # Navigation
+    # ------------------------------------------------------------------
+
+    def previous_page(self):
+        if self.document is not None and self.current_page > 0:
+            self.current_page -= 1
+            self.clear_text_selection(render=False)
+            self._sync_search_result_to_page()
+            self.render_page()
+
+    def next_page(self):
+        if self.document is not None and self.current_page < self.document.page_count - 1:
+            self.current_page += 1
+            self.clear_text_selection(render=False)
+            self._sync_search_result_to_page()
+            self.render_page()
+
+    def jump_to_page(self, page_number):
+        if self.document is None:
+            return
+        target = page_number - 1
+        if target != self.current_page:
+            self.current_page = target
+            self.clear_text_selection(render=False)
+            self._sync_search_result_to_page()
+            self.render_page()
+
+    # ------------------------------------------------------------------
+    # Zoom
+    # ------------------------------------------------------------------
+
+    def zoom_in(self):
+        self.fit_to_window = False
+        self.fit_button.blockSignals(True)
+        self.fit_button.setChecked(False)
+        self.fit_button.blockSignals(False)
+        if hasattr(self, "_fit_menu_action"):
+            self._fit_menu_action.blockSignals(True)
+            self._fit_menu_action.setChecked(False)
+            self._fit_menu_action.blockSignals(False)
+        self.zoom = min(self.MAX_ZOOM, self.zoom + self.ZOOM_STEP)
+        self.clear_text_selection(render=False)
+        self.render_page()
+
+    def zoom_out(self):
+        self.fit_to_window = False
+        self.fit_button.blockSignals(True)
+        self.fit_button.setChecked(False)
+        self.fit_button.blockSignals(False)
+        if hasattr(self, "_fit_menu_action"):
+            self._fit_menu_action.blockSignals(True)
+            self._fit_menu_action.setChecked(False)
+            self._fit_menu_action.blockSignals(False)
+        self.zoom = max(self.MIN_ZOOM, self.zoom - self.ZOOM_STEP)
+        self.clear_text_selection(render=False)
+        self.render_page()
+
+    def _on_fit_toggled(self, checked):
+        self.fit_to_window = checked
+        if hasattr(self, "_fit_menu_action") and self._fit_menu_action.isChecked() != checked:
+            self._fit_menu_action.blockSignals(True)
+            self._fit_menu_action.setChecked(checked)
+            self._fit_menu_action.blockSignals(False)
+        if self.fit_button.isChecked() != checked:
+            self.fit_button.blockSignals(True)
+            self.fit_button.setChecked(checked)
+            self.fit_button.blockSignals(False)
+        self.clear_text_selection(render=False)
+        self.render_page()
+
+    def set_fit_to_window(self, checked):
+        # Kept for backward compat — routes to _on_fit_toggled
+        self._on_fit_toggled(checked)
+
+    # ------------------------------------------------------------------
+    # Search
+    # ------------------------------------------------------------------
+
+    def focus_search(self):
+        self.search_input.setFocus()
+        self.search_input.selectAll()
+
+    def _search_text_changed(self):
+        if not self.search_input.text().strip():
+            self.search_text = ""
+            self.search_results = []
+            self.current_result_index = -1
+            self.search_count_label.setText("0 matches")
+            self.render_page()
+
+    def search(self):
+        if self.document is None:
+            return
+        needle = self.search_input.text().strip()
+        if not needle:
+            self._search_text_changed()
+            return
+
+        self.search_text = needle
+        self.search_results = []
+        for page_index in range(self.document.page_count):
+            page = self.document.load_page(page_index)
+            rects = page.search_for(needle)
+            for rect in rects:
+                self.search_results.append({"page": page_index, "rects": [rect]})
+                if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
+                    self.statusBar().showMessage(
+                        f"Search stopped after {self.MAX_SEARCH_MATCHES:,} matches.", 5000
+                    )
+                    break
+            if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
+                break
+
+        if self.search_results:
+            first_on_or_after_page = next(
+                (index for index, item in enumerate(self.search_results) if item["page"] >= self.current_page),
+                0,
+            )
+            self.current_result_index = first_on_or_after_page
+            self.current_page = self.search_results[self.current_result_index]["page"]
+            self.clear_text_selection(render=False)
+            self.search_count_label.setText(self._search_count_text())
+        else:
+            self.current_result_index = -1
+            self.search_count_label.setText("0 matches")
+            self.statusBar().showMessage("No matches found", 4000)
+        self.render_page()
+
+    def next_search_result(self):
+        if self.document is None:
+            return
+        if self.search_input.text().strip() != self.search_text:
+            self.search()
+            return
+        if not self.search_results:
+            return
+        self.current_result_index = (self.current_result_index + 1) % len(self.search_results)
+        self.current_page = self.search_results[self.current_result_index]["page"]
+        self.clear_text_selection(render=False)
+        self.search_count_label.setText(self._search_count_text())
+        self.render_page()
+
+    def previous_search_result(self):
+        if self.document is None:
+            return
+        if self.search_input.text().strip() != self.search_text:
+            self.search()
+            return
+        if not self.search_results:
+            return
+        self.current_result_index = (self.current_result_index - 1) % len(self.search_results)
+        self.current_page = self.search_results[self.current_result_index]["page"]
+        self.clear_text_selection(render=False)
+        self.search_count_label.setText(self._search_count_text())
+        self.render_page()
+
+    def _sync_search_result_to_page(self):
+        for index, result in enumerate(self.search_results):
+            if result["page"] == self.current_page:
+                self.current_result_index = index
+                self.search_count_label.setText(self._search_count_text())
+                return
+        self.current_result_index = -1 if self.search_results else -1
+        if self.search_results:
+            self.search_count_label.setText(f"{len(self.search_results)} matches")
+
+    def _search_count_text(self):
+        if self.current_result_index < 0:
+            return f"{len(self.search_results)} matches"
+        return f"{self.current_result_index + 1} of {len(self.search_results)}"
+
+    # ------------------------------------------------------------------
+    # Merge / Split / Compress
+    # ------------------------------------------------------------------
 
     def merge_pdfs(self):
         start_dir = self.settings.value("lastFolder", str(Path.home()))
@@ -790,148 +1697,9 @@ class PdfReaderWindow(QMainWindow):
         QMessageBox.information(self, "Compression Complete", f"Saved compressed PDF:\n\n{output_path}\n\n{detail}")
         self.statusBar().showMessage("Compressed PDF successfully", 5000)
 
-    def clear_text_selection(self, render=True):
-        self.selected_text = ""
-        self.selected_rects = []
-        self.page_label.clear_drag_selection()
-        if render and self.document is not None:
-            self.render_page()
-
-    def previous_page(self):
-        if self.document is not None and self.current_page > 0:
-            self.current_page -= 1
-            self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
-            self.render_page()
-
-    def next_page(self):
-        if self.document is not None and self.current_page < self.document.page_count - 1:
-            self.current_page += 1
-            self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
-            self.render_page()
-
-    def jump_to_page(self, page_number):
-        if self.document is None:
-            return
-        target = page_number - 1
-        if target != self.current_page:
-            self.current_page = target
-            self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
-            self.render_page()
-
-    def zoom_in(self):
-        self.fit_to_window = False
-        self.fit_button.setChecked(False)
-        self.zoom = min(self.MAX_ZOOM, self.zoom + self.ZOOM_STEP)
-        self.clear_text_selection(render=False)
-        self.render_page()
-
-    def zoom_out(self):
-        self.fit_to_window = False
-        self.fit_button.setChecked(False)
-        self.zoom = max(self.MIN_ZOOM, self.zoom - self.ZOOM_STEP)
-        self.clear_text_selection(render=False)
-        self.render_page()
-
-    def set_fit_to_window(self, checked):
-        self.fit_to_window = checked
-        self.clear_text_selection(render=False)
-        self.render_page()
-
-    def focus_search(self):
-        self.search_input.setFocus()
-        self.search_input.selectAll()
-
-    def _search_text_changed(self):
-        if not self.search_input.text().strip():
-            self.search_text = ""
-            self.search_results = []
-            self.current_result_index = -1
-            self.search_count_label.setText("0 matches")
-            self.render_page()
-
-    def search(self):
-        if self.document is None:
-            return
-        needle = self.search_input.text().strip()
-        if not needle:
-            self._search_text_changed()
-            return
-
-        self.search_text = needle
-        self.search_results = []
-        for page_index in range(self.document.page_count):
-            page = self.document.load_page(page_index)
-            rects = page.search_for(needle)
-            for rect in rects:
-                self.search_results.append({"page": page_index, "rects": [rect]})
-                if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
-                    self.statusBar().showMessage(
-                        f"Search stopped after {self.MAX_SEARCH_MATCHES:,} matches.", 5000
-                    )
-                    break
-            if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
-                break
-
-        if self.search_results:
-            first_on_or_after_page = next(
-                (index for index, item in enumerate(self.search_results) if item["page"] >= self.current_page),
-                0,
-            )
-            self.current_result_index = first_on_or_after_page
-            self.current_page = self.search_results[self.current_result_index]["page"]
-            self.clear_text_selection(render=False)
-            self.search_count_label.setText(self._search_count_text())
-        else:
-            self.current_result_index = -1
-            self.search_count_label.setText("0 matches")
-            self.statusBar().showMessage("No matches found", 4000)
-        self.render_page()
-
-    def next_search_result(self):
-        if self.document is None:
-            return
-        if self.search_input.text().strip() != self.search_text:
-            self.search()
-            return
-        if not self.search_results:
-            return
-        self.current_result_index = (self.current_result_index + 1) % len(self.search_results)
-        self.current_page = self.search_results[self.current_result_index]["page"]
-        self.clear_text_selection(render=False)
-        self.search_count_label.setText(self._search_count_text())
-        self.render_page()
-
-    def previous_search_result(self):
-        if self.document is None:
-            return
-        if self.search_input.text().strip() != self.search_text:
-            self.search()
-            return
-        if not self.search_results:
-            return
-        self.current_result_index = (self.current_result_index - 1) % len(self.search_results)
-        self.current_page = self.search_results[self.current_result_index]["page"]
-        self.clear_text_selection(render=False)
-        self.search_count_label.setText(self._search_count_text())
-        self.render_page()
-
-    def _sync_search_result_to_page(self):
-        for index, result in enumerate(self.search_results):
-            if result["page"] == self.current_page:
-                self.current_result_index = index
-                self.search_count_label.setText(self._search_count_text())
-                return
-        self.current_result_index = -1 if self.search_results else -1
-        if self.search_results:
-            self.search_count_label.setText(f"{len(self.search_results)} matches")
-
-    def _search_count_text(self):
-        if self.current_result_index < 0:
-            return f"{len(self.search_results)} matches"
-        return f"{self.current_result_index + 1} of {len(self.search_results)}"
+    # ------------------------------------------------------------------
+    # Controls State
+    # ------------------------------------------------------------------
 
     def _update_controls(self):
         has_document = self.document is not None
@@ -955,14 +1723,28 @@ class PdfReaderWindow(QMainWindow):
         self.search_prev_button.setEnabled(has_document and has_matches)
         self.search_next_button.setEnabled(has_document and has_matches)
 
+    # ------------------------------------------------------------------
+    # Events
+    # ------------------------------------------------------------------
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.fit_to_window and self.document is not None:
             self.render_page()
 
-    # --------------------------------------------------------------------------
+    def _show_about(self):
+        QMessageBox.about(
+            self,
+            f"About {self.APP_NAME}",
+            f"<h3>{self.APP_NAME}</h3>"
+            f"<p>Version {__version__}</p>"
+            f"<p>Built with Python, PySide6, and PyMuPDF.</p>"
+            f"<p>Local-first. Private. No cloud uploads.</p>"
+        )
+
+    # ------------------------------------------------------------------
     # Auto-update system
-    # --------------------------------------------------------------------------
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _parse_version(tag):
@@ -1097,7 +1879,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_download_path = None
 
         self._update_progress = QProgressDialog(
-            f"Downloading {asset_name}…", "Cancel", 0, 0, self
+            f"Downloading {asset_name}\u2026", "Cancel", 0, 0, self
         )
         self._update_progress.setWindowTitle("Downloading Update")
         self._update_progress.setWindowModality(Qt.WindowModal)
@@ -1107,7 +1889,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_progress.show()
 
         self.update_action.setEnabled(False)
-        self.statusBar().showMessage(f"Downloading {asset_name}…")
+        self.statusBar().showMessage(f"Downloading {asset_name}\u2026")
 
         request = QNetworkRequest(QUrl(asset_url))
         request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
@@ -1125,7 +1907,7 @@ class PdfReaderWindow(QMainWindow):
             mb_rec = received / (1024 * 1024)
             mb_tot = total / (1024 * 1024)
             self._update_progress.setLabelText(
-                f"Downloading update… {mb_rec:.1f} / {mb_tot:.1f} MB"
+                f"Downloading update\u2026 {mb_rec:.1f} / {mb_tot:.1f} MB"
             )
         else:
             self._update_progress.setMaximum(0)
@@ -1245,7 +2027,7 @@ class PdfReaderWindow(QMainWindow):
             f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >nul 2>&1\n'
             f'start "" /D "{current_exe.parent}" "{current_exe}"\n'
             f'del "{dest}" >nul 2>&1\n'
-            "del \"%~f0\" >nul 2>&1\n"
+            'del "%~f0" >nul 2>&1\n'
         )
 
         try:
@@ -1401,6 +2183,7 @@ class PdfReaderWindow(QMainWindow):
                 f.write(script_content)
             os.chmod(script_path, 0o700)  # owner-only, macOS temp dir
             subprocess.Popen(["/bin/bash", str(script_path)])  # nosec B603 — intentional self-update, hardcoded args
+
         except Exception as exc:
             QMessageBox.critical(
                 self, "Update Error",
@@ -1417,7 +2200,12 @@ class PdfReaderWindow(QMainWindow):
         QTimer.singleShot(500, self.close)
 
     def closeEvent(self, event):
-        self.close_document()
+        # Save all open tab states before closing
+        self._save_current_state()
+        for tab_id, tab in self.tabs.items():
+            if tab.document is not None:
+                tab.document.close()
+        self.tabs.clear()
         super().closeEvent(event)
 
 
