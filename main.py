@@ -2259,6 +2259,7 @@ class PdfReaderWindow(QMainWindow):
         QTimer.singleShot(500, self.close)
 
     def _apply_update_windows_zip(self, dest, tag):
+        """Replace the running app via ZIP extract + batch updater (onedir mode)."""
         current_exe = Path(sys.executable)
         app_dir = current_exe.parent
         if not app_dir.exists():
@@ -2279,34 +2280,71 @@ class PdfReaderWindow(QMainWindow):
             )
             return
 
+        log_path = app_dir / f"_update_{tag}.log"
         bat_path = app_dir / f"_update_{tag}.bat"
         bat_content = (
             "@echo off\n"
             "title=PDFReader Updater\n"
-            "echo Updating PDFReader by Sparsh...\n"
+            "setlocal enabledelayedexpansion\n"
+            "set LOG=" + str(log_path) + "\n"
+            "echo [%date% %time%] Starting update... >> \"%LOG%\"\n"
             "\n"
             ":wait\n"
-            f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" >nul\n'
+            f'tasklist /FI "PID eq {os.getpid()}" 2>>\"%LOG%\" | find "{os.getpid()}" >nul\n'
             "if not errorlevel 1 (\n"
             "    timeout /t 1 /nobreak >nul\n"
             "    goto wait\n"
             ")\n"
             "\n"
-            f'xcopy /E /I /Y "{extract_dir}\\_internal" "{app_dir}\\_internal" >nul\n'
+            "echo [%date% %time%] Process exited, waiting 2s... >> \"%LOG%\"\n"
+            "timeout /t 2 /nobreak >nul\n"
+            "\n"
+            "echo [%date% %time%] Copying _internal folder... >> \"%LOG%\"\n"
+            "set RETRY=0\n"
+            ":retry_xcopy\n"
+            f'xcopy /E /I /Y "{extract_dir}\\_internal" "{app_dir}\\_internal" >>\"%LOG%\" 2>&1\n'
             "if errorlevel 1 (\n"
-            "    exit /b 1\n"
+            "    set /a RETRY+=1\n"
+            "    if !RETRY! lss 3 (\n"
+            "        timeout /t 1 /nobreak >nul\n"
+            "        goto retry_xcopy\n"
+            "    )\n"
+            "    echo [%date% %time%] ERROR: xcopy failed after 3 retries >> \"%LOG%\"\n"
+            "    goto fail\n"
             ")\n"
             "\n"
-            f'copy /Y /V "{extract_dir}\\PDFReader by Sparsh.exe" "{current_exe}" >nul\n'
+            "echo [%date% %time%] Copying EXE... >> \"%LOG%\"\n"
+            "set RETRY=0\n"
+            ":retry_copy\n"
+            f'copy /Y /V "{extract_dir}\\PDFReader by Sparsh.exe" "{current_exe}" >>\"%LOG%\" 2>&1\n'
             "if errorlevel 1 (\n"
-            "    exit /b 1\n"
+            "    set /a RETRY+=1\n"
+            "    if !RETRY! lss 3 (\n"
+            "        timeout /t 1 /nobreak >nul\n"
+            "        goto retry_copy\n"
+            "    )\n"
+            "    echo [%date% %time%] ERROR: copy failed after 3 retries >> \"%LOG%\"\n"
+            "    goto fail\n"
             ")\n"
             "\n"
-            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >nul 2>&1\n'
+            "echo [%date% %time%] Unblocking EXE... >> \"%LOG%\"\n"
+            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >>\"%LOG%\" 2>&1\n'
+            "\n"
+            "echo [%date% %time%] Launching new version... >> \"%LOG%\"\n"
             f'start "" "{current_exe}"\n'
-            f'rmdir /S /Q "{extract_dir}" >nul 2>&1\n'
-            f'del "{dest}" >nul 2>&1\n'
+            "\n"
+            "echo [%date% %time%] Update successful, cleaning up... >> \"%LOG%\"\n"
+            f'rmdir /S /Q "{extract_dir}" >>\"%LOG%\" 2>&1\n'
+            f'del "{dest}" >>\"%LOG%\" 2>&1\n'
             "del \"%~f0\" >nul 2>&1\n"
+            f'del "{log_path}" >nul 2>&1\n'
+            "exit /b 0\n"
+            "\n"
+            ":fail\n"
+            "echo [%date% %time%] UPDATE FAILED >> \"%LOG%\"\n"
+            f'start "" notepad "{log_path}"\n'
+            "pause\n"
+            "exit /b 1\n"
         )
 
         try:
@@ -2316,101 +2354,6 @@ class PdfReaderWindow(QMainWindow):
                 ["cmd.exe", "/c", str(bat_path)],
                 creationflags=0x08000000,
             )
-        except Exception as exc:
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not launch the update script.\n\n{exc}",
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Update Starting",
-            "PDFReader will now close and update itself."
-            " It will reopen automatically in a moment.",
-        )
-        QTimer.singleShot(500, self.close)
-
-    def _apply_update_macos(self, dest, tag):
-        current_exe = Path(sys.executable)
-        app_bundle = None
-        for parent in current_exe.parents:
-            if parent.suffix == ".app":
-                app_bundle = parent
-                break
-
-        if app_bundle is None:
-            QMessageBox.critical(
-                self, "Update Error",
-                "Could not locate the current application bundle.",
-            )
-            return
-
-        extract_dir = dest.parent / f"extracted_{tag}"
-        try:
-            if extract_dir.exists():
-                import shutil
-                shutil.rmtree(extract_dir)
-            with zipfile.ZipFile(str(dest), "r") as zf:
-                zf.extractall(str(extract_dir))
-            new_apps = list(extract_dir.rglob("*.app"))
-            if not new_apps:
-                raise Exception("No .app bundle found in the downloaded update.")
-            new_app = new_apps[0]
-        except Exception as exc:
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not extract the update.\n\n{exc}",
-            )
-            return
-
-        script_path = app_bundle.parent / f"_update_{tag}.sh"
-        new_app_str = str(new_app)
-        app_bundle_str = str(app_bundle)
-        extract_str = str(extract_dir)
-        dest_str = str(dest)
-
-        script_content = (
-            "#!/bin/bash\n"
-            "set -e\n"
-            "\n"
-            "# PDFReader macOS updater\n"
-            f"MY_PID={os.getpid()}\n"
-            "\n"
-            '# Wait for this process to fully exit\n'
-            'while kill -0 "$MY_PID" 2>/dev/null; do\n'
-            "    sleep 1\n"
-            "done\n"
-            "\n"
-            "# Extra buffer for macOS to release file handles\n"
-            "sleep 2\n"
-            "\n"
-            "# Remove old app bundle\n"
-            f'rm -rf "{app_bundle_str}"\n'
-            "\n"
-            "# Copy new app with retry\n"
-            "RETRIES=0\n"
-            f'until ditto "{new_app_str}" "{app_bundle_str}" 2>/dev/null || [ $RETRIES -ge 3 ]; do\n'
-            "    RETRIES=$((RETRIES + 1))\n"
-            "    sleep 1\n"
-            "done\n"
-            "\n"
-            "# Clear quarantine attributes to avoid Gatekeeper issues\n"
-            f'xattr -cr "{app_bundle_str}" 2>/dev/null || true\n'
-            "\n"
-            "# Clean up\n"
-            f'rm -rf "{extract_str}"\n'
-            f'rm -f "{dest_str}"\n'
-            'rm -f "$0"\n'
-            "\n"
-            "# Launch new version\n"
-            f'open "{app_bundle_str}"\n'
-        )
-        try:
-            with open(script_path, "w") as f:
-                f.write(script_content)
-            os.chmod(script_path, 0o700)
-            subprocess.Popen(["/bin/bash", str(script_path)])  # nosec
         except Exception as exc:
             QMessageBox.critical(
                 self, "Update Error",
