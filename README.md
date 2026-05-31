@@ -25,9 +25,15 @@
   ·
   <a href="#screenshots">Screenshots</a>
   ·
-  <a href="#build-from-source">Build from Source</a>
+  <a href="#roadmap">Roadmap</a>
+  ·
+  <a href="#build-from-source">Build</a>
   ·
   <a href="#security-and-privacy">Security</a>
+  ·
+  <a href="#cryptographic-verification-base">Verification</a>
+  ·
+  <a href="#future-philosophy">Philosophy</a>
 </p>
 
 ## Overview
@@ -167,14 +173,74 @@ For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract in
 
 ## Roadmap
 
-- Dark mode
-- Recent files list
-- Multi-tab PDF support
-- Highlight and annotation tools
-- Better OCR setup instructions
-- Windows installer package
-- Code signing for smoother public downloads
-- Stronger sandboxing guidance for hostile/untrusted documents
+### Near-Term
+Items in active or planned development.
+
+- **Dark mode** — system-aware theme toggle for comfortable reading in any lighting
+- **Recent files list** — quick access to recently opened documents
+- **Multi-tab PDF support** — open several documents in a single window with tabbed navigation
+- **Highlight and annotation tools** — select, highlight, underline, and add sticky notes; saved as PDF annotations (not a separate overlay)
+- **Better OCR setup instructions** — clearer per-platform guidance for installing Tesseract OCR data
+- **Windows installer package** — a professional installer (Inno Setup or MSI) with file-association registration and Start Menu entry
+- **Auto-update integration** — in-app update checks against GitHub releases with one-click download and install
+
+### Mid-Term
+Ambitious but achievable additions that meaningfully expand the app's capabilities.
+
+- **Full-library indexed search** — build a local search index over a folder of PDFs for instant, cross-document text search
+- **Workspace and session restoration** — remember which documents were open, which page you were on, and restore on next launch
+- **PDF version comparison** — diff two PDFs side-by-side and visually highlight text changes, insertions, and deletions
+- **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
+- **Offline semantic search** — search by meaning rather than exact keyword using local embeddings, entirely offline
+- **Code signing** — signed Windows and macOS releases for smoother downloads without SmartScreen or Gatekeeper warnings
+- **Stronger sandboxing guidance** — documented approaches for running the app in an OS sandbox when opening documents from untrusted sources
+
+### Long-Term Vision
+The direction the project grows into over time — grounded in real engineering, not speculation.
+
+- **Cross-platform desktop support** — native builds for Linux in addition to Windows and macOS, broadening the audience to all major desktop platforms
+- **Secure research workspace** — a sandboxed reading environment with isolated rendering, no write access to the rest of the filesystem, and optional network blocking for working with sensitive or untrusted documents
+- **PDF timeline and version history** — track changes across document revisions, with a browsable timeline of edits and diffs
+- **Plugin system** — a lightweight extension API for community-contributed tools (custom export formats, batch processing pipelines, metadata editors)
+- **Collaborative annotations (optional, wallet-based)** — share annotations and highlights between trusted peers using cryptographic identity, not a cloud account
+
+## Cryptographic Verification (Base)
+
+Optional infrastructure for anchoring document fingerprints to the [Base](https://base.org) blockchain. This feature is entirely opt-in — the app functions fully without it.
+
+### Philosophy
+
+PDFs remain local. No document content is ever uploaded or transmitted. Only a cryptographic hash — a fixed-length fingerprint derived from the file — is written to the blockchain. This creates a permanent, publicly verifiable proof that a specific document existed at a specific time, without revealing anything about its contents.
+
+### Planned capabilities
+
+- **Proof-of-existence anchoring** — generate a SHA-256 hash of any PDF and record it on Base in a single low-cost transaction
+- **Verification receipts** — the app produces a small local receipt file containing the block number, transaction hash, and document fingerprint, so you can prove a document's existence without re-querying the chain
+- **QR verification slips** — print or save a QR code that encodes the verification receipt, allowing anyone with the original PDF to independently confirm it matches the anchored fingerprint
+- **Portable proof metadata** — embed verification metadata directly in the PDF as a hidden annotation layer, so proof travels with the document
+- **Optional wallet-based identity** — use an Ethereum wallet for signing annotations, allowing trusted collaborators to verify who made a highlight or note without a central account system
+
+### What stays local
+
+- All PDF content
+- All rendering, search, and processing
+- All AI summarization and semantic search (when enabled)
+- All annotation data until a user explicitly anchors a hash or signs with their wallet
+
+Base is used only as a low-cost, permanent verification layer. It is not a data store, not a monetization mechanism, and not a requirement for any core functionality.
+
+## Future Philosophy
+
+PDFReader by Sparsh sits at the intersection of a few ideas that I think are worth building towards:
+
+- **Local-first tools** that work offline, respect your filesystem, and don't require an account
+- **Privacy-preserving software** that treats user data as something to protect, not extract
+- **Cryptographic proof systems** that let you assert facts about documents without revealing their contents
+- **User ownership** — you install it, you run it, you decide what happens to your data
+- **Interoperable calm utilities** — small, focused tools that compose well with each other rather than monolithic platforms
+- **Optional decentralized infrastructure** — blockchain used as a lightweight verification oracle, not a platform for speculation or lock-in
+
+This project is one piece of that broader picture. The immediate goal is a genuinely good PDF reader. Everything else — the proof layer, the AI features, the cross-platform story — builds on that foundation, never replaces it.
 
 ## Project Structure
 
