@@ -1241,7 +1241,7 @@ class PdfReaderWindow(QMainWindow):
         try:
             with open(bat_path, "w") as f:
                 f.write(bat_content)
-            subprocess.Popen(
+            subprocess.Popen(  # nosec B603, B607 — intentional self-update, hardcoded args
                 ["cmd.exe", "/c", str(bat_path)],
                 creationflags=0x08000000,  # CREATE_NO_WINDOW
             )
@@ -1314,8 +1314,8 @@ class PdfReaderWindow(QMainWindow):
         try:
             with open(script_path, "w") as f:
                 f.write(script_content)
-            os.chmod(script_path, 0o755)
-            subprocess.Popen(["/bin/bash", str(script_path)])
+            os.chmod(script_path, 0o700)  # owner-only, macOS temp dir
+            subprocess.Popen(["/bin/bash", str(script_path)])  # nosec B603 — intentional self-update, hardcoded args
         except Exception as exc:
             QMessageBox.critical(
                 self, "Update Error",
