@@ -34,7 +34,11 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "0.1.3"
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "0.0.0-dev"
+
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 
 
@@ -1180,7 +1184,7 @@ class PdfReaderWindow(QMainWindow):
         self._apply_update()
 
     def _apply_update(self):
-        """Launch the downloaded update and close the current app."""
+        """Seamlessly replace the running app and restart."""
         dest = self._update_download_path
         if dest is None or not dest.exists():
             QMessageBox.critical(self, "Update Error", "Update file not found.")
@@ -1190,35 +1194,9 @@ class PdfReaderWindow(QMainWindow):
         tag = self._update_latest_tag or "latest"
 
         if system == "Windows" and dest.suffix.lower() == ".exe":
-            # Launch the downloaded installer; it will replace the running binary
-            try:
-                subprocess.Popen([str(dest), "/SILENT", "/CLOSEAPPLICATIONS", f"/TASKS=desktopicon"])
-            except Exception as exc:
-                QMessageBox.critical(
-                    self, "Update Error",
-                    f"Could not launch the installer.\n\nYou can install manually from:\n{dest}",
-                )
-                return
+            self._apply_update_windows(dest, tag)
         elif system == "Darwin" and dest.suffix.lower() == ".zip":
-            # Extract the .app from the zip and launch it
-            try:
-                extract_dir = dest.parent / f"extracted_{tag}"
-                extract_dir.mkdir(parents=True, exist_ok=True)
-                with zipfile.ZipFile(str(dest), "r") as zf:
-                    zf.extractall(str(extract_dir))
-                # Find the .app inside the extracted folder
-                app_bundles = list(extract_dir.rglob("*.app"))
-                if app_bundles:
-                    subprocess.Popen(["open", str(app_bundles[0])])
-                else:
-                    # Just open the folder
-                    subprocess.Popen(["open", str(extract_dir)])
-            except Exception as exc:
-                QMessageBox.critical(
-                    self, "Update Error",
-                    f"Could not extract the update.\n\nYou can install manually from:\n{dest}",
-                )
-                return
+            self._apply_update_macos(dest, tag)
         else:
             QMessageBox.information(
                 self,
@@ -1227,10 +1205,129 @@ class PdfReaderWindow(QMainWindow):
             )
             return
 
+    def _apply_update_windows(self, dest, tag):
+        """Replace the running exe in-place via a background batch updater."""
+        current_exe = Path(sys.executable)
+        if not current_exe.exists():
+            QMessageBox.critical(self, "Update Error", "Could not locate the app executable.")
+            return
+
+        bat_path = current_exe.parent / f"_update_{tag}.bat"
+        # Use a helper script in the same directory to avoid PATH issues
+        bat_content = (
+            "@echo off\n"
+            "title=PDFReader Updater\n"
+            "echo Updating PDFReader by Sparsh...\n"
+            "\n"
+            ":wait\n"
+            f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" >nul\n'
+            "if not errorlevel 1 (\n"
+            "    timeout /t 1 /nobreak >nul\n"
+            "    goto wait\n"
+            ")\n"
+            "\n"
+            f'copy /Y "{dest}" "{current_exe}" >nul\n'
+            "if errorlevel 1 (\n"
+            "    echo Update failed.\n"
+            "    pause\n"
+            "    exit /b 1\n"
+            ")\n"
+            "\n"
+            f'start "" "{current_exe}"\n'
+            f'del "{dest}" >nul 2>&1\n'
+            "del \"%~f0\" >nul 2>&1\n"
+        )
+
+        try:
+            with open(bat_path, "w") as f:
+                f.write(bat_content)
+            subprocess.Popen(
+                ["cmd.exe", "/c", str(bat_path)],
+                creationflags=0x08000000,  # CREATE_NO_WINDOW
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Update Error",
+                f"Could not launch the update script.\n\n{exc}",
+            )
+            return
+
         QMessageBox.information(
             self,
             "Update Starting",
-            f"The {tag} installer is launching. The app will close to complete the update.",
+            "PDFReader will now close and update itself."
+            " It will reopen automatically in a moment.",
+        )
+        QTimer.singleShot(500, self.close)
+
+    def _apply_update_macos(self, dest, tag):
+        """Replace the running .app bundle in-place via a shell updater."""
+        current_exe = Path(sys.executable)
+        # Find the .app bundle: sys.executable buried inside the bundle
+        app_bundle = None
+        for parent in current_exe.parents:
+            if parent.suffix == ".app":
+                app_bundle = parent
+                break
+
+        if app_bundle is None:
+            QMessageBox.critical(
+                self, "Update Error",
+                "Could not locate the current application bundle.",
+            )
+            return
+
+        # Extract the new .app from the downloaded zip
+        extract_dir = dest.parent / f"extracted_{tag}"
+        try:
+            extract_dir.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(str(dest), "r") as zf:
+                zf.extractall(str(extract_dir))
+            new_apps = list(extract_dir.rglob("*.app"))
+            if not new_apps:
+                raise Exception("No .app bundle found in the downloaded update.")
+            new_app = new_apps[0]
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Update Error",
+                f"Could not extract the update.\n\n{exc}",
+            )
+            return
+
+        # Shell script: waits for app to exit, replaces bundle, opens, cleans up
+        script_path = extract_dir / "_update.sh"
+        script_content = (
+            "#!/bin/bash\n"
+            "\n"
+            f'while pgrep -qf "^{current_exe.name}$" >/dev/null 2>&1; do\n'
+            "    sleep 1\n"
+            "done\n"
+            "\n"
+            f'rm -rf "{app_bundle}"\n'
+            f'ditto "{new_app}" "{app_bundle}"\n'
+            "\n"
+            f'rm -rf "{extract_dir}"\n'
+            f'rm -f "{dest}"\n'
+            "\n"
+            f'open "{app_bundle}"\n'
+        )
+        try:
+            with open(script_path, "w") as f:
+                f.write(script_content)
+            os.chmod(script_path, 0o755)
+            subprocess.Popen(["/bin/bash", str(script_path)])
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Update Error",
+                f"Could not launch the update script.\n\n{exc}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Update Starting",
+            "PDFReader will now close and update itself."
+            " It will reopen automatically in a moment.",
         )
         QTimer.singleShot(500, self.close)
 
