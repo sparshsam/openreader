@@ -34,11 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 
-try:
-    from version import __version__
-except ImportError:
-    __version__ = "0.0.0-dev"
-
+__version__ = "0.0.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 
 

@@ -2,13 +2,16 @@ $ErrorActionPreference = "Stop"
 
 Set-Location -Path (Split-Path -Parent $PSScriptRoot)
 
-# Inject version from latest git tag
+# Inject version from latest git tag directly into main.py
 $version = "0.0.0-dev"
 $tag = git describe --tags --abbrev=0 2>$null
 if ($tag) {
     $version = $tag -replace '^v', ''
 }
-"__version__ = ""${version}""" | Out-File -FilePath version.py -Encoding utf8
+$mainPy = Get-Content main.py -Raw
+$mainPy = $mainPy -replace '__version__ = "[^"]*"', "__version__ = ""$version"""
+Set-Content -Path main.py -Value $mainPy -NoNewline
+Write-Host "Injected version: $version"
 
 if (!(Test-Path -LiteralPath ".\.venv")) {
     python -m venv .venv

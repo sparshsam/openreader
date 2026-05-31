@@ -21,11 +21,15 @@ jobs:
           python-version: "3.11"
 
       - name: Inject version from git tag
-        shell: bash
+        shell: pwsh
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")
-          VERSION="${VERSION#v}"
-          echo "__version__ = \"${VERSION}\"" > version.py
+          $version = "0.0.0-dev"
+          $tag = git describe --tags --abbrev=0 2>`$null
+          if ($tag) { $version = $tag -replace '^v', '' }
+          $mainPy = Get-Content main.py -Raw
+          $mainPy = $mainPy -replace '__version__ = "[^"]*"', "__version__ = \"`$version\""
+          Set-Content -Path main.py -Value $mainPy -NoNewline
+          Write-Host "Injected version: $version"
 
       - name: Install dependencies
         run: |

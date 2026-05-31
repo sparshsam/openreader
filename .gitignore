@@ -19,7 +19,6 @@ dist/
 # Local files
 .env
 .env.*
-version.py
 *.log
 *.pem
 *.key
