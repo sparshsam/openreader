@@ -37,7 +37,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconsole --onefile --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onefile --noupx --runtime-tmpdir "." --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
 
       - name: Upload executable artifact
         uses: actions/upload-artifact@v4
