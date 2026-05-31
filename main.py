@@ -38,7 +38,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "0.0.0-dev"
+__version__ = "0.1.9-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "recentFiles"
@@ -2128,9 +2128,9 @@ class PdfReaderWindow(QMainWindow):
         QTimer.singleShot(500, self.close)
 
     def _apply_update_macos(self, dest, tag):
-        """Replace the running .app bundle in-place via a shell updater."""
+        """Replace the running .app bundle in-place via a shell updater (onedir ZIP)."""
         current_exe = Path(sys.executable)
-        # Find the .app bundle: sys.executable buried inside the bundle
+        # Find the .app bundle
         app_bundle = None
         for parent in current_exe.parents:
             if parent.suffix == ".app":
@@ -2147,7 +2147,9 @@ class PdfReaderWindow(QMainWindow):
         # Extract the new .app from the downloaded zip
         extract_dir = dest.parent / f"extracted_{tag}"
         try:
-            extract_dir.mkdir(parents=True, exist_ok=True)
+            if extract_dir.exists():
+                import shutil
+                shutil.rmtree(extract_dir)
             with zipfile.ZipFile(str(dest), "r") as zf:
                 zf.extractall(str(extract_dir))
             new_apps = list(extract_dir.rglob("*.app"))
@@ -2161,29 +2163,54 @@ class PdfReaderWindow(QMainWindow):
             )
             return
 
-        # Shell script: waits for app to exit, replaces bundle, opens, cleans up
-        script_path = extract_dir / "_update.sh"
+        # Shell script lives next to the app bundle (not in extract_dir which gets cleaned)
+        script_path = app_bundle.parent / f"_update_{tag}.sh"
+        new_app_str = str(new_app)
+        app_bundle_str = str(app_bundle)
+        extract_str = str(extract_dir)
+        dest_str = str(dest)
+
         script_content = (
             "#!/bin/bash\n"
+            "set -e\n"
             "\n"
-            f'while pgrep -qf "^{current_exe.name}$" >/dev/null 2>&1; do\n'
+            "# PDFReader macOS updater\n"
+            f"MY_PID={os.getpid()}\n"
+            "\n"
+            "# Wait for this process to fully exit\n"
+            'while kill -0 "$MY_PID" 2>/dev/null; do\n'
             "    sleep 1\n"
             "done\n"
             "\n"
-            f'rm -rf "{app_bundle}"\n'
-            f'ditto "{new_app}" "{app_bundle}"\n'
+            "# Extra buffer for macOS to release file handles\n"
+            "sleep 2\n"
             "\n"
-            f'rm -rf "{extract_dir}"\n'
-            f'rm -f "{dest}"\n'
+            "# Remove old app bundle\n"
+            f'rm -rf "{app_bundle_str}"\n'
             "\n"
-            f'open "{app_bundle}"\n'
+            "# Copy new app with retry\n"
+            "RETRIES=0\n"
+            f'until ditto "{new_app_str}" "{app_bundle_str}" 2>/dev/null || [ $RETRIES -ge 3 ]; do\n'
+            "    RETRIES=$((RETRIES + 1))\n"
+            "    sleep 1\n"
+            "done\n"
+            "\n"
+            "# Clear quarantine attributes to avoid Gatekeeper issues\n"
+            f'xattr -cr "{app_bundle_str}" 2>/dev/null || true\n'
+            "\n"
+            "# Clean up\n"
+            f'rm -rf "{extract_str}"\n'
+            f'rm -f "{dest_str}"\n'
+            'rm -f "$0"\n'
+            "\n"
+            "# Launch new version\n"
+            f'open "{app_bundle_str}"\n'
         )
         try:
             with open(script_path, "w") as f:
                 f.write(script_content)
-            os.chmod(script_path, 0o700)  # owner-only, macOS temp dir
-            subprocess.Popen(["/bin/bash", str(script_path)])  # nosec B603 — intentional self-update, hardcoded args
-
+            os.chmod(script_path, 0o700)
+            subprocess.Popen(["/bin/bash", str(script_path)])  # nosec B603 — intentional self-update
         except Exception as exc:
             QMessageBox.critical(
                 self, "Update Error",

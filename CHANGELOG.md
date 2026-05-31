@@ -1,9 +1,14 @@
 # Changelog
 
-## Unreleased
+## v0.1.9 - 2026-05-31
 
-- Changed project licensing from MIT to PolyForm Noncommercial License 1.0.0 for future versions.
-- Added PDF safety pre-validation, render size limits, bounded search/OCR memory use, sanitized error dialogs, security scanning workflow, sensitive-file ignore patterns, and disabled UPX in release builds.
+- **Dark mode.** System-aware Catppuccin Mocha theme with Auto/Light/Dark toggle in View → Theme.
+- **Recent files.** Last 10 PDFs accessible from File → Open Recent with dead-file cleanup.
+- **Multi-tab PDF support.** Open several documents in one window with QTabBar tabs. Ctrl+T new tab, Ctrl+W close tab. Each tab remembers page, zoom, search, and selection.
+- **Menu bar.** File (Open Recent, Close Tab/All, Quit), View (Theme, Zoom), Tools (Merge/Split/Compress), Help (Updates, About).
+- **macOS auto-update overhaul.** Rewrote shell updater with retry logic, process-wait via PID, quarantine clearance (xattr -cr), and stable script path outside extract dir.
+- **Fit Width menu item** synced with button state.
+- Rebased on v0.1.8 onedir fixes from the update-main branch.
 
 ## 0.1.0
 
