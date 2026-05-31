@@ -59,12 +59,17 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 | Category | Capabilities |
 |---|---|
 | Reading | Open PDFs, one-page view, previous/next navigation, page jump, fit-width, zoom in/out |
+| Multi-tab | Open several documents in a single window with movable, closeable tabs. Ctrl+T, Ctrl+W |
 | Search | Full-document text search, match count, next/previous result navigation |
 | Copying | Drag-select text from the visible page and copy with `Ctrl+C` or the Copy button |
 | OCR fallback | Attempts OCR-assisted selection on scanned/image-based pages when Tesseract OCR data is available |
+| Annotations | Highlight, underline, and strikethrough selected text; sticky notes on any page. Saved as native PDF annotations |
 | PDF tools | Merge PDFs, split every page, extract page ranges like `1-3,5`, save compressed copies |
-| Desktop integration | Windows "Open with" support, last-folder memory with `QSettings`, custom app icon |
-| Release engineering | PyInstaller packaging, Windows/macOS GitHub Actions builds, dependency/security checks |
+| Desktop integration | Windows installer with `.pdf` file association, Start Menu, and desktop shortcut |
+| Dark mode | System-aware dark theme (Catppuccin Mocha) with Auto/Light/Dark toggle |
+| Recent files | Quick access to the last 10 opened PDFs via File → Open Recent |
+| Auto-update | In-app update checks against GitHub releases with one-click download and install |
+| Release engineering | PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer, self-update mechanism |
 
 ## Screenshots
 
@@ -170,27 +175,58 @@ Windows does not allow apps to silently take over file defaults. To make this yo
 4. Select **Always use this app to open .pdf files**.
 5. Click **OK**.
 
-## OCR Notes
+## OCR Setup
 
-Normal text selection works for PDFs that already contain text.
+Text selection works natively on PDFs with embedded text. For scanned/image-only PDFs, the app falls back to OCR via PyMuPDF's Tesseract integration.
 
-For scanned/image-only PDFs, the app attempts OCR through PyMuPDF's Tesseract integration. If Tesseract OCR data is not available on the computer, the app shows a clear message and continues working for normal PDFs.
+No OCR setup is needed to read regular PDFs — the app only requires Tesseract when you drag-select text on a scanned page.
+
+### Installing Tesseract
+
+**Windows**
+1. Download the installer from [GitHub UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/releases)
+2. Run the installer — check "Add to PATH" during setup
+3. Restart the app; OCR will work automatically
+
+**macOS**
+```bash
+brew install tesseract
+```
+No restart needed — PyMuPDF finds it automatically.
+
+**Linux (source builds)**
+```bash
+# Debian / Ubuntu
+sudo apt install tesseract-ocr tesseract-ocr-eng
+
+# Fedora
+sudo dnf install tesseract tesseract-langpack-eng
+
+# Arch
+sudo pacman -S tesseract tesseract-data-eng
+```
 
 ## Roadmap
 
-### ✓ v0.1.9 — Completed
+### ✓ v0.2.0 — Completed
 These features are shipped in the latest release.
 
-- **Multi-tab PDF support** — open several documents in a single window with tabbed navigation. Ctrl+T new tab, Ctrl+W close tab.
-- **Dark mode** — system-aware Catppuccin Mocha theme with Auto/Light/Dark toggle
+- **Highlight and annotation tools** — select, highlight, underline, and add sticky notes directly on PDFs; saved as native PDF annotations, not overlays
+- **Multi-tab PDF support** — open several documents in a single window with tabbed navigation. Ctrl+T new tab, Ctrl+W close tab
+- **Dark mode** — system-aware Catppuccin Mocha theme with Auto/Light/Dark toggle (View → Theme)
 - **Recent files list** — last 10 documents in File → Open Recent
+- **Windows installer** — Inno Setup installer with `.pdf` file association and Start Menu entry
+- **OCR setup docs** — per-platform Tesseract installation guide above
+- **macOS auto-update** — PID-based process wait, retry logic, Gatekeeper quarantine clearance
 
 ### Near-Term
 Items in active or planned development.
 
-- **Highlight and annotation tools** — select, highlight, underline, and add sticky notes; saved as PDF annotations (not a separate overlay)
-- **Better OCR setup instructions** — clearer per-platform guidance for installing Tesseract OCR data
-- **Windows installer package** — a professional installer (Inno Setup or MSI) with file-association registration and Start Menu entry
+- **Full-library indexed search** — build a local search index over a folder of PDFs for instant, cross-document text search
+- **Workspace and session restoration** — remember which documents were open, which page you were on, and restore on next launch
+- **PDF version comparison** — diff two PDFs side-by-side and visually highlight text changes, insertions, and deletions
+- **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
+- **Offline semantic search** — search by meaning rather than exact keyword using local embeddings, entirely offline
 - **Auto-update integration** ✅ — in-app update checks against GitHub releases with one-click download and install. Auto-updates from v0.1.6 onward.
 
 ### Mid-Term

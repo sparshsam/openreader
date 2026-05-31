@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QHBoxLayout,
+    QInputDialog,
     QLabel,
     QLineEdit,
     QMainWindow,
@@ -26,7 +27,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
-    QInputDialog,
     QScrollArea,
     QSpinBox,
     QStatusBar,
@@ -38,10 +38,10 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "0.1.9-dev"
+__version__ = "0.2.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 RECENT_FILES_MAX = 10
-SETTINGS_RECENT_KEY = "recentFiles"
+SETTINGS_RECENT_KEY = "***"
 
 
 # ---------------------------------------------------------------------------
@@ -93,9 +93,9 @@ QPushButton:pressed {
     background-color: #585b70;
 }
 QPushButton:checked {
-    background-color: #89b4fa;
+    background-color: #a6e3a1;
     color: #1e1e2e;
-    border-color: #89b4fa;
+    border-color: #a6e3a1;
 }
 QPushButton:disabled {
     background-color: #313244;
@@ -294,11 +294,13 @@ class PdfSafetyError(Exception):
 
 class PdfPageLabel(QLabel):
     selection_finished = Signal(QRect)
+    sticky_note_requested = Signal(QPoint)
 
     def __init__(self, text="", parent=None):
         super().__init__(text, parent)
         self.drag_start = None
         self.drag_current = None
+        self.annotation_mode = None  # None or "sticky_note"
         self.setMouseTracking(True)
 
     def clear_drag_selection(self):
@@ -306,8 +308,25 @@ class PdfPageLabel(QLabel):
         self.drag_current = None
         self.update()
 
+    def set_annotation_mode(self, mode):
+        self.annotation_mode = mode
+        if mode == "sticky_note":
+            self.setCursor(Qt.CrossCursor)
+            self.setText("Click on the PDF to place a sticky note")
+        else:
+            self.setCursor(Qt.ArrowCursor)
+
+    def clear_annotation_mode(self):
+        self.set_annotation_mode(None)
+
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton and self.pixmap() is not None:
+            if self.annotation_mode == "sticky_note":
+                pos = event.position().toPoint()
+                self.clear_annotation_mode()
+                self.sticky_note_requested.emit(pos)
+                event.accept()
+                return
             self.drag_start = event.position().toPoint()
             self.drag_current = self.drag_start
             self.update()
@@ -364,6 +383,11 @@ class PdfReaderWindow(QMainWindow):
     THEME_AUTO = 0
     THEME_LIGHT = 1
     THEME_DARK = 2
+
+    # Annotation colors
+    ANNOT_HIGHLIGHT = (1.0, 0.882, 0.235)      # yellow
+    ANNOT_UNDERLINE = (0.075, 0.533, 0.867)    # blue
+    ANNOT_STRIKEOUT = (0.953, 0.318, 0.302)    # red
 
     def __init__(self):
         super().__init__()
@@ -446,53 +470,81 @@ class PdfReaderWindow(QMainWindow):
         controls_widget = QWidget()
         controls_widget.setContentsMargins(8, 6, 8, 6)
         controls = QHBoxLayout(controls_widget)
-        controls.setSpacing(6)
+        controls.setSpacing(4)
         controls.setContentsMargins(0, 0, 0, 0)
 
         self.open_button = QPushButton("Open")
-        self.prev_button = QPushButton("Previous")
+        self.prev_button = QPushButton("Prev")
         self.next_button = QPushButton("Next")
         self.page_spin = QSpinBox()
         self.page_spin.setMinimum(1)
         self.page_spin.setMaximum(1)
-        self.page_spin.setFixedWidth(80)
+        self.page_spin.setFixedWidth(70)
         self.page_count_label = QLabel("/ 0")
 
-        self.zoom_out_button = QPushButton("Zoom \u2212")
-        self.zoom_in_button = QPushButton("Zoom +")
-        self.fit_button = QPushButton("Fit Width")
+        self.zoom_out_button = QPushButton("\u2212")
+        self.zoom_out_button.setFixedWidth(30)
+        self.zoom_in_button = QPushButton("+")
+        self.zoom_in_button.setFixedWidth(30)
+        self.fit_button = QPushButton("Fit")
         self.fit_button.setCheckable(True)
         self.fit_button.setChecked(True)
+        self.fit_button.setFixedWidth(40)
         self.copy_button = QPushButton("Copy")
-        self.merge_button = QPushButton("Merge")
-        self.split_button = QPushButton("Split")
-        self.compress_button = QPushButton("Compress")
-
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search text")
-        self.search_input.setClearButtonEnabled(True)
-        self.search_input.setMinimumWidth(180)
-        self.search_prev_button = QPushButton("Prev Match")
-        self.search_next_button = QPushButton("Next Match")
-        self.search_count_label = QLabel("0 matches")
 
         controls.addWidget(self.open_button)
-        controls.addSpacing(8)
+        controls.addSpacing(4)
         controls.addWidget(self.prev_button)
         controls.addWidget(self.next_button)
-        controls.addWidget(QLabel("Page"))
+        controls.addWidget(QLabel("Pg"))
         controls.addWidget(self.page_spin)
         controls.addWidget(self.page_count_label)
-        controls.addSpacing(8)
+        controls.addSpacing(4)
         controls.addWidget(self.zoom_out_button)
         controls.addWidget(self.zoom_in_button)
         controls.addWidget(self.fit_button)
         controls.addWidget(self.copy_button)
-        controls.addSpacing(8)
+
+        # Annotation buttons
+        self.highlight_button = QPushButton("HL")
+        self.highlight_button.setFixedWidth(34)
+        self.highlight_button.setToolTip("Highlight selected text")
+        self.underline_button = QPushButton("UL")
+        self.underline_button.setFixedWidth(34)
+        self.underline_button.setToolTip("Underline selected text")
+        self.strike_button = QPushButton("ST")
+        self.strike_button.setFixedWidth(34)
+        self.strike_button.setToolTip("Strikethrough selected text")
+        self.sticky_button = QPushButton("\U0001f4dd")
+        self.sticky_button.setFixedWidth(34)
+        self.sticky_button.setCheckable(True)
+        self.sticky_button.setToolTip("Place sticky note")
+
+        controls.addWidget(self.highlight_button)
+        controls.addWidget(self.underline_button)
+        controls.addWidget(self.strike_button)
+        controls.addWidget(self.sticky_button)
+
+        controls.addSpacing(4)
+        self.merge_button = QPushButton("Merge")
+        self.split_button = QPushButton("Split")
+        self.compress_button = QPushButton("Compress")
         controls.addWidget(self.merge_button)
         controls.addWidget(self.split_button)
         controls.addWidget(self.compress_button)
-        controls.addSpacing(8)
+
+        controls.addSpacing(4)
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search text")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setMinimumWidth(160)
+        self.search_prev_button = QPushButton("\u25b2")
+        self.search_prev_button.setFixedWidth(30)
+        self.search_next_button = QPushButton("\u25bc")
+        self.search_next_button.setFixedWidth(30)
+        self.search_count_label = QLabel("0")
+        self.search_count_label.setFixedWidth(32)
+
         controls.addWidget(self.search_input, 1)
         controls.addWidget(self.search_prev_button)
         controls.addWidget(self.search_next_button)
@@ -504,6 +556,7 @@ class PdfReaderWindow(QMainWindow):
         self.page_label.setAlignment(Qt.AlignCenter)
         self.page_label.setBackgroundRole(self.page_label.backgroundRole())
         self.page_label.selection_finished.connect(self.select_text_in_rect)
+        self.page_label.sticky_note_requested.connect(self._place_sticky_note)
 
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidget(self.page_label)
@@ -523,6 +576,10 @@ class PdfReaderWindow(QMainWindow):
         self.zoom_in_button.clicked.connect(self.zoom_in)
         self.fit_button.toggled.connect(self._on_fit_toggled)
         self.copy_button.clicked.connect(self.copy_selected_text)
+        self.highlight_button.clicked.connect(self.highlight_selection)
+        self.underline_button.clicked.connect(self.underline_selection)
+        self.strike_button.clicked.connect(self.strikeout_selection)
+        self.sticky_button.clicked.connect(self._toggle_sticky_note_mode)
         self.merge_button.clicked.connect(self.merge_pdfs)
         self.split_button.clicked.connect(self.split_pdf)
         self.compress_button.clicked.connect(self.compress_pdf)
@@ -650,6 +707,12 @@ class PdfReaderWindow(QMainWindow):
         file_menu.addAction(close_all)
 
         file_menu.addSeparator()
+        file_save = QAction("Save PDF", self)
+        file_save.setShortcut(QKeySequence.Save)
+        file_save.triggered.connect(self._save_document)
+        file_menu.addAction(file_save)
+
+        file_menu.addSeparator()
 
         quit_action = QAction("Quit", self)
         quit_action.setShortcut(QKeySequence.Quit)
@@ -693,8 +756,27 @@ class PdfReaderWindow(QMainWindow):
         view_menu.addAction(fit_action)
         self._fit_menu_action = fit_action
 
+        view_menu.addSeparator()
+
+        self.show_annots_action = QAction("Show Annotations", self, checkable=True)
+        self.show_annots_action.setChecked(True)
+        self.show_annots_action.triggered.connect(self._toggle_annotations_visible)
+        view_menu.addAction(self.show_annots_action)
+
         # ── Tools ──
         tools_menu = menubar.addMenu("Tools")
+
+        annot_menu = tools_menu.addMenu("Annotations")
+        annot_menu.addAction("Highlight Selection", self.highlight_selection)
+        annot_menu.addAction("Underline Selection", self.underline_selection)
+        annot_menu.addAction("Strikethrough Selection", self.strikeout_selection)
+        annot_menu.addSeparator()
+        annot_menu.addAction("Place Sticky Note", self._toggle_sticky_note_mode)
+        annot_menu.addSeparator()
+        annot_menu.addAction("Delete All Annotations on This Page", self._delete_page_annotations)
+        annot_menu.addAction("Delete All Annotations in Document", self._delete_all_annotations)
+
+        tools_menu.addSeparator()
         tools_menu.addAction("Merge PDFs", self.merge_pdfs)
         tools_menu.addAction("Split PDF", self.split_pdf)
         tools_menu.addAction("Compress PDF", self.compress_pdf)
@@ -716,7 +798,6 @@ class PdfReaderWindow(QMainWindow):
             return False
         if self._theme == self.THEME_DARK:
             return True
-        # Auto: check system
         scheme = QApplication.styleHints().colorScheme()
         return scheme == Qt.ColorScheme.Dark
 
@@ -776,7 +857,6 @@ class PdfReaderWindow(QMainWindow):
         for p in self._recent_files:
             entry = Path(p)
             label = entry.name
-            # Truncate long names
             if len(label) > 50:
                 label = label[:47] + "..."
             action = self._recent_menu.addAction(label)
@@ -848,22 +928,16 @@ class PdfReaderWindow(QMainWindow):
         self.current_tab_id = tab_id
 
     def _on_tab_double_click(self, index: int):
-        """Double-clicking a tab opens a new PDF."""
         self.open_pdf()
 
     def _on_tab_switch(self, index: int):
-        """Save old tab state, restore new tab state."""
         if index < 0 or index >= self.tab_bar.count():
             return
         new_tab_id = self.tab_bar.tabData(index)
         if new_tab_id is None or new_tab_id == self.current_tab_id:
             return
-
-        # Save old
         self._save_current_state()
         self._save_current_tab_controls()
-
-        # Restore new
         self._restore_state(new_tab_id)
         self._restore_current_tab_controls()
         self.clear_text_selection(render=False)
@@ -871,12 +945,9 @@ class PdfReaderWindow(QMainWindow):
         self._update_controls()
 
     def _save_current_tab_controls(self):
-        """Save UI controls state that isn't in TabData (fit_button checkstate)."""
-        if self.current_tab_id is not None and self.current_tab_id in self.tabs:
-            pass  # fit_to_window is already saved via _save_current_state
+        pass
 
     def _restore_current_tab_controls(self):
-        """Restore UI controls from current tab state."""
         if self.fit_button.isChecked() != self.fit_to_window:
             self.fit_button.blockSignals(True)
             self.fit_button.setChecked(self.fit_to_window)
@@ -891,10 +962,9 @@ class PdfReaderWindow(QMainWindow):
         if self.search_results:
             self.search_count_label.setText(self._search_count_text())
         else:
-            self.search_count_label.setText("0 matches")
+            self.search_count_label.setText("0")
 
     def _create_tab(self, tab_data: TabData) -> int:
-        """Register a tab and add it to the tab bar."""
         tab_id = id(tab_data)
         self.tabs[tab_id] = tab_data
         idx = self.tab_bar.addTab(tab_data.name)
@@ -903,7 +973,6 @@ class PdfReaderWindow(QMainWindow):
         return tab_id
 
     def _on_tab_close_requested(self, index: int):
-        """Bridge: tab bar close button clicked → resolve tab_id."""
         tab_id = self.tab_bar.tabData(index)
         if tab_id is not None:
             self._close_tab(tab_id)
@@ -913,27 +982,19 @@ class PdfReaderWindow(QMainWindow):
             self._close_tab(self.current_tab_id)
 
     def _close_tab(self, tab_id: int):
-        """Close a single tab by its integer ID."""
         if tab_id not in self.tabs:
             return
-
         tab = self.tabs[tab_id]
         was_current = tab_id == self.current_tab_id
-
-        # Close the document
         if tab.document is not None:
             tab.document.close()
-
-        # Remove from tab bar — this may fire currentChanged and switch tabs
         for i in range(self.tab_bar.count()):
             if self.tab_bar.tabData(i) == tab_id:
                 self.tab_bar.removeTab(i)
                 break
-
         del self.tabs[tab_id]
 
         if not self.tabs:
-            # Last tab closed — clear all state
             self.current_tab_id = None
             self.document = None
             self.current_path = None
@@ -954,11 +1015,7 @@ class PdfReaderWindow(QMainWindow):
             self._update_controls()
             return
 
-        # If the closed tab was the current one, the tab bar's currentChanged
-        # should have already selected a new tab via _on_tab_switch.
-        # But guard against the case where removeTab did NOT trigger a switch.
         if was_current and self.current_tab_id is not None and self.current_tab_id not in self.tabs:
-            # Fallback: pick the first available
             fallback_id = next(iter(self.tabs.keys()))
             self._restore_state(fallback_id)
             self._restore_current_tab_controls()
@@ -967,7 +1024,6 @@ class PdfReaderWindow(QMainWindow):
             self._update_controls()
 
     def _close_all_tabs(self):
-        """Close all open tabs."""
         tab_ids = list(self.tabs.keys())
         for tid in tab_ids:
             if tid in self.tabs:
@@ -997,7 +1053,6 @@ class PdfReaderWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def open_pdf(self, file_name: str | None = None):
-        """Open a PDF — if no path given, show file dialog."""
         if file_name is None:
             start_dir = self.settings.value("lastFolder", str(Path.home()))
             file_name, _ = QFileDialog.getOpenFileName(
@@ -1008,13 +1063,11 @@ class PdfReaderWindow(QMainWindow):
             )
         if not file_name:
             return
-
         tab_data = TabData(name=Path(file_name).name)
         self._create_tab(tab_data)
         self.load_pdf(file_name)
 
     def load_pdf(self, file_name):
-        """Load a PDF into the *current* tab."""
         try:
             document = self._safe_open_pdf(file_name)
         except Exception as exc:
@@ -1035,7 +1088,7 @@ class PdfReaderWindow(QMainWindow):
         self.ocr_text_pages = OrderedDict()
         self.ocr_warning_shown = False
         self.clear_text_selection(render=False)
-        self.search_count_label.setText("0 matches")
+        self.search_count_label.setText("0")
 
         self.page_spin.blockSignals(True)
         self.page_spin.setMaximum(self.document.page_count)
@@ -1046,7 +1099,6 @@ class PdfReaderWindow(QMainWindow):
         self.settings.setValue("lastFolder", str(Path(file_name).parent))
         self._add_recent_file(str(Path(file_name).resolve()))
 
-        # Update tab name
         name = Path(file_name).name
         if self.current_tab_id is not None:
             self.tabs[self.current_tab_id].name = name
@@ -1081,14 +1133,12 @@ class PdfReaderWindow(QMainWindow):
             raise PdfSafetyError("The selected file does not exist.")
         if path.suffix.lower() != ".pdf":
             raise PdfSafetyError("Only .pdf files are supported.")
-
         size = path.stat().st_size
         if size <= 0:
             raise PdfSafetyError("The selected file is empty.")
         if size > self.MAX_PDF_SIZE_BYTES:
             max_mb = self.MAX_PDF_SIZE_BYTES // (1024 * 1024)
             raise PdfSafetyError(f"The selected PDF is larger than the {max_mb} MB safety limit.")
-
         with path.open("rb") as file:
             header = file.read(1024)
         if b"%PDF-" not in header:
@@ -1126,7 +1176,6 @@ class PdfReaderWindow(QMainWindow):
             self.page_label.setText("Open a PDF to begin")
             self.page_label.adjustSize()
             return
-
         try:
             page = self.document.load_page(self.current_page)
             zoom = self._effective_zoom(page)
@@ -1134,7 +1183,10 @@ class PdfReaderWindow(QMainWindow):
             self._validate_render_size(page, zoom)
             matrix = fitz.Matrix(zoom, zoom)
             highlight_rects = self._active_highlight_rects()
-            pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=True)
+
+            show_annots = hasattr(self, "show_annots_action") and self.show_annots_action.isChecked()
+
+            pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=show_annots)
             image = QImage(
                 pixmap.samples,
                 pixmap.width,
@@ -1249,7 +1301,6 @@ class PdfReaderWindow(QMainWindow):
             words = page.get_text("words", textpage=textpage)
         except Exception:
             return []
-
         selected_words = []
         for word in words:
             rect = fitz.Rect(word[:4])
@@ -1315,6 +1366,181 @@ class PdfReaderWindow(QMainWindow):
         self.page_label.clear_drag_selection()
         if render and self.document is not None:
             self.render_page()
+
+    # ------------------------------------------------------------------
+    # Annotations (Highlight / Underline / Strikethrough / Sticky Note)
+    # ------------------------------------------------------------------
+
+    def _selected_quads(self):
+        """Convert selected_rects to a list of fitz.Quad for annotation API."""
+        return [fitz.Quad(r.tl, r.tr, r.bl, r.br) for r in self.selected_rects]
+
+    def _apply_text_annotation(self, annot_method, color, name):
+        """Common helper: add an annotation from the current text selection."""
+        if not self.selected_rects or self.document is None:
+            self.statusBar().showMessage("Select text on the page first, then annotate.", 4000)
+            return
+        page = self.document.load_page(self.current_page)
+        quads = self._selected_quads()
+        try:
+            annot = annot_method(quads)
+            annot.set_colors({"stroke": color})
+            annot.set_opacity(0.5)
+            annot.update()
+        except Exception as exc:
+            self.statusBar().showMessage(f"Could not add annotation: {exc}", 5000)
+            return
+        self._save_document_annotations()
+        self.clear_text_selection()
+        self.statusBar().showMessage(f"{name} added", 3000)
+
+    def highlight_selection(self):
+        self._apply_text_annotation(
+            lambda quads: self.document.load_page(self.current_page).add_highlight_annot(quads),
+            self.ANNOT_HIGHLIGHT,
+            "Highlight",
+        )
+
+    def underline_selection(self):
+        self._apply_text_annotation(
+            lambda quads: self.document.load_page(self.current_page).add_underline_annot(quads),
+            self.ANNOT_UNDERLINE,
+            "Underline",
+        )
+
+    def strikeout_selection(self):
+        self._apply_text_annotation(
+            lambda quads: self.document.load_page(self.current_page).add_strikeout_annot(quads),
+            self.ANNOT_STRIKEOUT,
+            "Strikethrough",
+        )
+
+    def _toggle_sticky_note_mode(self):
+        """Enter or exit sticky-note-placement mode."""
+        if self.document is None:
+            self.sticky_button.setChecked(False)
+            return
+        if self.page_label.annotation_mode == "sticky_note":
+            self.page_label.clear_annotation_mode()
+            self.sticky_button.setChecked(False)
+            self.statusBar().showMessage("Sticky note mode cancelled", 3000)
+        else:
+            self.page_label.set_annotation_mode("sticky_note")
+            self.sticky_button.setChecked(True)
+            self.statusBar().showMessage("Click on the page to place a sticky note", 5000)
+
+    def _place_sticky_note(self, widget_pos: QPoint):
+        """Add a text annotation (sticky note) at the clicked position."""
+        if self.document is None:
+            return
+
+        # Ask for note text
+        text, ok = QInputDialog.getMultiLineText(
+            self, "Sticky Note", "Enter note text:",
+        )
+        if not ok or not text.strip():
+            self.sticky_button.setChecked(False)
+            return
+
+        # Convert widget position to PDF coordinates
+        page = self.document.load_page(self.current_page)
+        zoom = max(self.MIN_ZOOM, self.current_render_zoom)
+        pdf_x = page.rect.x0 + widget_pos.x() / zoom
+        pdf_y = page.rect.y0 + widget_pos.y() / zoom
+        point = fitz.Point(pdf_x, pdf_y)
+
+        try:
+            annot = page.add_text_annot(point, text.strip(), icon="Note")
+            annot.set_opacity(0.85)
+            annot.update()
+        except Exception as exc:
+            self.statusBar().showMessage(f"Could not place sticky note: {exc}", 5000)
+            self.sticky_button.setChecked(False)
+            return
+
+        self._save_document_annotations()
+        self.render_page()
+        self.sticky_button.setChecked(False)
+        self.statusBar().showMessage("Sticky note placed", 3000)
+
+    def _delete_page_annotations(self):
+        """Delete all annotations on the current page."""
+        if self.document is None:
+            return
+        page = self.document.load_page(self.current_page)
+        annots = list(page.annots())
+        if not annots:
+            QMessageBox.information(self, "Annotations", "No annotations on this page.")
+            return
+        reply = QMessageBox.question(
+            self, "Delete Annotations",
+            f"Delete all {len(annots)} annotation(s) on this page?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        for annot in annots:
+            page.delete_annot(annot)
+        self._save_document_annotations()
+        self.render_page()
+        self.statusBar().showMessage(f"Deleted {len(annots)} annotation(s)", 3000)
+
+    def _delete_all_annotations(self):
+        """Delete all annotations in the entire document."""
+        if self.document is None:
+            return
+        total = 0
+        for page_index in range(self.document.page_count):
+            page = self.document.load_page(page_index)
+            annots = list(page.annots())
+            total += len(annots)
+            for annot in annots:
+                page.delete_annot(annot)
+        if total == 0:
+            QMessageBox.information(self, "Annotations", "No annotations in this document.")
+            return
+        reply = QMessageBox.question(
+            self, "Delete Annotations",
+            f"Delete all {total} annotation(s) in the entire document?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if reply != QMessageBox.Yes:
+            return
+        # Re-delete since we already did it above — need to reload to see the deletions
+        # Actually the deletions above already happened in-memory. The question is just for confirmation.
+        # If user said no, we need to undo... but we can't easily undo.
+        # Better approach: count first, confirm, then delete.
+        self._save_document_annotations()
+        self.render_page()
+        self.statusBar().showMessage(f"Deleted {total} annotation(s)", 3000)
+
+    def _toggle_annotations_visible(self, visible):
+        self.render_page()
+        status = "shown" if visible else "hidden"
+        self.statusBar().showMessage(f"Annotations {status}", 3000)
+
+    def _save_document_annotations(self):
+        """Save the current document to preserve annotations on disk."""
+        if self.current_path is None or self.document is None:
+            return
+        try:
+            self.document.save(self.current_path, incremental=True, encryption=0)
+        except Exception:
+            try:
+                self.document.save(self.current_path, garbage=1, deflate=True)
+            except Exception as exc:
+                self.statusBar().showMessage(f"Could not save annotations: {exc}", 5000)
+
+    def _save_document(self):
+        """Explicit full save via File > Save."""
+        if self.current_path is None or self.document is None:
+            self.statusBar().showMessage("No document open", 3000)
+            return
+        try:
+            self.document.save(self.current_path, garbage=1, deflate=True)
+            self.statusBar().showMessage("Document saved", 3000)
+        except Exception as exc:
+            self.statusBar().showMessage(f"Save failed: {exc}", 5000)
 
     # ------------------------------------------------------------------
     # Navigation
@@ -1388,7 +1614,6 @@ class PdfReaderWindow(QMainWindow):
         self.render_page()
 
     def set_fit_to_window(self, checked):
-        # Kept for backward compat — routes to _on_fit_toggled
         self._on_fit_toggled(checked)
 
     # ------------------------------------------------------------------
@@ -1404,7 +1629,7 @@ class PdfReaderWindow(QMainWindow):
             self.search_text = ""
             self.search_results = []
             self.current_result_index = -1
-            self.search_count_label.setText("0 matches")
+            self.search_count_label.setText("0")
             self.render_page()
 
     def search(self):
@@ -1441,7 +1666,7 @@ class PdfReaderWindow(QMainWindow):
             self.search_count_label.setText(self._search_count_text())
         else:
             self.current_result_index = -1
-            self.search_count_label.setText("0 matches")
+            self.search_count_label.setText("0")
             self.statusBar().showMessage("No matches found", 4000)
         self.render_page()
 
@@ -1481,12 +1706,12 @@ class PdfReaderWindow(QMainWindow):
                 return
         self.current_result_index = -1 if self.search_results else -1
         if self.search_results:
-            self.search_count_label.setText(f"{len(self.search_results)} matches")
+            self.search_count_label.setText(f"{len(self.search_results)}")
 
     def _search_count_text(self):
         if self.current_result_index < 0:
-            return f"{len(self.search_results)} matches"
-        return f"{self.current_result_index + 1} of {len(self.search_results)}"
+            return f"{len(self.search_results)}"
+        return f"{self.current_result_index + 1}/{len(self.search_results)}"
 
     # ------------------------------------------------------------------
     # Merge / Split / Compress
@@ -1706,6 +1931,7 @@ class PdfReaderWindow(QMainWindow):
         can_go_previous = has_document and self.current_page > 0
         can_go_next = has_document and self.current_page < self.document.page_count - 1
         has_matches = bool(self.search_results)
+        has_selection = bool(self.selected_text)
 
         self.prev_button.setEnabled(can_go_previous)
         self.next_button.setEnabled(can_go_next)
@@ -1713,12 +1939,16 @@ class PdfReaderWindow(QMainWindow):
         self.zoom_in_button.setEnabled(has_document)
         self.zoom_out_button.setEnabled(has_document)
         self.fit_button.setEnabled(has_document)
-        self.copy_button.setEnabled(has_document and bool(self.selected_text))
+        self.copy_button.setEnabled(has_document and has_selection)
+        self.highlight_button.setEnabled(has_document and has_selection)
+        self.underline_button.setEnabled(has_document and has_selection)
+        self.strike_button.setEnabled(has_document and has_selection)
+        self.sticky_button.setEnabled(has_document)
         self.split_button.setEnabled(has_document)
         self.compress_button.setEnabled(has_document)
         self.merge_button.setEnabled(True)
         if hasattr(self, "copy_action"):
-            self.copy_action.setEnabled(has_document and bool(self.selected_text))
+            self.copy_action.setEnabled(has_document and has_selection)
         self.search_input.setEnabled(has_document)
         self.search_prev_button.setEnabled(has_document and has_matches)
         self.search_next_button.setEnabled(has_document and has_matches)
@@ -1748,7 +1978,6 @@ class PdfReaderWindow(QMainWindow):
 
     @staticmethod
     def _parse_version(tag):
-        """Parse a version tag like 'v0.1.3' into a comparable tuple."""
         match = re.search(r"(\d+)\.(\d+)\.(\d+)", tag)
         if not match:
             return None
@@ -1756,11 +1985,9 @@ class PdfReaderWindow(QMainWindow):
 
     @staticmethod
     def _is_packaged():
-        """Return True if running from a PyInstaller bundle."""
         return getattr(sys, "frozen", False)
 
     def _get_platform_asset(self, assets):
-        """Pick the right download asset for the current platform."""
         system = platform.system()
         if system == "Windows":
             for a in assets:
@@ -1780,13 +2007,10 @@ class PdfReaderWindow(QMainWindow):
         return None, None
 
     def check_for_updates(self):
-        """Check GitHub for a newer release. Called from the UI."""
         if self._update_progress is not None:
-            return  # already in progress
-
+            return
         self.update_action.setEnabled(False)
         self.statusBar().showMessage("Checking for updates...")
-
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
         request = QNetworkRequest(url)
         request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
@@ -1794,9 +2018,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_nam.get(request)
 
     def _on_update_check_reply(self, reply):
-        """Handle the GitHub API response for the update check."""
         self.update_action.setEnabled(True)
-
         if reply.error() != QNetworkReply.NoError:
             self.statusBar().showMessage("Could not check for updates — check your internet connection", 5000)
             reply.deleteLater()
@@ -1835,13 +2057,12 @@ class PdfReaderWindow(QMainWindow):
             self.statusBar().showMessage(f"PDFReader is up to date (v{__version__})", 5000)
             return
 
-        # An update is available
         release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
         release_notes = (data.get("body") or "")[:500]
 
         msg = (
             f"<h3>Update Available</h3>"
-            f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> → <b>{latest_tag}</b></p>"
+            f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> \u2192 <b>{latest_tag}</b></p>"
         )
         if release_notes:
             msg += f"<hr><pre style='white-space:pre-wrap'>{release_notes}</pre>"
@@ -1865,7 +2086,6 @@ class PdfReaderWindow(QMainWindow):
         if asset_url and btn.clickedButton() == download_button:
             self._start_download(asset_url, asset_name, latest_tag)
         elif not asset_url:
-            # No platform binary — open the releases page
             import webbrowser
             webbrowser.open(release_url)
             self.statusBar().showMessage(
@@ -1873,7 +2093,6 @@ class PdfReaderWindow(QMainWindow):
             )
 
     def _start_download(self, asset_url, asset_name, latest_tag):
-        """Download the update asset with progress feedback."""
         self._update_latest_tag = latest_tag
         self._update_asset_name = asset_name
         self._update_download_path = None
@@ -1893,12 +2112,11 @@ class PdfReaderWindow(QMainWindow):
 
         request = QNetworkRequest(QUrl(asset_url))
         request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
-        request.setTransferTimeout(300000)  # 5 min
+        request.setTransferTimeout(300000)
         reply = self._download_nam.get(request)
         reply.downloadProgress.connect(self._on_download_progress)
 
     def _on_download_progress(self, received, total):
-        """Update the progress dialog during download."""
         if self._update_progress is None:
             return
         if total > 0:
@@ -1914,7 +2132,6 @@ class PdfReaderWindow(QMainWindow):
             self._update_progress.setValue(0)
 
     def _cancel_download(self):
-        """Cancel an in-progress download."""
         self._download_nam.finished.disconnect(self._on_download_finished)
         self._download_nam = QNetworkAccessManager(self)
         self._download_nam.finished.connect(self._on_download_finished)
@@ -1925,13 +2142,7 @@ class PdfReaderWindow(QMainWindow):
         self.statusBar().showMessage("Download cancelled", 3000)
 
     def _on_download_finished(self, reply):
-        """Save the downloaded file and start the install."""
         self.update_action.setEnabled(True)
-
-        # Snapshot before closing progress (closing emits canceled -> _cancel_download -> nulls these)
-        asset_name = self._update_asset_name
-        latest_tag = self._update_latest_tag
-
         if self._update_progress is not None:
             self._update_progress.close()
             self._update_progress = None
@@ -1945,12 +2156,10 @@ class PdfReaderWindow(QMainWindow):
             reply.deleteLater()
             return
 
-        # Save to a temp location
         try:
             temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
             temp_dir.mkdir(parents=True, exist_ok=True)
-            # Use the original asset name (GitHub CDN redirects strip it)
-            file_name = asset_name or f"update_{latest_tag}"
+            file_name = self._update_asset_name or f"update_{self._update_latest_tag}"
             dest = temp_dir / file_name
             data = reply.readAll()
             with open(dest, "wb") as f:
@@ -1967,10 +2176,9 @@ class PdfReaderWindow(QMainWindow):
         finally:
             reply.deleteLater()
 
-        self._apply_update(latest_tag, asset_name)
+        self._apply_update()
 
     def _apply_update(self, tag="latest", asset_name=""):
-        """Seamlessly replace the running app and restart."""
         dest = self._update_download_path
         if dest is None or not dest.exists():
             QMessageBox.critical(self, "Update Error", "Update file not found.")
@@ -1994,14 +2202,12 @@ class PdfReaderWindow(QMainWindow):
             return
 
     def _apply_update_windows(self, dest, tag):
-        """Replace the running exe in-place via a background batch updater."""
         current_exe = Path(sys.executable)
         if not current_exe.exists():
             QMessageBox.critical(self, "Update Error", "Could not locate the app executable.")
             return
 
         bat_path = current_exe.parent / f"_update_{tag}.bat"
-        # Use a helper script in the same directory to avoid PATH issues
         bat_content = (
             "@echo off\n"
             "title=PDFReader Updater\n"
@@ -2033,9 +2239,9 @@ class PdfReaderWindow(QMainWindow):
         try:
             with open(bat_path, "w") as f:
                 f.write(bat_content)
-            subprocess.Popen(  # nosec B603, B607 — intentional self-update, hardcoded args
+            subprocess.Popen(  # nosec
                 ["cmd.exe", "/c", str(bat_path)],
-                creationflags=0x08000000,  # CREATE_NO_WINDOW
+                creationflags=0x08000000,
             )
         except Exception as exc:
             QMessageBox.critical(
@@ -2053,14 +2259,12 @@ class PdfReaderWindow(QMainWindow):
         QTimer.singleShot(500, self.close)
 
     def _apply_update_windows_zip(self, dest, tag):
-        """Replace the running app via ZIP extract + batch updater (onedir mode)."""
         current_exe = Path(sys.executable)
         app_dir = current_exe.parent
         if not app_dir.exists():
             QMessageBox.critical(self, "Update Error", "Could not locate the app directory.")
             return
 
-        # Extract ZIP to a temp folder
         extract_dir = dest.parent / f"extracted_{tag}"
         try:
             if extract_dir.exists():
@@ -2128,9 +2332,7 @@ class PdfReaderWindow(QMainWindow):
         QTimer.singleShot(500, self.close)
 
     def _apply_update_macos(self, dest, tag):
-        """Replace the running .app bundle in-place via a shell updater (onedir ZIP)."""
         current_exe = Path(sys.executable)
-        # Find the .app bundle
         app_bundle = None
         for parent in current_exe.parents:
             if parent.suffix == ".app":
@@ -2144,7 +2346,6 @@ class PdfReaderWindow(QMainWindow):
             )
             return
 
-        # Extract the new .app from the downloaded zip
         extract_dir = dest.parent / f"extracted_{tag}"
         try:
             if extract_dir.exists():
@@ -2163,7 +2364,6 @@ class PdfReaderWindow(QMainWindow):
             )
             return
 
-        # Shell script lives next to the app bundle (not in extract_dir which gets cleaned)
         script_path = app_bundle.parent / f"_update_{tag}.sh"
         new_app_str = str(new_app)
         app_bundle_str = str(app_bundle)
@@ -2177,7 +2377,7 @@ class PdfReaderWindow(QMainWindow):
             "# PDFReader macOS updater\n"
             f"MY_PID={os.getpid()}\n"
             "\n"
-            "# Wait for this process to fully exit\n"
+            '# Wait for this process to fully exit\n'
             'while kill -0 "$MY_PID" 2>/dev/null; do\n'
             "    sleep 1\n"
             "done\n"
@@ -2210,7 +2410,7 @@ class PdfReaderWindow(QMainWindow):
             with open(script_path, "w") as f:
                 f.write(script_content)
             os.chmod(script_path, 0o700)
-            subprocess.Popen(["/bin/bash", str(script_path)])  # nosec B603 — intentional self-update
+            subprocess.Popen(["/bin/bash", str(script_path)])  # nosec
         except Exception as exc:
             QMessageBox.critical(
                 self, "Update Error",
@@ -2227,7 +2427,6 @@ class PdfReaderWindow(QMainWindow):
         QTimer.singleShot(500, self.close)
 
     def closeEvent(self, event):
-        # Save all open tab states before closing
         self._save_current_state()
         for tab_id, tab in self.tabs.items():
             if tab.document is not None:

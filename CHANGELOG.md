@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.0 - 2026-05-31
+
+- **Highlight and annotation tools.** Drag-select text and apply highlight, underline, or strikethrough. Sticky notes via click-to-place mode. All saved as native PDF annotations (not overlays). Colors: yellow highlight, blue underline, red strikethrough.
+- **Annotation auto-save.** Incremental PDF save after each annotation — no manual save needed.
+- **Annotation management.** Delete annotations per-page or per-document via Tools → Annotations menu. View → Show Annotations toggle to render/hide.
+- **Windows installer.** Inno Setup script at `installer/setup.iss` with `.pdf` file association, Start Menu entry, and desktop shortcut.
+- **Per-platform OCR guide.** Windows, macOS, and Linux Tesseract installation instructions in the README.
+- **Features table expanded.** New rows for multi-tab, annotations, dark mode, recent files, auto-update, installer.
+- **Repo description updated.** Reflects all current capabilities.
+
 ## v0.1.9 - 2026-05-31
 
 - **Dark mode.** System-aware Catppuccin Mocha theme with Auto/Light/Dark toggle in View → Theme.
