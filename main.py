@@ -983,7 +983,7 @@ class PdfReaderWindow(QMainWindow):
         if system == "Windows":
             for a in assets:
                 name = a.get("name", "")
-                if name.endswith(".exe"):
+                if name.endswith(".zip"):
                     return a["browser_download_url"], a["name"]
         elif system == "Darwin":
             is_arm = platform.machine() in ("arm64", "aarch64")
@@ -1185,9 +1185,9 @@ class PdfReaderWindow(QMainWindow):
         finally:
             reply.deleteLater()
 
-        self._apply_update(latest_tag)
+        self._apply_update(latest_tag, asset_name)
 
-    def _apply_update(self, tag="latest"):
+    def _apply_update(self, tag="latest", asset_name=""):
         """Seamlessly replace the running app and restart."""
         dest = self._update_download_path
         if dest is None or not dest.exists():
@@ -1199,6 +1199,8 @@ class PdfReaderWindow(QMainWindow):
 
         if system == "Windows" and dest.suffix.lower() == ".exe":
             self._apply_update_windows(dest, tag)
+        elif system == "Windows" and dest.suffix.lower() == ".zip":
+            self._apply_update_windows_zip(dest, tag)
         elif system == "Darwin" and dest.suffix.lower() == ".zip":
             self._apply_update_macos(dest, tag)
         else:
@@ -1230,13 +1232,17 @@ class PdfReaderWindow(QMainWindow):
             "    goto wait\n"
             ")\n"
             "\n"
-            f'copy /Y "{dest}" "{current_exe}" >nul\n'
+            "rem Extra buffer for Defender / cleanup\n"
+            "timeout /t 2 /nobreak >nul\n"
+            "\n"
+            ":retry\n"
+            f'copy /Y /V "{dest}" "{current_exe}" >nul\n'
             "if errorlevel 1 (\n"
-            "    echo Update failed.\n"
-            "    pause\n"
-            "    exit /b 1\n"
+            "    timeout /t 1 /nobreak >nul\n"
+            "    goto retry\n"
             ")\n"
             "\n"
+            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >nul 2>&1\n'
             f'start "" /D "{current_exe.parent}" "{current_exe}"\n'
             f'del "{dest}" >nul 2>&1\n'
             "del \"%~f0\" >nul 2>&1\n"
@@ -1248,6 +1254,81 @@ class PdfReaderWindow(QMainWindow):
             subprocess.Popen(  # nosec B603, B607 — intentional self-update, hardcoded args
                 ["cmd.exe", "/c", str(bat_path)],
                 creationflags=0x08000000,  # CREATE_NO_WINDOW
+            )
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Update Error",
+                f"Could not launch the update script.\n\n{exc}",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Update Starting",
+            "PDFReader will now close and update itself."
+            " It will reopen automatically in a moment.",
+        )
+        QTimer.singleShot(500, self.close)
+
+    def _apply_update_windows_zip(self, dest, tag):
+        """Replace the running app via ZIP extract + batch updater (onedir mode)."""
+        current_exe = Path(sys.executable)
+        app_dir = current_exe.parent
+        if not app_dir.exists():
+            QMessageBox.critical(self, "Update Error", "Could not locate the app directory.")
+            return
+
+        # Extract ZIP to a temp folder
+        extract_dir = dest.parent / f"extracted_{tag}"
+        try:
+            if extract_dir.exists():
+                import shutil
+                shutil.rmtree(extract_dir)
+            with zipfile.ZipFile(str(dest), "r") as zf:
+                zf.extractall(str(extract_dir))
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Update Error",
+                f"Could not extract the update.\n\n{exc}",
+            )
+            return
+
+        bat_path = app_dir / f"_update_{tag}.bat"
+        bat_content = (
+            "@echo off\n"
+            "title=PDFReader Updater\n"
+            "echo Updating PDFReader by Sparsh...\n"
+            "\n"
+            ":wait\n"
+            f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" >nul\n'
+            "if not errorlevel 1 (\n"
+            "    timeout /t 1 /nobreak >nul\n"
+            "    goto wait\n"
+            ")\n"
+            "\n"
+            f'xcopy /E /I /Y "{extract_dir}\\_internal" "{app_dir}\\_internal" >nul\n'
+            "if errorlevel 1 (\n"
+            "    exit /b 1\n"
+            ")\n"
+            "\n"
+            f'copy /Y /V "{extract_dir}\\PDFReader by Sparsh.exe" "{current_exe}" >nul\n'
+            "if errorlevel 1 (\n"
+            "    exit /b 1\n"
+            ")\n"
+            "\n"
+            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >nul 2>&1\n'
+            f'start "" "{current_exe}"\n'
+            f'rmdir /S /Q "{extract_dir}" >nul 2>&1\n'
+            f'del "{dest}" >nul 2>&1\n'
+            "del \"%~f0\" >nul 2>&1\n"
+        )
+
+        try:
+            with open(bat_path, "w") as f:
+                f.write(bat_content)
+            subprocess.Popen(  # nosec
+                ["cmd.exe", "/c", str(bat_path)],
+                creationflags=0x08000000,
             )
         except Exception as exc:
             QMessageBox.critical(

@@ -19,3 +19,16 @@
 - Save compressed PDF copies.
 - Custom app icon and PyInstaller Windows build.
 - macOS source build script and GitHub Actions macOS app build workflow.
+
+## v0.1.8 - 2026-05-31
+
+- **Switched PyInstaller from `--onefile` to `--onedir` mode.**
+  - The `_MEI*` temp-folder extraction caused `python311.dll` load failures on certain Windows configurations.
+  - With `--onedir`, all DLLs live in an `_internal\` folder next to the EXE — no extraction, no temp directory issues.
+- **ZIP-based releases.** Windows builds now produce a ZIP containing the EXE + `_internal\` folder.
+- **Auto-update overhaul.**
+  - Downloads a ZIP instead of a single EXE.
+  - Extracts, copies the `_internal\` folder and EXE over the current install, then restarts.
+  - Handles both `--onefile` (.exe) and `--onedir` (.zip) updates for backwards compatibility.
+- **Version injection fix.** CI now fetches tags so `git describe` works, giving each build its correct version.
+- **Removed workarounds.** Dropped `--runtime-tmpdir` and `Unblock-File` code — no longer needed without temp extraction.

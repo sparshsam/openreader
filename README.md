@@ -48,7 +48,7 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 
 | Platform | Download | Notes |
 |---|---|---|
-| Windows | `PDFReader.by.Sparsh.exe` | One-file executable. Python is not required. |
+| Windows | `PDFReader-by-Sparsh-Windows.zip` | Folder-based app (EXE + `_internal\`). Python is not required. Extract and run. |
 | macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | Unsigned app bundle. Gatekeeper may require manual approval. |
 | macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | Unsigned app bundle. Gatekeeper may require manual approval. |
 
@@ -133,7 +133,12 @@ Build the Windows executable:
 Output:
 
 ```text
-dist\PDFReader by Sparsh.exe
+dist\PDFReader by Sparsh\
+├── PDFReader by Sparsh.exe
+└── _internal\
+    ├── python311.dll
+    ├── PySide6\
+    └── ...
 ```
 
 ### macOS
@@ -182,7 +187,7 @@ Items in active or planned development.
 - **Highlight and annotation tools** — select, highlight, underline, and add sticky notes; saved as PDF annotations (not a separate overlay)
 - **Better OCR setup instructions** — clearer per-platform guidance for installing Tesseract OCR data
 - **Windows installer package** — a professional installer (Inno Setup or MSI) with file-association registration and Start Menu entry
-- **Auto-update integration** — in-app update checks against GitHub releases with one-click download and install
+- **Auto-update integration** ✅ — in-app update checks against GitHub releases with one-click download and install. Auto-updates from v0.1.6 onward.
 
 ### Mid-Term
 Ambitious but achievable additions that meaningfully expand the app's capabilities.
