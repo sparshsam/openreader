@@ -2,7 +2,7 @@ import json
 import os
 import platform
 import re
-import subprocess
+import subprocess  # nosec B404 — needed for self-update mechanism
 import sys
 import tempfile
 import zipfile
