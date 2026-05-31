@@ -13,7 +13,7 @@ def main():
     else:
         version = sys.argv[1]
 
-    with open("main.py") as f:
+    with open("main.py", encoding="utf-8") as f:
         src = f.read()
 
     src = re.sub(
@@ -22,7 +22,7 @@ def main():
         src,
     )
 
-    with open("main.py", "w") as f:
+    with open("main.py", "w", encoding="utf-8") as f:
         f.write(src)
 
     print(f"Injected version: {version}")
