@@ -137,6 +137,7 @@ class PdfReaderWindow(QMainWindow):
         self._download_nam.finished.connect(self._on_download_finished)
         self._update_progress = None  # QProgressDialog
         self._update_latest_tag = None
+        self._update_asset_name = None
         self._update_download_path = None
 
         self._build_ui()
@@ -1096,6 +1097,7 @@ class PdfReaderWindow(QMainWindow):
     def _start_download(self, asset_url, asset_name, latest_tag):
         """Download the update asset with progress feedback."""
         self._update_latest_tag = latest_tag
+        self._update_asset_name = asset_name
         self._update_download_path = None
 
         self._update_progress = QProgressDialog(
@@ -1140,6 +1142,7 @@ class PdfReaderWindow(QMainWindow):
         self._download_nam.finished.connect(self._on_download_finished)
         self._update_progress = None
         self._update_latest_tag = None
+        self._update_asset_name = None
         self.update_action.setEnabled(True)
         self.statusBar().showMessage("Download cancelled", 3000)
 
@@ -1164,7 +1167,8 @@ class PdfReaderWindow(QMainWindow):
         try:
             temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
             temp_dir.mkdir(parents=True, exist_ok=True)
-            file_name = Path(reply.url().path()).name or f"update_{self._update_latest_tag}"
+            # Use the original asset name (GitHub CDN redirects strip it)
+            file_name = self._update_asset_name or f"update_{self._update_latest_tag}"
             dest = temp_dir / file_name
             data = reply.readAll()
             with open(dest, "wb") as f:
