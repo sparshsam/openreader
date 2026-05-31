@@ -1237,7 +1237,8 @@ class PdfReaderWindow(QMainWindow):
             "    exit /b 1\n"
             ")\n"
             "\n"
-            f'start "" "{current_exe}"\n'
+            f'powershell -Command "Unblock-File -Path \"{current_exe}\"" >nul 2>&1\n'
+            f'start "" /D "{current_exe.parent}" "{current_exe}"\n'
             f'del "{dest}" >nul 2>&1\n'
             "del \"%~f0\" >nul 2>&1\n"
         )
