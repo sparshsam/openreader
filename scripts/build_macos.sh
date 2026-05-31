@@ -3,6 +3,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
+# Inject version from latest git tag
+VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")
+VERSION="${VERSION#v}"
+echo "__version__ = \"${VERSION}\"" > version.py
+
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 is required. Install Python 3.11 or newer from https://www.python.org/downloads/macos/."
   exit 1
@@ -34,4 +39,4 @@ fi
   "${ICON_ARGS[@]}" \
   main.py
 
-echo "Built dist/PDFReader by Sparsh.app"
+echo "Built dist/PDFReader by Sparsh.app (version ${VERSION})"
