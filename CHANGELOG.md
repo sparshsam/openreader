@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.3.2 - 2026-06-05
+
+- Fixed Windows auto-update downloads losing release asset metadata and saving as `update_None`.
+- Bound updater download metadata directly to each `QNetworkReply`.
+- Saved Windows updater downloads using the canonical `PDFReader-by-Sparsh-Windows.zip` filename.
+- Added diagnostic updater logging in `%TEMP%\PDFReader-Updates\updater-debug.log`.
+- Added regression checks for updater asset selection, metadata validation, and Windows ZIP routing.
+
 ## v0.3.1 - 2026-06-05
 
 - Added tag-driven GitHub Release publishing workflow with canonical updater asset names.

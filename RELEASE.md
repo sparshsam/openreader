@@ -82,3 +82,31 @@ Or via the same API used by the app:
 ```bash
 curl https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 ```
+
+## Troubleshooting
+
+### `update_None` Appears
+
+Problem:
+
+The updater reports that an update was saved to a path like:
+
+```text
+%TEMP%\PDFReader-Updates\update_None
+```
+
+Cause:
+
+Older updater builds could lose download metadata before the download-finished
+handler ran. When the asset name or release tag was missing, the updater
+synthesized a fallback filename from shared mutable fields instead of preserving
+the selected release asset name.
+
+Resolution:
+
+The updater now binds immutable metadata directly to the `QNetworkReply` with
+`asset_name` and `latest_tag` properties. The download-finished handler reads
+those reply properties, saves Windows updates only as
+`PDFReader-by-Sparsh-Windows.zip`, and fails loudly if metadata is missing.
+Windows ZIP updates are routed only when the canonical Windows asset name is
+present, preventing silent manual-install fallbacks.
