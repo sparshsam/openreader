@@ -42,7 +42,7 @@ jobs:
           Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
       - name: Upload Windows release asset
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-windows
           path: PDFReader-by-Sparsh-Windows.zip
@@ -90,7 +90,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.asset-name }}"
 
       - name: Upload macOS release asset
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.asset-name }}
           path: ${{ matrix.asset-name }}
