@@ -26,8 +26,11 @@ jobs:
       - name: Inject version from git tag
         shell: bash
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")
-          VERSION="${VERSION#v}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0-dev"
+          fi
           python scripts/inject_version.py "$VERSION"
 
       - name: Install dependencies

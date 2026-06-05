@@ -48,6 +48,9 @@ from PySide6.QtWidgets import (
 
 __version__ = "0.3.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
+WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
+MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
+MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
 
@@ -2034,22 +2037,20 @@ class PdfReaderWindow(QMainWindow):
         return getattr(sys, "frozen", False)
 
     def _get_platform_asset(self, assets):
+        assets_by_name = {a.get("name", ""): a for a in assets}
         system = platform.system()
         if system == "Windows":
-            for a in assets:
-                name = a.get("name", "")
-                if name.endswith(".zip"):
-                    return a["browser_download_url"], a["name"]
+            asset = assets_by_name.get(WINDOWS_UPDATE_ASSET)
+            if asset:
+                return asset["browser_download_url"], asset["name"]
         elif system == "Darwin":
             is_arm = platform.machine() in ("arm64", "aarch64")
-            for a in assets:
-                name = a.get("name", "")
-                if is_arm and "Apple-Silicon" in name and name.endswith(".zip"):
-                    return a["browser_download_url"], a["name"]
-            for a in assets:
-                name = a.get("name", "")
-                if "macOS" in name and name.endswith(".zip"):
-                    return a["browser_download_url"], a["name"]
+            expected_name = (
+                MACOS_APPLE_SILICON_UPDATE_ASSET if is_arm else MACOS_INTEL_UPDATE_ASSET
+            )
+            asset = assets_by_name.get(expected_name)
+            if asset:
+                return asset["browser_download_url"], asset["name"]
         return None, None
 
     def check_for_updates(self):

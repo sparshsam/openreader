@@ -54,6 +54,8 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
+Packaged builds check the latest GitHub Release for updates. Source builds are intended to be updated with `git pull` and rebuilt locally.
+
 ## Features
 
 | Category | Capabilities |
@@ -72,8 +74,8 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 | Desktop integration | Windows installer with `.pdf` file association, Start Menu, and desktop shortcut |
 | Dark mode | System-aware dark theme (Catppuccin Mocha) with Auto/Light/Dark toggle |
 | Recent files | Quick access to the last 10 opened PDFs via File → Open Recent |
-| Auto-update | In-app update checks against GitHub releases with one-click download and install |
-| Release engineering | PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer, self-update mechanism |
+| Auto-update | Packaged builds check GitHub Releases and update from canonical release ZIP assets |
+| Release engineering | Tag-driven GitHub Release publishing, PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer, self-update mechanism |
 
 ## Screenshots
 
@@ -168,6 +170,26 @@ dist/PDFReader by Sparsh.app
 ```
 
 See [docs/macos.md](docs/macos.md) for macOS setup, Finder "Open With" notes, icon generation, OCR notes, and signing/notarization caveats.
+
+## Releases and Auto-Update
+
+Release assets are the canonical distribution path. GitHub Actions artifacts are CI outputs and are not visible to the in-app updater.
+
+The updater checks:
+
+```text
+https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
+```
+
+It expects these exact asset names on the latest GitHub Release:
+
+```text
+PDFReader-by-Sparsh-Windows.zip
+PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
+PDFReader-by-Sparsh-macOS-Intel.zip
+```
+
+See [RELEASE.md](RELEASE.md) for release instructions, version injection, updater discovery, and validation.
 
 ## Use as Default PDF App
 

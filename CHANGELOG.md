@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Added tag-driven GitHub Release publishing workflow with canonical updater asset names.
+- Updated updater platform asset selection to use exact release asset filenames.
+- Documented release/versioning, updater discovery, validation checklist, and agent maintenance rules.
+
 ## v0.3.0 - 2026-05-31
 
 - **Workspace session restoration.** Saves open PDF paths and page numbers on close. Restores on next launch (prompt or auto via File menu toggle).
