@@ -47,7 +47,7 @@ jobs:
           Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
       - name: Upload executable artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: PDFReader-by-Sparsh-Windows
           path: PDFReader-by-Sparsh-Windows.zip

@@ -57,7 +57,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.artifact-name }}.zip"
 
       - name: Upload app artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact-name }}
           path: ${{ matrix.artifact-name }}.zip
