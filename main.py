@@ -2036,6 +2036,48 @@ class PdfReaderWindow(QMainWindow):
     def _is_packaged():
         return getattr(sys, "frozen", False)
 
+    @staticmethod
+    def _updater_temp_dir():
+        temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
+        temp_dir.mkdir(parents=True, exist_ok=True)
+        return temp_dir
+
+    @classmethod
+    def _updater_log_path(cls):
+        return cls._updater_temp_dir() / "updater-debug.log"
+
+    @classmethod
+    def _log_update(cls, message):
+        try:
+            with open(cls._updater_log_path(), "a", encoding="utf-8") as f:
+                f.write(f"{message}\n")
+        except OSError:
+            pass
+
+    @staticmethod
+    def _select_update_apply_method(system, asset_name, dest):
+        suffix = Path(dest).suffix.lower()
+        if system == "Windows" and asset_name == WINDOWS_UPDATE_ASSET and suffix == ".zip":
+            return "windows_zip", ""
+        if system == "Darwin" and suffix == ".zip":
+            return "macos_zip", ""
+        diagnostic = (
+            "Unsupported update package.\n\n"
+            f"System: {system}\n"
+            f"Asset: {asset_name or '<missing>'}\n"
+            f"Path: {dest}\n"
+            f"Suffix: {suffix or '<missing>'}"
+        )
+        return None, diagnostic
+
+    @staticmethod
+    def _validate_download_metadata(asset_name, latest_tag):
+        if not asset_name:
+            return "Download metadata missing. The updater could not determine the release asset name."
+        if not latest_tag:
+            return "Download metadata missing. The updater could not determine the release tag."
+        return ""
+
     def _get_platform_asset(self, assets):
         assets_by_name = {a.get("name", ""): a for a in assets}
         system = platform.system()
@@ -2140,6 +2182,30 @@ class PdfReaderWindow(QMainWindow):
             )
 
     def _start_download(self, asset_url, asset_name, latest_tag):
+        system = platform.system()
+        self._log_update(f"current_version={__version__}")
+        self._log_update(f"latest_tag={latest_tag}")
+        self._log_update(f"selected_asset_name={asset_name}")
+        self._log_update(f"asset_url={asset_url}")
+        self._log_update(f"detected_os={system}")
+
+        validation_errors = []
+        if not asset_url:
+            validation_errors.append("missing asset URL")
+        if not asset_name:
+            validation_errors.append("missing asset name")
+        if not latest_tag:
+            validation_errors.append("missing release tag")
+        if system == "Windows" and asset_name != WINDOWS_UPDATE_ASSET:
+            validation_errors.append(
+                f"Windows updater expected {WINDOWS_UPDATE_ASSET}, got {asset_name or '<missing>'}"
+            )
+        if validation_errors:
+            message = "Cannot start update download:\n\n" + "\n".join(validation_errors)
+            self._log_update(f"failure={message}")
+            QMessageBox.critical(self, "Update Error", message)
+            return
+
         self._update_latest_tag = latest_tag
         self._update_asset_name = asset_name
         self._update_download_path = None
@@ -2161,6 +2227,8 @@ class PdfReaderWindow(QMainWindow):
         request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
         request.setTransferTimeout(300000)
         reply = self._download_nam.get(request)
+        reply.setProperty("asset_name", asset_name)
+        reply.setProperty("latest_tag", latest_tag)
         reply.downloadProgress.connect(self._on_download_progress)
 
     def _on_download_progress(self, received, total):
@@ -2194,7 +2262,21 @@ class PdfReaderWindow(QMainWindow):
             self._update_progress.close()
             self._update_progress = None
 
+        asset_name = reply.property("asset_name")
+        latest_tag = reply.property("latest_tag")
+        metadata_error = self._validate_download_metadata(asset_name, latest_tag)
+        if metadata_error:
+            self._log_update("failure=download metadata missing")
+            QMessageBox.critical(
+                self,
+                "Update Error",
+                metadata_error,
+            )
+            reply.deleteLater()
+            return
+
         if reply.error() != QNetworkReply.NoError:
+            self._log_update(f"failure=download failed: {reply.errorString()}")
             QMessageBox.critical(
                 self,
                 "Download Failed",
@@ -2204,15 +2286,15 @@ class PdfReaderWindow(QMainWindow):
             return
 
         try:
-            temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
-            temp_dir.mkdir(parents=True, exist_ok=True)
-            file_name = self._update_asset_name or f"update_{self._update_latest_tag}"
-            dest = temp_dir / file_name
+            temp_dir = self._updater_temp_dir()
+            dest = temp_dir / asset_name
+            self._log_update(f"download_destination={dest}")
             data = reply.readAll()
             with open(dest, "wb") as f:
                 f.write(bytes(data))
             self._update_download_path = dest
         except Exception as exc:
+            self._log_update(f"failure=could not save download: {exc}")
             QMessageBox.critical(
                 self,
                 "Download Failed",
@@ -2223,29 +2305,26 @@ class PdfReaderWindow(QMainWindow):
         finally:
             reply.deleteLater()
 
-        self._apply_update()
+        self._apply_update(dest, latest_tag, asset_name)
 
-    def _apply_update(self, tag="latest", asset_name=""):
-        dest = self._update_download_path
+    def _apply_update(self, dest: Path, latest_tag: str, asset_name: str):
         if dest is None or not dest.exists():
+            self._log_update("failure=update file not found")
             QMessageBox.critical(self, "Update Error", "Update file not found.")
             return
 
         system = platform.system()
-        tag = tag or "latest"
+        self._log_update(f"detected_os={system}")
+        method, diagnostic = self._select_update_apply_method(system, asset_name, dest)
+        self._log_update(f"selected_apply_method={method or 'unsupported'}")
 
-        if system == "Windows" and dest.suffix.lower() == ".exe":
-            self._apply_update_windows(dest, tag)
-        elif system == "Windows" and dest.suffix.lower() == ".zip":
-            self._apply_update_windows_zip(dest, tag)
-        elif system == "Darwin" and dest.suffix.lower() == ".zip":
-            self._apply_update_macos(dest, tag)
+        if method == "windows_zip":
+            self._apply_update_windows_zip(dest, latest_tag)
+        elif method == "macos_zip":
+            self._apply_update_macos(dest, latest_tag)
         else:
-            QMessageBox.information(
-                self,
-                "Update Downloaded",
-                f"The update has been saved to:\n\n{dest}\n\nPlease install it manually.",
-            )
+            self._log_update(f"failure={diagnostic}")
+            QMessageBox.critical(self, "Update Error", diagnostic)
             return
 
     def _apply_update_windows(self, dest, tag):
@@ -2310,10 +2389,12 @@ class PdfReaderWindow(QMainWindow):
         current_exe = Path(sys.executable)
         app_dir = current_exe.parent
         if not app_dir.exists():
+            self._log_update("failure=could not locate app directory")
             QMessageBox.critical(self, "Update Error", "Could not locate the app directory.")
             return
 
         extract_dir = dest.parent / f"extracted_{tag}"
+        self._log_update(f"extract_directory={extract_dir}")
         try:
             if extract_dir.exists():
                 import shutil
@@ -2321,14 +2402,16 @@ class PdfReaderWindow(QMainWindow):
             with zipfile.ZipFile(str(dest), "r") as zf:
                 zf.extractall(str(extract_dir))
         except Exception as exc:
+            self._log_update(f"failure=could not extract update: {exc}")
             QMessageBox.critical(
                 self, "Update Error",
                 f"Could not extract the update.\n\n{exc}",
             )
             return
 
-        log_path = app_dir / f"_update_{tag}.log"
+        log_path = self._updater_log_path()
         bat_path = app_dir / f"_update_{tag}.bat"
+        self._log_update(f"batch_script_path={bat_path}")
         bat_content = (
             "@echo off\n"
             "title=PDFReader Updater\n"
@@ -2384,7 +2467,6 @@ class PdfReaderWindow(QMainWindow):
             f'rmdir /S /Q "{extract_dir}" >>\"%LOG%\" 2>&1\n'
             f'del "{dest}" >>\"%LOG%\" 2>&1\n'
             "del \"%~f0\" >nul 2>&1\n"
-            f'del "{log_path}" >nul 2>&1\n'
             "exit /b 0\n"
             "\n"
             ":fail\n"
@@ -2401,7 +2483,9 @@ class PdfReaderWindow(QMainWindow):
                 ["cmd.exe", "/c", str(bat_path)],
                 creationflags=0x08000000,
             )
+            self._log_update("success=launched Windows ZIP updater")
         except Exception as exc:
+            self._log_update(f"failure=could not launch update script: {exc}")
             QMessageBox.critical(
                 self, "Update Error",
                 f"Could not launch the update script.\n\n{exc}",
