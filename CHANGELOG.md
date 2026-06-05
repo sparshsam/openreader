@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v0.3.1 - 2026-06-05
 
 - Added tag-driven GitHub Release publishing workflow with canonical updater asset names.
 - Updated updater platform asset selection to use exact release asset filenames.
