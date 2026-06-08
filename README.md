@@ -330,3 +330,15 @@ This project is one piece of that broader picture. The immediate goal is a genui
 ## Contributing
 
 Contributions are welcome for non-commercial use cases. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) before opening issues or pull requests.
+
+---
+
+*Last updated: June 2026*
+
+## Tech Stack
+
+| Layer | Choice |
+|-------|--------|
+| Language | Python |
+| Platform | Cross-platform (Windows, macOS) |
+| UI | Desktop native |
