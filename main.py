@@ -2234,7 +2234,7 @@ class PdfReaderWindow(QMainWindow):
             QMessageBox.information(
                 self,
                 "Up to Date",
-                f"You're running {__version__}, which is the latest version.",
+                f"You're already running the latest version of PDFReader (v{__version__}).",
             )
             self.statusBar().showMessage(result["message"], 5000)
             return

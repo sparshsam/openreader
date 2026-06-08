@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4 - Unreleased
+## v0.3.4 - 2026-06-08
 
 - Fixed post-update check messaging so already-current builds show an up-to-date message instead of a generic connection error.
 - Added HTTP status code inspection to distinguish network failures from HTTP errors (403 rate limit, 404 not found, 5xx server errors).
