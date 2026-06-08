@@ -2078,6 +2078,102 @@ class PdfReaderWindow(QMainWindow):
             return "Download metadata missing. The updater could not determine the release tag."
         return ""
 
+    @staticmethod
+    def _classify_update_response(
+        http_status, network_error, network_error_string, response_body, current_version_str
+    ):
+        """Classify an update check response into a structured result dict.
+
+        Returns:
+            outcome:  network_error | http_error | json_error | already_latest | update_available
+            message:  user-facing status bar message
+            latest_tag: str
+            latest_version: tuple or None
+            data:     parsed JSON dict or None
+        """
+        result = {
+            "outcome": None,
+            "message": "",
+            "latest_tag": "",
+            "latest_version": None,
+            "data": None,
+        }
+
+        # Network-level failure (connection refused, timeout, host not found)
+        if network_error and http_status is None:
+            result["outcome"] = "network_error"
+            result["message"] = "Could not check for updates — check your internet connection"
+            return result
+
+        # HTTP-level error (non-200 status)
+        if http_status is not None and http_status != 200:
+            if http_status == 403:
+                result["outcome"] = "http_error"
+                result["message"] = "Update check rate limited by GitHub. Please try again later."
+            elif http_status == 404:
+                result["outcome"] = "http_error"
+                result["message"] = "Latest release not found on GitHub."
+            elif http_status == 429:
+                result["outcome"] = "http_error"
+                result["message"] = "Update check rate limited. Please try again later."
+            else:
+                result["outcome"] = "http_error"
+                result["message"] = (
+                    f"Update check failed (HTTP {http_status}). Please try again later."
+                )
+            return result
+
+        # Network error even though we have HTTP status (unusual)
+        if network_error:
+            result["outcome"] = "network_error"
+            result["message"] = "Could not check for updates — check your internet connection"
+            return result
+
+        # Parse JSON response body
+        try:
+            data = json.loads(response_body)
+        except (json.JSONDecodeError, UnicodeDecodeError, ValueError):
+            result["outcome"] = "json_error"
+            result["message"] = "Update check failed — unexpected response from server"
+            return result
+
+        latest_tag = data.get("tag_name", "")
+        if not latest_tag:
+            result["outcome"] = "json_error"
+            result["message"] = "Update check failed — release metadata missing"
+            return result
+
+        latest_version = PdfReaderWindow._parse_version(latest_tag)
+        current_version = PdfReaderWindow._parse_version(current_version_str)
+
+        if latest_version is None:
+            result["outcome"] = "json_error"
+            result["message"] = (
+                f"Update check failed — could not parse release version: {latest_tag}"
+            )
+            result["latest_tag"] = latest_tag
+            return result
+
+        result["latest_tag"] = latest_tag
+        result["latest_version"] = latest_version
+        result["data"] = data
+
+        # Version comparison
+        if current_version is None:
+            result["outcome"] = "update_available"
+            result["message"] = f"Update available: {latest_tag}"
+            return result
+
+        if latest_version <= current_version:
+            result["outcome"] = "already_latest"
+            ver_str = ".".join(str(x) for x in current_version)
+            result["message"] = f"PDFReader is up to date (v{ver_str})"
+            return result
+
+        result["outcome"] = "update_available"
+        result["message"] = f"Update available: {latest_tag}"
+        return result
+
     def _get_platform_asset(self, assets):
         assets_by_name = {a.get("name", ""): a for a in assets}
         system = platform.system()
@@ -2108,43 +2204,47 @@ class PdfReaderWindow(QMainWindow):
 
     def _on_update_check_reply(self, reply):
         self.update_action.setEnabled(True)
-        if reply.error() != QNetworkReply.NoError:
-            self.statusBar().showMessage("Could not check for updates — check your internet connection", 5000)
+
+        http_status = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        network_error = reply.error() != QNetworkReply.NoError
+        network_error_string = reply.errorString()
+        response_body = bytes(reply.readAll()).decode("utf-8")
+
+        result = self._classify_update_response(
+            http_status, network_error, network_error_string, response_body, __version__
+        )
+
+        # Structured debug logging
+        self._log_update(f"update_check=http_status={http_status}")
+        self._log_update(f"update_check=network_error_code={reply.error()}")
+        self._log_update(f"update_check=network_error_string={network_error_string}")
+        self._log_update(f"update_check=outcome={result['outcome']}")
+        self._log_update(f"update_check=latest_tag={result['latest_tag']}")
+        self._log_update(f"update_check=current_version={__version__}")
+
+        if result["outcome"] in ("network_error", "http_error", "json_error"):
+            self.statusBar().showMessage(result["message"], 5000)
             reply.deleteLater()
             return
 
-        try:
-            data = json.loads(bytes(reply.readAll()).decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            self.statusBar().showMessage("Update check failed — unexpected response", 5000)
-            reply.deleteLater()
-            return
-        finally:
-            reply.deleteLater()
+        reply.deleteLater()
 
-        latest_tag = data.get("tag_name", "")
-        latest_version = self._parse_version(latest_tag)
-        current_version = self._parse_version(__version__)
-
-        if latest_version is None or current_version is None:
-            QMessageBox.information(
-                self,
-                "Update Check",
-                f"Current version: {__version__}\nLatest release: {latest_tag}\n\nCould not compare versions.",
-            )
-            return
-
-        assets = data.get("assets", [])
-        asset_url, asset_name = self._get_platform_asset(assets)
-
-        if latest_version <= current_version:
+        # Already on latest version
+        if result["outcome"] == "already_latest":
             QMessageBox.information(
                 self,
                 "Up to Date",
                 f"You're running {__version__}, which is the latest version.",
             )
-            self.statusBar().showMessage(f"PDFReader is up to date (v{__version__})", 5000)
+            self.statusBar().showMessage(result["message"], 5000)
             return
+
+        # Update available - existing dialog flow
+        latest_tag = result["latest_tag"]
+        data = result["data"]
+        current_version = self._parse_version(__version__)
+        assets = data.get("assets", [])
+        asset_url, asset_name = self._get_platform_asset(assets)
 
         release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
         release_notes = (data.get("body") or "")[:500]

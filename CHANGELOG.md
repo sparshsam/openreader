@@ -1,4 +1,13 @@
 # Changelog
+
+## v0.3.4 - Unreleased
+
+- Fixed post-update check messaging so already-current builds show an up-to-date message instead of a generic connection error.
+- Added HTTP status code inspection to distinguish network failures from HTTP errors (403 rate limit, 404 not found, 5xx server errors).
+- Applied status-specific user-facing messages for each error type.
+- Added structured debug logging of update-check decisions to the updater log.
+- Added 11 regression tests covering already-latest, update-available, network-error, HTTP-error, and JSON-error outcomes.
+
 ## v0.3.3 - 2026-06-08
 
 - Validation release for the fixed Windows auto-update metadata flow.
