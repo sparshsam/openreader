@@ -1,4 +1,10 @@
 # Changelog
+## v0.3.3 - 2026-06-08
+
+- Validation release for the fixed Windows auto-update metadata flow.
+- Confirms the intended update path from v0.3.2 to v0.3.3 using canonical GitHub Release assets.
+- No PDF feature changes.
+
 
 ## v0.3.2 - 2026-06-05
 
