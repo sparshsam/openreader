@@ -41,34 +41,38 @@ jobs:
         run: |
           Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
-      - name: Build Inno Setup installer (optional)
-        continue-on-error: true
+      - name: Build Inno Setup installer
         shell: pwsh
         run: |
           $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
-          $isccUrl = "https://jrsoftware.org/download.php/iscc.exe"
-          $isccPath = "$env:TEMP\iscc.exe"
-          Invoke-WebRequest -Uri $isccUrl -OutFile $isccPath -ErrorAction Stop
-          & $isccPath /Q /DAppVersion="$version" installer/setup.iss
-          if (Test-Path "installer/PDFReader-by-Sparsh-$version-Setup.exe") {
-            Copy-Item "installer/PDFReader-by-Sparsh-$version-Setup.exe" "PDFReader-by-Sparsh-Setup.exe"
+          try {
+            # Install Inno Setup via Chocolatey (pre-installed on GitHub Windows runners)
+            choco install innosetup --no-progress --limit-output --acceptlicense -y 2>$null
+            # ISCC is added to PATH by Chocolatey
+            iscc /Q /DAppVersion="$version" installer/setup.iss
+          } catch {
+            # Fallback: download ISCC directly
+            $isccUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/ISCC.exe"
+            $isccPath = "$env:TEMP\iscc.exe"
+            Invoke-WebRequest -Uri $isccUrl -OutFile $isccPath -ErrorAction Stop
+            & $isccPath /Q /DAppVersion="$version" installer/setup.iss
+          }
+          # Verify output
+          $expected = "installer/PDFReader-by-Sparsh-$version-Setup.exe"
+          if (Test-Path $expected) {
+            Copy-Item $expected "PDFReader-by-Sparsh-Setup.exe"
             Write-Host "Inno Setup installer built: PDFReader-by-Sparsh-Setup.exe"
           } else {
-            Write-Host "Inno Setup installer not built (no output file)"
+            throw "Setup.exe not found at $expected"
           }
 
-      - name: Upload Windows ZIP
+      - name: Upload Windows release assets
         uses: actions/upload-artifact@v7
         with:
           name: release-windows
-          path: PDFReader-by-Sparsh-Windows.zip
-
-      - name: Upload Windows Setup installer (if built)
-        if: hashFiles('PDFReader-by-Sparsh-Setup.exe') != ''
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-windows-installer
-          path: PDFReader-by-Sparsh-Setup.exe
+          path: |
+            PDFReader-by-Sparsh-Windows.zip
+            PDFReader-by-Sparsh-Setup.exe
 
   build-macos:
     name: Build macOS Release Asset
@@ -135,11 +139,13 @@ jobs:
 
       - name: Verify required assets exist
         run: |
+          echo "=== Release assets ==="
           ls -la release-assets/
           test -f "release-assets/PDFReader-by-Sparsh-Windows.zip" || { echo "Missing Windows ZIP"; exit 1; }
+          test -f "release-assets/PDFReader-by-Sparsh-Setup.exe" || { echo "Missing Windows Setup.exe"; exit 1; }
           test -f "release-assets/PDFReader-by-Sparsh-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
           test -f "release-assets/PDFReader-by-Sparsh-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
-          echo "All required assets verified"
+          echo "All 4 required assets verified"
 
       - name: Generate release notes
         run: |

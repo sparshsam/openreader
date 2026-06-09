@@ -1,4 +1,15 @@
 # Changelog
+## v0.3.6 - 2026-06-08
+
+- Published the Windows installer as `PDFReader-by-Sparsh-Setup.exe` on GitHub Releases.
+- Fixed Inno Setup [Files] source path resolution so the installer correctly includes the PyInstaller build output.
+- Fixed GitHub Actions Windows release packaging to reliably install Inno Setup via Chocolatey.
+- Removed broken install-time DirExists check that prevented files from being copied during installation.
+- Kept `PDFReader-by-Sparsh-Windows.zip` as the canonical updater and portable/manual asset.
+- Updated download documentation to recommend the installer for normal Windows users.
+- Asset validation in release workflow now checks for all 4 required assets.
+- No product feature changes.
+
 ## v0.3.5 - 2026-06-08
 
 - Updated Inno Setup installer to accept dynamic version from CI (was hardcoded to v0.2.0).

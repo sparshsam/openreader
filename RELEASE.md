@@ -17,15 +17,17 @@ The in-app updater only looks at assets attached to:
 https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 ```
 
-The release workflow must attach these exact asset names:
+The release workflow must attach these assets:
 
 ```text
-PDFReader-by-Sparsh-Windows.zip
+PDFReader-by-Sparsh-Windows.zip          (updater canonical asset)
+PDFReader-by-Sparsh-Setup.exe            (Windows installer, additive)
 PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
 PDFReader-by-Sparsh-macOS-Intel.zip
 ```
 
-Do not rename these assets without updating `main.py`.
+The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is an additive installer asset.
+Do not rename or remove the canonical ZIP assets without updating `main.py`.
 
 ## How to Cut a Release
 
@@ -61,11 +63,11 @@ After publishing a tag:
 
 - [ ] The release workflow completed successfully.
 - [ ] The GitHub Release exists for the pushed tag.
-- [ ] The release contains `PDFReader-by-Sparsh-Windows.zip`.
+- [ ] The release contains `PDFReader-by-Sparsh-Windows.zip` (updater).
 - [ ] The release contains `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`.
 - [ ] The release contains `PDFReader-by-Sparsh-macOS-Intel.zip`.
 - [ ] Downloaded packaged builds show the tag-injected version in **Help > About**.
-- [ ] `releases/latest` returns the new tag and all three assets.
+- [ ] `releases/latest` returns the new tag and all assets (including Setup.exe).
 - [ ] An older packaged build detects the newer version.
 - [ ] The updater selects the correct asset for Windows.
 - [ ] The updater selects the Apple Silicon asset on arm64 macOS.

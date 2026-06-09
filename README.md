@@ -47,11 +47,11 @@ The app is intentionally local-first: PDFs are opened, rendered, searched, merge
 
 Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest).
 
-| Platform | Download | Notes |
-|---|---|---|
-| Windows | `PDFReader-by-Sparsh-Windows.zip` | Folder-based app (EXE + `_internal\`). Python is not required. Extract and run. |
-| macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | Unsigned app bundle. Gatekeeper may require manual approval. |
-| macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | Unsigned app bundle. Gatekeeper may require manual approval. |
+| Platform | Recommended Download | Alternative | Notes |
+|---|---|---|---|---|
+| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | Use Setup.exe for normal installation. ZIP remains for updater/portable/manual use. |
+| macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
+| macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
