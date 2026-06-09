@@ -1,4 +1,34 @@
 # Changelog
+
+## v0.8.0 - 2026-06-09
+
+- **Performance improvements:**
+  - Startup: Deferred `_update_recent_menu()` to `QTimer.singleShot(0, ...)` — menu
+    construction no longer blocks initial window display.
+  - Rendering: Introduced 80ms debounce timer (`_render_timer`) for all render
+    requests. Rapid resize/zoom/navigation events no longer trigger redundant
+    full-page re-renders.
+  - Rendering: Removed `QImage.copy()` from render pipeline — saved one full
+    image copy per render (~8 MB for a letter-size page at 150 DPI).
+  - Resize: `resizeEvent` now uses `_render_timer.start()` (debounced) instead
+    of direct `render_page()` — smooth during window resizing.
+  - Search: Periodic progress updates every 50 pages during keyword search
+    on PDFs over 100 pages. `QApplication.processEvents()` keeps the UI
+    responsive during large searches.
+  - Performance timer: `_perf_start()` / `_perf_end()` helpers log timing to
+    stdout in dev builds. Wired into `__init__`, `_do_render`.
+- **UX Polish:**
+  - All toolbar buttons now have descriptive tooltips with keyboard shortcut hints
+    (Open, Prev, Next, Zoom, Fit, Copy, Merge, Split, Compress, Compare, Library).
+  - Improved About dialog: now includes a keyboard shortcuts reference section.
+  - Search placeholder text refined.
+  - Large PDF (>500 pages) loading shows "Opening {name} ({page count} pages)..."
+    in the status bar during initial render.
+  - `_do_render` now handles all render logic with debounce — `render_page()` is
+    a lightweight scheduling method.
+- **No feature changes or architecture changes.**
+- **Bumped `__version__`** to `0.8.0-dev`.
+
 ## v0.3.6 - 2026-06-08
 
 - Published the Windows installer as `PDFReader-by-Sparsh-Setup.exe` on GitHub Releases.

@@ -46,13 +46,33 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "0.3.0-dev"
+__version__ = "0.8.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
 MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
+
+# ── Performance timer ─────────────────────────────────────────────────
+
+import time as _time
+
+
+def _perf_start() -> float:
+    """Return a timestamp for performance measurement."""
+    return _time.perf_counter()
+
+
+def _perf_end(start: float, label: str) -> None:
+    """Log elapsed time for *label* to stdout (dev builds only).
+
+    In packaged builds this is silent — the function is a no-op in
+    frozen mode.
+    """
+    elapsed = (_time.perf_counter() - start) * 1000
+    if not getattr(sys, "frozen", False):
+        print(f"[PERF] {label}: {elapsed:.1f} ms")
 
 # Optional modules (graceful if missing)
 try:
@@ -409,11 +429,18 @@ class PdfReaderWindow(QMainWindow):
     ANNOT_STRIKEOUT = (0.953, 0.318, 0.302)    # red
 
     def __init__(self):
+        _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
         self.resize(1000, 800)
 
         self.settings = QSettings("Sparsh", "PDFReader by Sparsh")
+
+        # ---- Render debounce timer ----
+        self._render_timer = QTimer(self)
+        self._render_timer.setSingleShot(True)
+        self._render_timer.setInterval(80)  # ms
+        self._render_timer.timeout.connect(self._do_render)
 
         # ---- Single-document state (swapped on tab switch) ----
         self.document = None
@@ -461,13 +488,17 @@ class PdfReaderWindow(QMainWindow):
         self._build_menus()
         self._apply_theme()
         self._update_controls()
-        self._update_recent_menu()
+
+        # Defer non-critical init to after window is shown
+        QTimer.singleShot(0, self._update_recent_menu)
 
         # Listen for system theme changes
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
 
         # Restore workspace if available
         QTimer.singleShot(100, self._restore_session)
+
+        _perf_end(_perf_start_t, "PdfReaderWindow.__init__")
 
     # ------------------------------------------------------------------
     # UI Construction
@@ -500,23 +531,31 @@ class PdfReaderWindow(QMainWindow):
         controls.setContentsMargins(0, 0, 0, 0)
 
         self.open_button = QPushButton("Open")
+        self.open_button.setToolTip("Open a PDF file (Ctrl+O)")
         self.prev_button = QPushButton("Prev")
+        self.prev_button.setToolTip("Previous page (Page Up)")
         self.next_button = QPushButton("Next")
+        self.next_button.setToolTip("Next page (Page Down)")
         self.page_spin = QSpinBox()
         self.page_spin.setMinimum(1)
         self.page_spin.setMaximum(1)
         self.page_spin.setFixedWidth(70)
+        self.page_spin.setToolTip("Jump to page number")
         self.page_count_label = QLabel("/ 0")
 
         self.zoom_out_button = QPushButton("\u2212")
         self.zoom_out_button.setFixedWidth(30)
+        self.zoom_out_button.setToolTip("Zoom out (Ctrl+-)")
         self.zoom_in_button = QPushButton("+")
         self.zoom_in_button.setFixedWidth(30)
+        self.zoom_in_button.setToolTip("Zoom in (Ctrl+=)")
         self.fit_button = QPushButton("Fit")
         self.fit_button.setCheckable(True)
         self.fit_button.setChecked(True)
         self.fit_button.setFixedWidth(40)
+        self.fit_button.setToolTip("Fit page to window width (Ctrl+0)")
         self.copy_button = QPushButton("Copy")
+        self.copy_button.setToolTip("Copy selected text (Ctrl+C)")
 
         controls.addWidget(self.open_button)
         controls.addSpacing(4)
@@ -553,10 +592,17 @@ class PdfReaderWindow(QMainWindow):
 
         controls.addSpacing(4)
         self.merge_button = QPushButton("Merge")
+        self.merge_button.setToolTip("Combine multiple PDFs into one file")
         self.split_button = QPushButton("Split")
+        self.split_button.setToolTip("Split PDF into separate pages or extract a range")
         self.compress_button = QPushButton("Compress")
+        self.compress_button.setToolTip("Reduce file size by re-compressing content")
         self.compare_button = QPushButton("Compare")
+        self.compare_button.setToolTip("Compare two PDFs side by side")
+        self.compare_button.setEnabled(HAS_LIB_MODULES)
         self.library_button = QPushButton("Library")
+        self.library_button.setToolTip("Search across all indexed PDF documents")
+        self.library_button.setEnabled(HAS_LIB_MODULES)
         self.semantic_cb = QCheckBox("Semantic")
         self.semantic_cb.setToolTip("Enable semantic (meaning-based) search instead of keyword exact match")
         controls.addWidget(self.merge_button)
@@ -1136,16 +1182,22 @@ class PdfReaderWindow(QMainWindow):
         self.clear_text_selection(render=False)
         self.search_count_label.setText("0")
 
+        # Show page count in status bar during initial load
+        page_count = self.document.page_count
+        name = Path(file_name).name
+        if page_count > 500:
+            self.statusBar().showMessage(f"Opening {name} ({page_count} pages)...")
+            QApplication.processEvents()
+
         self.page_spin.blockSignals(True)
-        self.page_spin.setMaximum(self.document.page_count)
+        self.page_spin.setMaximum(page_count)
         self.page_spin.setValue(1)
         self.page_spin.blockSignals(False)
-        self.page_count_label.setText(f"/ {self.document.page_count}")
+        self.page_count_label.setText(f"/ {page_count}")
 
         self.settings.setValue("lastFolder", str(Path(file_name).parent))
         self._add_recent_file(str(Path(file_name).resolve()))
 
-        name = Path(file_name).name
         if self.current_tab_id is not None:
             self.tabs[self.current_tab_id].name = name
             for i in range(self.tab_bar.count()):
@@ -1218,6 +1270,12 @@ class PdfReaderWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def render_page(self):
+        """Schedule a page render (debounced for rapid calls)."""
+        self._render_timer.start()
+
+    def _do_render(self):
+        """Perform the actual page render (called by debounce timer)."""
+        _t = _perf_start()
         if self.document is None:
             self.page_label.setText("Open a PDF to begin")
             self.page_label.adjustSize()
@@ -1239,7 +1297,7 @@ class PdfReaderWindow(QMainWindow):
                 pixmap.height,
                 pixmap.stride,
                 QImage.Format_RGB888,
-            ).copy()
+            )
             if highlight_rects:
                 self._paint_highlights(image, page, highlight_rects, zoom)
             if self.selected_rects:
@@ -1254,6 +1312,7 @@ class PdfReaderWindow(QMainWindow):
         self.page_spin.setValue(self.current_page + 1)
         self.page_spin.blockSignals(False)
         self._update_controls()
+        _perf_end(_t, f"_do_render page={self.current_page} zoom={self.current_render_zoom:.2f}")
 
     def _effective_zoom(self, page):
         if not self.fit_to_window:
@@ -2009,7 +2068,7 @@ class PdfReaderWindow(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         if self.fit_to_window and self.document is not None:
-            self.render_page()
+            self._render_timer.start()  # Debounced re-render
 
     def _show_about(self):
         QMessageBox.about(
@@ -2019,6 +2078,15 @@ class PdfReaderWindow(QMainWindow):
             f"<p>Version {__version__}</p>"
             f"<p>Built with Python, PySide6, and PyMuPDF.</p>"
             f"<p>Local-first. Private. No cloud uploads.</p>"
+            f"<hr>"
+            f"<p style='font-size:11pt;'>"
+            f"<b>Keyboard shortcuts:</b><br>"
+            f"Open: Ctrl+O &nbsp;|&nbsp; Save: Ctrl+S<br>"
+            f"Find: Ctrl+F &nbsp;|&nbsp; Copy: Ctrl+C<br>"
+            f"Prev/Next page: Page Up/Down<br>"
+            f"Zoom In/Out: Ctrl+= / Ctrl+&minus;<br>"
+            f"Fit width: Ctrl+0 &nbsp;|&nbsp; Close tab: Ctrl+W"
+            f"</p>"
         )
 
     # ------------------------------------------------------------------
@@ -2700,7 +2768,12 @@ class PdfReaderWindow(QMainWindow):
     def _keyword_search(self, needle):
         self.search_text = needle
         self.search_results = []
-        for page_index in range(self.document.page_count):
+        page_count = self.document.page_count
+        is_large_search = page_count > 100
+        if is_large_search:
+            self.statusBar().showMessage(f"Searching {page_count} pages...")
+            QApplication.processEvents()
+        for page_index in range(page_count):
             page = self.document.load_page(page_index)
             rects = page.search_for(needle)
             for rect in rects:
@@ -2712,6 +2785,12 @@ class PdfReaderWindow(QMainWindow):
                     break
             if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
                 break
+            # Periodic progress update for large PDFs
+            if is_large_search and page_index % 50 == 0 and page_index > 0:
+                self.statusBar().showMessage(
+                    f"Searching... page {page_index + 1}/{page_count}"
+                )
+                QApplication.processEvents()
 
         if self.search_results:
             first_on_or_after_page = next(
