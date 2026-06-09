@@ -20,7 +20,7 @@ if (!(Test-Path -LiteralPath ".\.venv")) {
 
 .\.venv\Scripts\pyinstaller.exe `
     --noconsole `
-    --onefile `
+    --onedir `
     --noupx `
     --name "PDFReader by Sparsh" `
     --icon ".\assets\pdfreader_by_sparsh.ico" `

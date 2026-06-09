@@ -41,11 +41,25 @@ jobs:
         run: |
           Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
+      - name: Build Inno Setup installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
+          choco install innosetup --no-progress --limit-output 2>$null
+          $env:Path += ";${env:ProgramFiles(x86)}\Inno Setup 6"
+          iscc /Q /DAppVersion="$version" installer/setup.iss
+          if (Test-Path "installer/PDFReader-by-Sparsh-$version-Setup.exe") {
+            Copy-Item "installer/PDFReader-by-Sparsh-$version-Setup.exe" "PDFReader-by-Sparsh-Setup.exe"
+          }
+
       - name: Upload Windows release asset
         uses: actions/upload-artifact@v7
         with:
           name: release-windows
-          path: PDFReader-by-Sparsh-Windows.zip
+          path: |
+            PDFReader-by-Sparsh-Windows.zip
+            PDFReader-by-Sparsh-Setup.exe
 
   build-macos:
     name: Build macOS Release Asset
@@ -110,18 +124,24 @@ jobs:
           merge-multiple: true
           path: release-assets
 
-      - name: Verify release asset names
+      - name: List downloaded assets
         run: |
-          test -f "release-assets/PDFReader-by-Sparsh-Windows.zip"
-          test -f "release-assets/PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
-          test -f "release-assets/PDFReader-by-Sparsh-macOS-Intel.zip"
+          ls -la release-assets/
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" release-assets/*.zip \
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "PDFReader by Sparsh $GITHUB_REF_NAME" \
-            --notes "Release $GITHUB_REF_NAME. Packaged builds include the tag-injected app version and canonical updater asset names."
+            --notes "Release $GITHUB_REF_NAME.
+
+### Assets
+- \`PDFReader-by-Sparsh-Windows.zip\` — Folder-based Windows app (EXE + _internal/). Extract and run.
+- \`PDFReader-by-Sparsh-Setup.exe\` — Windows Inno Setup installer (file association, Start Menu, uninstall).
+- \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
+- \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle.
+
+Packaged builds include the tag-injected app version and canonical updater asset names."

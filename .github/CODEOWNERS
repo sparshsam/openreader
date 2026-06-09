@@ -1,0 +1,12 @@
+# Default owner for the entire repository
+* @sparshsam
+
+# Release workflow changes (review by author)
+.github/workflows/release.yml @sparshsam
+
+# Installer configuration
+installer/ @sparshsam
+
+# AGENTS.md and CLAUDE.md should only be changed by the author
+AGENTS.md @sparshsam
+CLAUDE.md @sparshsam

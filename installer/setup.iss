@@ -3,7 +3,10 @@
 ;   iscc installer/setup.iss
 
 #define MyAppName "PDFReader by Sparsh"
-#define MyAppVersion "0.2.0"
+#ifndef AppVersion
+  #define AppVersion "0.0.0-dev"
+#endif
+#define MyAppVersion AppVersion
 #define MyAppPublisher "Sparsh"
 #define MyAppURL "https://github.com/sparshsam/pdfreader-by-sparsh"
 #define MyAppExeName "PDFReader by Sparsh.exe"
@@ -21,6 +24,7 @@ DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=.
 OutputBaseFilename=PDFReader-by-Sparsh-{#MyAppVersion}-Setup
+SetupIconFile=assets\pdfreader_by_sparsh.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -63,9 +67,3 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/c taskkill /f /im ""{#MyAppExeName}"" 2>nul"; Flags: runhidden
-
-[Code]
-function DirExists(ADir: string): Boolean;
-begin
-  Result := DirExists(ADir);
-end;

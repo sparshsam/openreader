@@ -1,4 +1,15 @@
 # Changelog
+## v0.3.5 - 2026-06-08
+
+- Updated Inno Setup installer to accept dynamic version from CI (was hardcoded to v0.2.0).
+- Added SetupIconFile for installer executable.
+- Fixed build_windows.ps1 to use --onedir mode (was --onefile, inconsistent with release.yml).
+- Strengthened CI workflow with compile-check, regression tests, and security audit.
+- Added CODEOWNERS file for repository governance.
+- Updated release.yml to build and upload Inno Setup installer alongside ZIP.
+- Updated README badges to reference unified CI and release workflows.
+- Added download counter badge to README.
+
 
 ## v0.3.4 - 2026-06-08
 
