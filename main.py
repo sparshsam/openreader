@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.0.1-dev"
+__version__ = "1.0.2-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
@@ -2803,13 +2803,25 @@ class PdfReaderWindow(QMainWindow):
 
     # ------------------------------------------------------------------
     def _apply_update_windows_zip(self, dest, tag):
-        """Replace the running app via ZIP extract + batch updater (onedir mode)."""
+        """Replace the running app via ZIP extract + batch updater (onedir mode).
+
+        The batch script is written to %TEMP%\\PDFReader-Updates\\ (writable)
+        instead of the install directory (which is often protected like
+        C:\\Program Files\\). If the install directory requires admin
+        privileges, the script detects the failure and offers to relaunch
+        with elevation.
+        """
         current_exe = Path(sys.executable)
         app_dir = current_exe.parent
         if not app_dir.exists():
             self._log_update("failure=could not locate app directory")
             QMessageBox.critical(self, "Update Error", "Could not locate the app directory.")
             return
+
+        # Use the writable temp directory for all updater scripts
+        script_dir = self._updater_temp_dir()
+        self._log_update(f"updater_scripts_dir={script_dir}")
+        self._log_update(f"install_dir={app_dir}")
 
         extract_dir = dest.parent / f"extracted_{tag}"
         self._log_update(f"extract_directory={extract_dir}")
@@ -2823,98 +2835,186 @@ class PdfReaderWindow(QMainWindow):
             self._log_update(f"failure=could not extract update: {exc}")
             QMessageBox.critical(
                 self, "Update Error",
-                f"Could not extract the update.\n\n{exc}",
+                f"Could not extract the update package.\n\n"
+                f"Technical details: {exc}",
             )
             return
 
         log_path = self._updater_log_path()
-        bat_path = app_dir / f"_update_{tag}.bat"
+
+        # Clean up any stale batch scripts left in the old location (app_dir)
+        # from v1.0.0/v1.0.1 upgrades
+        try:
+            for old_script in app_dir.glob("_update_*.bat"):
+                old_script.unlink(missing_ok=True)
+                self._log_update(f"cleaned_stale_script={old_script}")
+        except Exception:
+            pass  # best-effort; the old location may be protected
+
+        # Write the batch updater script to the WRITABLE temp directory
+        bat_path = script_dir / f"_update_{tag}.bat"
         self._log_update(f"batch_script_path={bat_path}")
+
+        # Check if install dir is in a protected location
+        needs_elevation_hint = "Program Files" in str(app_dir) or "Program Files (x86)" in str(app_dir)
+
         bat_content = (
             "@echo off\n"
             "title=PDFReader Updater\n"
             "setlocal enabledelayedexpansion\n"
             "set LOG=" + str(log_path) + "\n"
-            "echo [%date% %time%] Starting update... >> \"%LOG%\"\n"
-            "\n"
-            ":wait\n"
-            f'tasklist /FI "PID eq {os.getpid()}" 2>>\"%LOG%\" | find "{os.getpid()}" >nul\n'
-            "if not errorlevel 1 (\n"
-            "    timeout /t 1 /nobreak >nul\n"
-            "    goto wait\n"
-            ")\n"
-            "\n"
-            "echo [%date% %time%] Process exited, waiting 2s... >> \"%LOG%\"\n"
-            "timeout /t 2 /nobreak >nul\n"
-            "\n"
-            "echo [%date% %time%] Copying _internal folder... >> \"%LOG%\"\n"
-            "set RETRY=0\n"
-            ":retry_xcopy\n"
-            f'xcopy /E /I /Y "{extract_dir}\\_internal" "{app_dir}\\_internal" >>\"%LOG%\" 2>&1\n'
-            "if errorlevel 1 (\n"
-            "    set /a RETRY+=1\n"
-            "    if !RETRY! lss 3 (\n"
-            "        timeout /t 1 /nobreak >nul\n"
-            "        goto retry_xcopy\n"
-            "    )\n"
-            "    echo [%date% %time%] ERROR: xcopy failed after 3 retries >> \"%LOG%\"\n"
-            "    goto fail\n"
-            ")\n"
-            "\n"
-            "echo [%date% %time%] Copying EXE... >> \"%LOG%\"\n"
-            "set RETRY=0\n"
-            ":retry_copy\n"
-            f'copy /Y /V "{extract_dir}\\PDFReader by Sparsh.exe" "{current_exe}" >>\"%LOG%\" 2>&1\n'
-            "if errorlevel 1 (\n"
-            "    set /a RETRY+=1\n"
-            "    if !RETRY! lss 3 (\n"
-            "        timeout /t 1 /nobreak >nul\n"
-            "        goto retry_copy\n"
-            "    )\n"
-            "    echo [%date% %time%] ERROR: copy failed after 3 retries >> \"%LOG%\"\n"
-            "    goto fail\n"
-            ")\n"
-            "\n"
-            "echo [%date% %time%] Unblocking EXE... >> \"%LOG%\"\n"
-            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >>\"%LOG%\" 2>&1\n'
-            "\n"
-            "echo [%date% %time%] Launching new version... >> \"%LOG%\"\n"
-            f'start "" "{current_exe}"\n'
-            "\n"
-            "echo [%date% %time%] Update successful, cleaning up... >> \"%LOG%\"\n"
-            f'rmdir /S /Q "{extract_dir}" >>\"%LOG%\" 2>&1\n'
-            f'del "{dest}" >>\"%LOG%\" 2>&1\n'
-            "del \"%~f0\" >nul 2>&1\n"
-            "exit /b 0\n"
-            "\n"
-            ":fail\n"
-            "echo [%date% %time%] UPDATE FAILED >> \"%LOG%\"\n"
-            f'start "" notepad "{log_path}"\n'
-            "pause\n"
-            "exit /b 1\n"
+            'set BATCH_DIR=' + str(script_dir) + '\n'
+            'set INSTALL_DIR=' + str(app_dir) + '\n'
+            'set EXTRACT_DIR=' + str(extract_dir) + '\n'
+            'set CURRENT_EXE=' + str(current_exe) + '\n'
+            'set TAG=' + tag + '\n'
+            'echo [%date% %time%] Starting update... >> "%LOG%"\n'
+            'echo [%date% %time%] Script dir: %BATCH_DIR% >> "%LOG%"\n'
+            'echo [%date% %time%] Install dir: %INSTALL_DIR% >> "%LOG%"\n'
+            '\n'
+            ':wait\n'
+            f'tasklist /FI "PID eq {os.getpid()}" 2>>"%LOG%" | find "{os.getpid()}" >nul\n'
+            'if not errorlevel 1 (\n'
+            '    timeout /t 1 /nobreak >nul\n'
+            '    goto wait\n'
+            ')\n'
+            '\n'
+            'echo [%date% %time%] Process exited, waiting 2s... >> "%LOG%"\n'
+            'timeout /t 2 /nobreak >nul\n'
+            '\n'
+            ':try_update\n'
+            'echo [%date% %time%] Copying _internal folder... >> "%LOG%"\n'
+            'set RETRY=0\n'
+            ':retry_xcopy\n'
+            'xcopy /E /I /Y "%EXTRACT_DIR%\\_internal" "%INSTALL_DIR%\\_internal" >>"%LOG%" 2>&1\n'
+            'if errorlevel 1 (\n'
+            '    set /a RETRY+=1\n'
+            '    if !RETRY! lss 3 (\n'
+            '        timeout /t 1 /nobreak >nul\n'
+            '        goto retry_xcopy\n'
+            '    )\n'
+            '    echo [%date% %time%] ERROR: xcopy failed after 3 retries >> "%LOG%"\n'
+            '    goto check_elevation\n'
+            ')\n'
+            '\n'
+            'echo [%date% %time%] Copying EXE... >> "%LOG%"\n'
+            'set RETRY=0\n'
+            ':retry_copy\n'
+            'copy /Y /V "%EXTRACT_DIR%\\PDFReader by Sparsh.exe" "%CURRENT_EXE%" >>"%LOG%" 2>&1\n'
+            'if errorlevel 1 (\n'
+            '    set /a RETRY+=1\n'
+            '    if !RETRY! lss 3 (\n'
+            '        timeout /t 1 /nobreak >nul\n'
+            '        goto retry_copy\n'
+            '    )\n'
+            '    echo [%date% %time%] ERROR: copy failed after 3 retries >> "%LOG%"\n'
+            '    goto check_elevation\n'
+            ')\n'
+            '\n'
+            'goto update_complete\n'
+            '\n'
+            ':check_elevation\n'
+            'echo [%date% %time%] Checking if elevation (admin rights) is needed... >> "%LOG%"\n'
+            'net session >nul 2>&1\n'
+            'if %errorlevel% neq 0 (\n'
+            '    echo [%date% %time%] Not running as admin. Requesting elevation... >> "%LOG%"\n'
+            '    echo [%date% %time%] The update needs admin permission to write to "%INSTALL_DIR%". >> "%LOG%"\n'
+            '    echo. >> "%LOG%"\n'
+            '    echo ================================================================ >> "%LOG%"\n'
+            '    echo PDFReader Update - Admin Permission Required >> "%LOG%"\n'
+            '    echo ================================================================ >> "%LOG%"\n'
+            '    echo. >> "%LOG%"\n'
+            '    echo PDFReader needs administrator permission to update itself. >> "%LOG%"\n'
+            '    echo The app is installed in a protected location. >> "%LOG%"\n'
+            '    echo. >> "%LOG%"\n'
+            '    echo A UAC prompt will appear. Please click Yes to continue. >> "%LOG%"\n'
+            '    echo. >> "%LOG%"\n'
+            '    :: Create a VBS script to request elevation\n'
+            '    set VBS=%TEMP%\\_pdfreader_elevate_%TAG%.vbs\n'
+            '    echo Set UAC = CreateObject^("Shell.Application"^) > "%VBS%"\n'
+            '    echo UAC.ShellExecute "cmd.exe", "/c \\""%BATCH_DIR%\\_update_%TAG%.bat"\\"", "", "runas", 1 >> "%VBS%"\n'
+            '    echo [%date% %time%] Elevated re-launch via VBS >> "%LOG%"\n'
+            '    cscript //nologo "%VBS%"\n'
+            '    del "%VBS%" >nul 2>&1\n'
+            '    echo [%date% %time%] Elevation requested, exiting current instance... >> "%LOG%"\n'
+            '    del "%~f0" >nul 2>&1\n'
+            '    exit /b 0\n'
+            ') else (\n'
+            '    echo [%date% %time%] Running as admin but copy still failed. >> "%LOG%"\n'
+            '    echo [%date% %time%] This may indicate a file-lock or disk issue. >> "%LOG%"\n'
+            '    goto fail\n'
+            ')\n'
+            '\n'
+            ':update_complete\n'
+            'echo [%date% %time%] Unblocking EXE... >> "%LOG%"\n'
+            'powershell -Command "Unblock-File -Path \'%CURRENT_EXE%\'" >>"%LOG%" 2>&1\n'
+            '\n'
+            'echo [%date% %time%] Launching new version... >> "%LOG%"\n'
+            'start "" "%CURRENT_EXE%"\n'
+            '\n'
+            'echo [%date% %time%] Update successful, cleaning up... >> "%LOG%"\n'
+            'rmdir /S /Q "%EXTRACT_DIR%" >>"%LOG%" 2>&1\n'
+            'del "%TEMP%\\PDFReader-Updates\\%TAG%.zip" >>"%LOG%" 2>&1\n'
+            'del "%~f0" >nul 2>&1\n'
+            'exit /b 0\n'
+            '\n'
+            ':fail\n'
+            'echo [%date% %time%] UPDATE FAILED >> "%LOG%"\n'
+            'echo. >> "%LOG%"\n'
+            'echo ================================================================ >> "%LOG%"\n'
+            'echo                        UPDATE FAILED                            >> "%LOG%"\n'
+            'echo ================================================================ >> "%LOG%"\n'
+            'echo. >> "%LOG%"\n'
+            'echo PDFReader could not complete the update. >> "%LOG%"\n'
+            'if /i "%INSTALL_DIR%"=="%PROGRAMFILES%\\PDFReader by Sparsh" (\n'
+            '    echo. >> "%LOG%"\n'
+            '    echo The app is installed in a protected system directory. >> "%LOG%"\n'
+            '    echo You may need to run the installer manually as Administrator. >> "%LOG%"\n'
+            '    echo. >> "%LOG%"\n'
+            '    echo Alternatively, download the latest version from: >> "%LOG%"\n'
+            '    echo https://github.com/sparshsam/pdfreader-by-sparsh/releases >> "%LOG%"\n'
+            ') >> "%LOG%"\n'
+            'start "" notepad "%LOG%"\n'
+            'echo. & echo. & echo UPDATE FAILED - see log above for details. & echo. & echo Press any key to exit. & pause >nul\n'
+            'exit /b 1\n'
         )
 
         try:
             with open(bat_path, "w") as f:
                 f.write(bat_content)
-            subprocess.Popen(  # nosec
+            subprocess.Popen(  # nosec B603 — required for Windows self-update
                 ["cmd.exe", "/c", str(bat_path)],
-                creationflags=0x08000000,
+                creationflags=0x08000000,  # CREATE_NO_WINDOW
             )
             self._log_update("success=launched Windows ZIP updater")
         except Exception as exc:
             self._log_update(f"failure=could not launch update script: {exc}")
             QMessageBox.critical(
                 self, "Update Error",
-                f"Could not launch the update script.\n\n{exc}",
+                "<h3>Update Could Not Start</h3>"
+                "<p>PDFReader was unable to launch the update script.</p>"
+                "<hr>"
+                "<p><b>What happened:</b><br>"
+                f"{exc}</p>"
+                "<p><b>What you can do:</b><br>"
+                "• Download the latest version manually from the GitHub releases page<br>"
+                "• If installed in a protected folder (like Program Files), "
+                "try running PDFReader as Administrator and checking for updates again.</p>"
+                "<hr>"
+                f"<p style='font-size:11px;color:#888;'>Update directory: {script_dir}</p>",
             )
             return
 
         QMessageBox.information(
             self,
             "Update Starting",
-            "PDFReader will now close and update itself."
-            " It will reopen automatically in a moment.",
+            "<h3>Update Download Complete</h3>"
+            "<p>PDFReader will now close and update itself.</p>"
+            "<p>It will reopen automatically in a moment.</p>"
+            "<hr>"
+            "<p style='font-size:12px;color:#888;'>"
+            "If you see a UAC (User Account Control) prompt, click <b>Yes</b> "
+            "to allow the update to complete.</p>",
         )
         QTimer.singleShot(500, self.close)
 

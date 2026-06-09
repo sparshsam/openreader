@@ -1,5 +1,52 @@
 # Changelog
 
+## v1.0.2 — Windows Updater Permission Hotfix — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.2-dev`.
+- **Branch:** `windows-updater-permission-hotfix-v1.0.2`
+
+### Bug Fix
+- **Windows updater batch script moved out of protected install directory.**
+  Previously, `_update_<tag>.bat` was written to `C:\Program Files\PDFReader by Sparsh\`,
+  which caused `[Errno 13] Permission denied` on normal (non-admin) installations.
+  The batch script is now written to `%TEMP%\PDFReader-Updates\` — a writable location
+  accessible by all users.
+
+### Elevation Handling
+- **Automatic UAC elevation request.** If the copy/install operations fail because
+  the install directory is protected (e.g., `Program Files`), the updater script
+  detects the failure, creates a temporary VBS script that triggers a UAC prompt,
+  and re-launches itself as Administrator — all without manual user intervention.
+- **If already running as admin** but the copy still fails (file lock / disk issue),
+  the script shows a clear diagnostic and opens the log file.
+
+### Professional Error Messages
+- **Update launch failure** now shows a rich dialog explaining what happened,
+  actionable steps (manual download, run-as-admin), and the update directory path.
+- **Update complete** message includes a UAC hint: "If you see a UAC prompt,
+  click Yes to allow the update to complete."
+- **Update failure** (in the batch script) shows install path, admin requirements,
+  and the GitHub releases URL for manual download.
+
+### Stale Script Cleanup
+- On update start, any leftover `_update_*.bat` files in the old install directory
+  (from v1.0.0/v1.0.1) are cleaned up silently as a best-effort operation.
+
+### Logging
+- Added `updater_scripts_dir=`, `install_dir=` lines to the updater debug log
+  so the chosen paths are always recorded.
+- The batch script now logs its own working directory, script location, and install
+  directory at the start of each run.
+
+### Validation
+- Full test suite: 32 passed, 31 skipped (PySide6 gated — expected).
+- Updater regression checks: All 16 passed.
+- Compile check: clean.
+- ZIP asset names unchanged — `PDFReader-by-Sparsh-Windows.zip` is preserved.
+- v1.0.0/v1.0.1 → v1.0.2 update path is compatible (updater ZIP and metadata
+  format unchanged; only the batch script location changed from app dir to %TEMP%).
+- No changes to macOS updater, file safety protections, or UI.
+
 ## v1.0.1 — First-Run Usability + Professional Polish — 2026-06-10
 
 - **Version:** Bumped `__version__` to `1.0.1-dev`.
