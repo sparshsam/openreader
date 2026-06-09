@@ -73,7 +73,7 @@ jobs:
           & $iscc /Q "/DAppVersion=$version" "/DAppSourceDir=$srcDir" installer/setup.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
 
-          $expected = "installer/PDFReader-by-Sparsh-$version-Setup.exe"
+          $expected = "PDFReader-by-Sparsh-$version-Setup.exe"
           if (Test-Path $expected) {
             Copy-Item $expected "PDFReader-by-Sparsh-Setup.exe"
             Write-Host "=== SUCCESS: PDFReader-by-Sparsh-Setup.exe built ==="
