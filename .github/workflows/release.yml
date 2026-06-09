@@ -128,6 +128,20 @@ jobs:
         run: |
           ls -la release-assets/
 
+      - name: Generate release notes
+        run: |
+          cat > /tmp/release-notes.md <<- NOTE_EOF
+          Release ${GITHUB_REF_NAME}.
+
+          ### Assets
+          - \`PDFReader-by-Sparsh-Windows.zip\` — Folder-based Windows app (EXE + _internal/). Extract and run.
+          - \`PDFReader-by-Sparsh-Setup.exe\` — Windows Inno Setup installer (file association, Start Menu, uninstall).
+          - \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
+          - \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle.
+
+          Packaged builds include the tag-injected app version and canonical updater asset names.
+          NOTE_EOF
+
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -136,12 +150,4 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
             --title "PDFReader by Sparsh $GITHUB_REF_NAME" \
-            --notes "Release $GITHUB_REF_NAME.
-
-### Assets
-- \`PDFReader-by-Sparsh-Windows.zip\` — Folder-based Windows app (EXE + _internal/). Extract and run.
-- \`PDFReader-by-Sparsh-Setup.exe\` — Windows Inno Setup installer (file association, Start Menu, uninstall).
-- \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
-- \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle.
-
-Packaged builds include the tag-injected app version and canonical updater asset names."
+            --notes-file /tmp/release-notes.md
