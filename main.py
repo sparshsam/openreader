@@ -12,7 +12,7 @@ from pathlib import Path
 
 import fitz
 from PySide6.QtCore import QByteArray, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QImage, QKeySequence, QPainter, QPixmap
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
@@ -20,6 +20,8 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
+    QFrame,
+    QGraphicsOpacityEffect,
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
@@ -34,11 +36,13 @@ from PySide6.QtWidgets import (
     QProgressDialog,
     QPushButton,
     QScrollArea,
+    QScrollBar,
     QSpinBox,
     QSplitter,
     QStatusBar,
     QStyle,
     QTabBar,
+    QTextBrowser,
     QTextEdit,
     QToolBar,
     QVBoxLayout,
@@ -46,13 +50,14 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.0.0-dev"
+__version__ = "1.0.1-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
 MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
+SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
 
 # ── Performance timer ─────────────────────────────────────────────────
 
@@ -434,6 +439,18 @@ class PdfReaderWindow(QMainWindow):
         self.setWindowTitle(self.APP_NAME)
         self.resize(1000, 800)
 
+        # ---- Continuous scroll ----
+        self._continuous_mode = True  # default to continuous
+        self._continuous_pages: list[QLabel] = []
+        self._continuous_container = None
+        self._continuous_layout = None
+
+        # App icon
+        self._set_app_icon()
+
+        # Enable drag-and-drop
+        self.setAcceptDrops(True)
+
         self.settings = QSettings("Sparsh", "PDFReader by Sparsh")
 
         # ---- Render debounce timer ----
@@ -482,6 +499,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_latest_tag = None
         self._update_asset_name = None
         self._update_download_path = None
+        self._auto_update_check = self.settings.value(SETTINGS_AUTO_UPDATE_KEY, True, bool)
 
         self._build_ui()
         self._build_actions()
@@ -491,6 +509,10 @@ class PdfReaderWindow(QMainWindow):
 
         # Defer non-critical init to after window is shown
         QTimer.singleShot(0, self._update_recent_menu)
+
+        # Auto-update check on launch
+        if self._auto_update_check:
+            QTimer.singleShot(3000, self.check_for_updates_silent)
 
         # Listen for system theme changes
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
@@ -591,27 +613,8 @@ class PdfReaderWindow(QMainWindow):
         controls.addWidget(self.sticky_button)
 
         controls.addSpacing(4)
-        self.merge_button = QPushButton("Merge")
-        self.merge_button.setToolTip("Combine multiple PDFs into one file")
-        self.split_button = QPushButton("Split")
-        self.split_button.setToolTip("Split PDF into separate pages or extract a range")
-        self.compress_button = QPushButton("Compress")
-        self.compress_button.setToolTip("Reduce file size by re-compressing content")
-        self.compare_button = QPushButton("Compare")
-        self.compare_button.setToolTip("Compare two PDFs side by side")
-        self.compare_button.setEnabled(HAS_LIB_MODULES)
-        self.library_button = QPushButton("Library")
-        self.library_button.setToolTip("Search across all indexed PDF documents")
-        self.library_button.setEnabled(HAS_LIB_MODULES)
         self.semantic_cb = QCheckBox("Semantic")
         self.semantic_cb.setToolTip("Enable semantic (meaning-based) search instead of keyword exact match")
-        controls.addWidget(self.merge_button)
-        controls.addWidget(self.split_button)
-        controls.addWidget(self.compress_button)
-        controls.addSpacing(4)
-        controls.addWidget(self.compare_button)
-        controls.addWidget(self.library_button)
-        controls.addWidget(self.semantic_cb)
 
         controls.addSpacing(4)
         self.search_input = QLineEdit()
@@ -629,23 +632,64 @@ class PdfReaderWindow(QMainWindow):
         controls.addWidget(self.search_prev_button)
         controls.addWidget(self.search_next_button)
         controls.addWidget(self.search_count_label)
+        controls.addWidget(self.semantic_cb)
         root.addWidget(controls_widget)
 
-        # Page content
-        self.page_label = PdfPageLabel("Open a PDF to begin")
+        # Page content — improved empty state
+        self.empty_state_widget = QWidget()
+        empty_layout = QVBoxLayout(self.empty_state_widget)
+        empty_layout.setAlignment(Qt.AlignCenter)
+        empty_layout.setSpacing(14)
+
+        # Icon / visual marker
+        icon_label = QLabel()
+        icon_pixmap = self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogStart).pixmap(48, 48)
+        icon_label.setPixmap(icon_pixmap)
+        icon_label.setAlignment(Qt.AlignCenter)
+        icon_opacity = QGraphicsOpacityEffect()
+        icon_opacity.setOpacity(0.45)
+        icon_label.setGraphicsEffect(icon_opacity)
+        empty_layout.addWidget(icon_label)
+
+        title_label = QLabel("<h2 style='color:#666; font-weight:400; margin:0;'>Open a PDF to begin</h2>")
+        title_label.setAlignment(Qt.AlignCenter)
+        empty_layout.addWidget(title_label)
+
+        subtitle_label = QLabel(
+            "<p style='color:#999; font-size:13px; margin:0; line-height:1.5;'>"
+            "Drag and drop a PDF here, or use <b>File → Open PDF</b> (Ctrl+O)<br>"
+            "to get started reading locally and privately.</p>"
+        )
+        subtitle_label.setWordWrap(True)
+        subtitle_label.setAlignment(Qt.AlignCenter)
+        empty_layout.addWidget(subtitle_label)
+
+        open_btn = QPushButton("Open PDF")
+        open_btn.setFixedWidth(160)
+        open_btn.clicked.connect(self.open_pdf)
+        open_btn_layout = QHBoxLayout()
+        open_btn_layout.addStretch()
+        open_btn_layout.addWidget(open_btn)
+        open_btn_layout.addStretch()
+        empty_layout.addLayout(open_btn_layout)
+
+        self.page_label = PdfPageLabel()
         self.page_label.setAlignment(Qt.AlignCenter)
-        self.page_label.setBackgroundRole(self.page_label.backgroundRole())
         self.page_label.selection_finished.connect(self.select_text_in_rect)
         self.page_label.sticky_note_requested.connect(self._place_sticky_note)
 
         self.scroll_area = QScrollArea()
-        self.scroll_area.setWidget(self.page_label)
+        self.scroll_area.setWidget(self.empty_state_widget)
         self.scroll_area.setAlignment(Qt.AlignCenter)
-        self.scroll_area.setWidgetResizable(False)
+        self.scroll_area.setWidgetResizable(True)
         root.addWidget(self.scroll_area, 1)
 
         self.setCentralWidget(central)
         self.setStatusBar(QStatusBar(self))
+
+        # Stack for page_label vs empty_state
+        self._content_stack = {None: self.empty_state_widget}
+        self._current_content = None
 
         # Signal connections
         self.open_button.clicked.connect(self.open_pdf)
@@ -660,11 +704,6 @@ class PdfReaderWindow(QMainWindow):
         self.underline_button.clicked.connect(self.underline_selection)
         self.strike_button.clicked.connect(self.strikeout_selection)
         self.sticky_button.clicked.connect(self._toggle_sticky_note_mode)
-        self.merge_button.clicked.connect(self.merge_pdfs)
-        self.split_button.clicked.connect(self.split_pdf)
-        self.compress_button.clicked.connect(self.compress_pdf)
-        self.compare_button.clicked.connect(self._open_compare_dialog)
-        self.library_button.clicked.connect(self._open_library_dialog)
         self.search_input.returnPressed.connect(self.search)
         self.search_input.textChanged.connect(self._search_text_changed)
         self.search_prev_button.clicked.connect(self.previous_search_result)
@@ -681,6 +720,12 @@ class PdfReaderWindow(QMainWindow):
         open_action.setShortcut(QKeySequence.Open)
         open_action.triggered.connect(self.open_pdf)
         toolbar.addAction(open_action)
+
+        toolbar.addSeparator()
+        save_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton), "Save", self)
+        save_action.setShortcut(QKeySequence.Save)
+        save_action.triggered.connect(self._save_document)
+        toolbar.addAction(save_action)
 
         toolbar.addSeparator()
         prev_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "Previous Page", self)
@@ -705,34 +750,11 @@ class PdfReaderWindow(QMainWindow):
         toolbar.addAction(zoom_out_action)
 
         toolbar.addSeparator()
-        copy_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton), "Copy Selected Text", self)
-        copy_action.setShortcut(QKeySequence.Copy)
-        copy_action.triggered.connect(self.copy_selected_text)
-        toolbar.addAction(copy_action)
-        self.copy_action = copy_action
-
-        toolbar.addSeparator()
-        merge_action = QAction("Merge", self)
-        merge_action.triggered.connect(self.merge_pdfs)
-        toolbar.addAction(merge_action)
-
-        split_action = QAction("Split", self)
-        split_action.triggered.connect(self.split_pdf)
-        toolbar.addAction(split_action)
-
-        compress_action = QAction("Compress", self)
-        compress_action.triggered.connect(self.compress_pdf)
-        toolbar.addAction(compress_action)
-
-        toolbar.addSeparator()
-        self.update_action = QAction("Check for Updates", self)
-        self.update_action.triggered.connect(self.check_for_updates)
-        toolbar.addAction(self.update_action)
-
         find_action = QAction("Find", self)
         find_action.setShortcut(QKeySequence.Find)
         find_action.triggered.connect(self.focus_search)
         self.addAction(find_action)
+        toolbar.addAction(find_action)
 
         # Close Tab
         close_tab_action = QAction("Close Tab", self)
@@ -746,21 +768,8 @@ class PdfReaderWindow(QMainWindow):
         new_tab_action.triggered.connect(self.open_pdf)
         self.addAction(new_tab_action)
 
-        for action in (
-            open_action,
-            prev_action,
-            next_action,
-            zoom_in_action,
-            zoom_out_action,
-            copy_action,
-            merge_action,
-            split_action,
-            compress_action,
-        ):
-            self.addAction(action)
-
     def _build_menus(self):
-        """File / View / Tools / Help menu bar."""
+        """File / Edit / View / Tools / Help menu bar."""
         menubar = self.menuBar()
 
         # ── File ──
@@ -801,6 +810,22 @@ class PdfReaderWindow(QMainWindow):
         quit_action.triggered.connect(self.close)
         file_menu.addAction(quit_action)
 
+        # ── Edit ──
+        edit_menu = menubar.addMenu("Edit")
+
+        copy_action = QAction("Copy Selected Text", self)
+        copy_action.setShortcut(QKeySequence.Copy)
+        copy_action.triggered.connect(self.copy_selected_text)
+        edit_menu.addAction(copy_action)
+        self.copy_action = copy_action
+
+        edit_menu.addSeparator()
+
+        find_menu_action = QAction("Find", self)
+        find_menu_action.setShortcut(QKeySequence.Find)
+        find_menu_action.triggered.connect(self.focus_search)
+        edit_menu.addAction(find_menu_action)
+
         # ── View ──
         view_menu = menubar.addMenu("View")
 
@@ -840,17 +865,18 @@ class PdfReaderWindow(QMainWindow):
 
         view_menu.addSeparator()
 
-        search_lib_action = QAction("Library Search", self)
-        search_lib_action.setShortcut(QKeySequence("Ctrl+Shift+F"))
-        search_lib_action.triggered.connect(self._open_library_dialog)
-        view_menu.addAction(search_lib_action)
-
-        view_menu.addSeparator()
-
         self.show_annots_action = QAction("Show Annotations", self, checkable=True)
         self.show_annots_action.setChecked(True)
         self.show_annots_action.triggered.connect(self._toggle_annotations_visible)
         view_menu.addAction(self.show_annots_action)
+
+        view_menu.addSeparator()
+
+        continuous_action = QAction("Continuous Scroll", self, checkable=True)
+        continuous_action.setChecked(self._continuous_mode)
+        continuous_action.triggered.connect(self._toggle_continuous_mode)
+        view_menu.addAction(continuous_action)
+        self._continuous_menu_action = continuous_action
 
         # ── Tools ──
         tools_menu = menubar.addMenu("Tools")
@@ -866,16 +892,25 @@ class PdfReaderWindow(QMainWindow):
         annot_menu.addAction("Delete All Annotations in Document", self._delete_all_annotations)
 
         tools_menu.addSeparator()
-        tools_menu.addAction("Compare PDFs", self._open_compare_dialog)
-        tools_menu.addAction("Library Search", self._open_library_dialog)
-        tools_menu.addSeparator()
         tools_menu.addAction("Merge PDFs", self.merge_pdfs)
         tools_menu.addAction("Split PDF", self.split_pdf)
         tools_menu.addAction("Compress PDF", self.compress_pdf)
+        tools_menu.addSeparator()
+        tools_menu.addAction("Compare PDFs", self._open_compare_dialog)
+        tools_menu.addAction("Library Search", self._open_library_dialog)
 
         # ── Help ──
         help_menu = menubar.addMenu("Help")
-        help_menu.addAction("Check for Updates", self.check_for_updates)
+        self.update_action = QAction("Check for Updates", self)
+        self.update_action.triggered.connect(self.check_for_updates)
+        help_menu.addAction(self.update_action)
+        help_menu.addSeparator()
+
+        auto_update_action = QAction("Automatically Check for Updates", self, checkable=True)
+        auto_update_action.setChecked(self._auto_update_check)
+        auto_update_action.triggered.connect(self._toggle_auto_update_check)
+        help_menu.addAction(auto_update_action)
+
         help_menu.addSeparator()
         about_action = QAction("About PDFReader", self)
         about_action.triggered.connect(self._show_about)
@@ -1277,9 +1312,27 @@ class PdfReaderWindow(QMainWindow):
         """Perform the actual page render (called by debounce timer)."""
         _t = _perf_start()
         if self.document is None:
-            self.page_label.setText("Open a PDF to begin")
-            self.page_label.adjustSize()
+            # Show empty state if not already
+            if self.scroll_area.widget() is not self.empty_state_widget:
+                self.scroll_area.takeWidget()
+                empty_parent = self.empty_state_widget.parent()
+                self.scroll_area.setWidget(self.empty_state_widget)
+                self.scroll_area.setWidgetResizable(True)
+            self._update_controls()
             return
+
+        # Switch to page label if showing empty state
+        if self.scroll_area.widget() is not self.page_label or self._continuous_mode:
+            pass  # handled below
+
+        if self._continuous_mode:
+            self._render_continuous()
+        else:
+            self._render_single_page()
+        _perf_end(_t, f"_do_render page={self.current_page} zoom={self.current_render_zoom:.2f}")
+
+    def _render_single_page(self):
+        """Render a single page in the scroll area."""
         try:
             page = self.document.load_page(self.current_page)
             zoom = self._effective_zoom(page)
@@ -1306,8 +1359,90 @@ class PdfReaderWindow(QMainWindow):
             self._show_error("Render Error", "Unable to render this page.", exc)
             return
 
+        # Switch to page_label widget
+        if self.scroll_area.widget() is not self.page_label:
+            self.scroll_area.takeWidget()
+            self.scroll_area.setWidget(self.page_label)
+            self.scroll_area.setWidgetResizable(False)
+
         self.page_label.setPixmap(QPixmap.fromImage(image))
         self.page_label.adjustSize()
+        self.page_spin.blockSignals(True)
+        self.page_spin.setValue(self.current_page + 1)
+        self.page_spin.blockSignals(False)
+        self._update_controls()
+
+    def _render_continuous(self):
+        """Render pages in continuous vertical scroll layout."""
+        page_count = self.document.page_count
+        zoom = self._effective_zoom(self.document.load_page(0))
+        self.current_render_zoom = zoom
+
+        # Determine visible range (current page + buffer)
+        buffer_pages = 5
+        start_page = max(0, self.current_page - buffer_pages)
+        end_page = min(page_count, self.current_page + buffer_pages + 1)
+
+        # Build or reuse continuous container
+        if self._continuous_container is None:
+            self._continuous_container = QWidget()
+            self._continuous_layout = QVBoxLayout(self._continuous_container)
+            self._continuous_layout.setContentsMargins(0, 0, 0, 0)
+            self._continuous_layout.setSpacing(8)
+
+        # Show continuous container in scroll area
+        if self.scroll_area.widget() is not self._continuous_container:
+            self.scroll_area.takeWidget()
+            self.scroll_area.setWidget(self._continuous_container)
+            self.scroll_area.setWidgetResizable(True)
+
+        show_annots = hasattr(self, "show_annots_action") and self.show_annots_action.isChecked()
+
+        # Clear and rebuild visible pages
+        for label in self._continuous_pages:
+            label.setParent(None)
+            label.deleteLater()
+        self._continuous_pages.clear()
+
+        # Clear layout items
+        while self._continuous_layout.count():
+            item = self._continuous_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        # Add a stretch on top for centering
+        self._continuous_layout.addStretch(1)
+
+        for page_idx in range(start_page, end_page):
+            try:
+                page = self.document.load_page(page_idx)
+                self._validate_render_size(page, zoom)
+                matrix = fitz.Matrix(zoom, zoom)
+                pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=show_annots)
+                image = QImage(
+                    pixmap.samples,
+                    pixmap.width,
+                    pixmap.height,
+                    pixmap.stride,
+                    QImage.Format_RGB888,
+                )
+                label = QLabel()
+                label.setPixmap(QPixmap.fromImage(image))
+                label.setAlignment(Qt.AlignCenter)
+                self._continuous_pages.append(label)
+                self._continuous_layout.addWidget(label, 0, Qt.AlignCenter)
+            except Exception:
+                continue
+
+        self._continuous_layout.addStretch(1)
+
+        # Scroll to show current page
+        if self._continuous_pages:
+            target_idx = self.current_page - start_page
+            if 0 <= target_idx < len(self._continuous_pages):
+                target_y = self._continuous_pages[target_idx].y()
+                self.scroll_area.verticalScrollBar().setValue(max(0, target_y - 20))
+
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
         self.page_spin.blockSignals(False)
@@ -1471,6 +1606,21 @@ class PdfReaderWindow(QMainWindow):
         self.page_label.clear_drag_selection()
         if render and self.document is not None:
             self.render_page()
+
+    def _toggle_annotations_visible(self, visible):
+        if self.document is not None:
+            self.render_page()
+
+    def _toggle_continuous_mode(self, checked):
+        self._continuous_mode = checked
+        if hasattr(self, "_continuous_menu_action"):
+            self._continuous_menu_action.setChecked(checked)
+        if self.document is not None:
+            self.render_page()
+
+    def _toggle_auto_update_check(self, checked):
+        self._auto_update_check = checked
+        self.settings.setValue(SETTINGS_AUTO_UPDATE_KEY, checked)
 
     # ------------------------------------------------------------------
     # Annotations (Highlight / Underline / Strikethrough / Sticky Note)
@@ -2055,11 +2205,6 @@ class PdfReaderWindow(QMainWindow):
         self.underline_button.setEnabled(has_document and has_selection)
         self.strike_button.setEnabled(has_document and has_selection)
         self.sticky_button.setEnabled(has_document)
-        self.split_button.setEnabled(has_document)
-        self.compress_button.setEnabled(has_document)
-        self.compare_button.setEnabled(HAS_LIB_MODULES)
-        self.library_button.setEnabled(HAS_LIB_MODULES)
-        self.merge_button.setEnabled(True)
         if hasattr(self, "copy_action"):
             self.copy_action.setEnabled(has_document and has_selection)
         self.search_input.setEnabled(has_document)
@@ -2077,23 +2222,178 @@ class PdfReaderWindow(QMainWindow):
             self._render_timer.start()  # Debounced re-render
 
     def _show_about(self):
-        QMessageBox.about(
-            self,
-            f"About {self.APP_NAME}",
-            f"<h3>{self.APP_NAME}</h3>"
-            f"<p>Version {__version__}</p>"
-            f"<p>Built with Python, PySide6, and PyMuPDF.</p>"
-            f"<p>Local-first. Private. No cloud uploads.</p>"
-            f"<hr>"
-            f"<p style='font-size:11pt;'>"
-            f"<b>Keyboard shortcuts:</b><br>"
-            f"Open: Ctrl+O &nbsp;|&nbsp; Save: Ctrl+S<br>"
-            f"Find: Ctrl+F &nbsp;|&nbsp; Copy: Ctrl+C<br>"
-            f"Prev/Next page: Page Up/Down<br>"
-            f"Zoom In/Out: Ctrl+= / Ctrl+&minus;<br>"
-            f"Fit width: Ctrl+0 &nbsp;|&nbsp; Close tab: Ctrl+W"
+        """Professional branded About dialog."""
+        dlg = QDialog(self)
+        dlg.setWindowTitle(f"About {self.APP_NAME}")
+        dlg.setFixedSize(460, 500)
+        dlg.setWindowFlags(dlg.windowFlags() & ~Qt.WindowContextHelpButtonHint)
+
+        layout = QVBoxLayout(dlg)
+        layout.setContentsMargins(24, 24, 24, 20)
+        layout.setSpacing(10)
+
+        # App name
+        name_label = QLabel(f"<h1 style='margin:0;'>{self.APP_NAME}</h1>")
+        name_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(name_label)
+
+        # Version
+        ver_label = QLabel(f"<p style='color:#888; font-size:13px; margin:0;'>"
+                           f"Version {__version__} &mdash; <a href='https://github.com/{GITHUB_REPO}/releases' "
+                           f"style='color:#89b4fa;'>Release Notes</a></p>")
+        ver_label.setOpenExternalLinks(True)
+        ver_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(ver_label)
+
+        layout.addSpacing(8)
+
+        # Description
+        desc = QLabel(
+            "<p style='font-size:13px; line-height:1.6;'>"
+            "A local-first, private PDF reader for the desktop. "
+            "Built with Python, PySide6, and PyMuPDF. "
+            "No cloud uploads. No accounts. No telemetry.</p>"
+        )
+        desc.setWordWrap(True)
+        desc.setAlignment(Qt.AlignCenter)
+        layout.addWidget(desc)
+
+        layout.addSpacing(6)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #45475a;")
+        layout.addWidget(sep)
+
+        layout.addSpacing(4)
+
+        # Keyboard shortcuts
+        shortcuts_title = QLabel("<b style='font-size:12px;'>Keyboard Shortcuts</b>")
+        shortcuts_title.setAlignment(Qt.AlignCenter)
+        layout.addWidget(shortcuts_title)
+
+        shortcuts_html = """
+        <table style='font-size:12px; line-height:1.8; margin: 0 auto;'>
+        <tr><td><b>Open PDF</b></td><td style='padding-left:16px;color:#888;'>Ctrl+O</td></tr>
+        <tr><td><b>Save</b></td><td style='padding-left:16px;color:#888;'>Ctrl+S</td></tr>
+        <tr><td><b>Find</b></td><td style='padding-left:16px;color:#888;'>Ctrl+F</td></tr>
+        <tr><td><b>Copy</b></td><td style='padding-left:16px;color:#888;'>Ctrl+C</td></tr>
+        <tr><td><b>Prev / Next Page</b></td><td style='padding-left:16px;color:#888;'>Page Up / Page Down</td></tr>
+        <tr><td><b>Zoom In / Out</b></td><td style='padding-left:16px;color:#888;'>Ctrl+= / Ctrl+-</td></tr>
+        <tr><td><b>Fit Width</b></td><td style='padding-left:16px;color:#888;'>Ctrl+0</td></tr>
+        <tr><td><b>Close Tab</b></td><td style='padding-left:16px;color:#888;'>Ctrl+W</td></tr>
+        <tr><td><b>New Tab</b></td><td style='padding-left:16px;color:#888;'>Ctrl+T</td></tr>
+        </table>
+        """
+        shortcuts = QLabel(shortcuts_html)
+        shortcuts.setAlignment(Qt.AlignCenter)
+        layout.addWidget(shortcuts)
+
+        layout.addSpacing(6)
+
+        # Separator
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.HLine)
+        sep2.setStyleSheet("color: #45475a;")
+        layout.addWidget(sep2)
+
+        layout.addSpacing(4)
+
+        # Links
+        links = QLabel(
+            f"<p style='font-size:12px; line-height:1.8;'>"
+            f"<a href='https://github.com/{GITHUB_REPO}' style='color:#89b4fa;'>GitHub Repository</a>"
+            f"&nbsp;&nbsp;|&nbsp;&nbsp;"
+            f"<a href='https://github.com/sparshsam' style='color:#89b4fa;'>Sparsh Sam</a>"
             f"</p>"
         )
+        links.setOpenExternalLinks(True)
+        links.setAlignment(Qt.AlignCenter)
+        layout.addWidget(links)
+
+        # Build info
+        try:
+            build_info = f"Python {platform.python_version()} · PySide6 · {platform.system()} {platform.machine()}"
+        except Exception:
+            build_info = ""
+        if build_info:
+            build_label = QLabel(f"<p style='font-size:11px; color:#666; margin:0;'>{build_info}</p>")
+            build_label.setAlignment(Qt.AlignCenter)
+            layout.addWidget(build_label)
+
+        layout.addStretch()
+
+        # Close button
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        close_btn = QPushButton("Close")
+        close_btn.setFixedWidth(100)
+        close_btn.clicked.connect(dlg.accept)
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+        dlg.exec()
+
+    def _set_app_icon(self):
+        """Set window icon from bundled .ico file."""
+        icon_paths = [
+            Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico",
+            Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico" if getattr(sys, "frozen", False) else None,
+        ]
+        for p in icon_paths:
+            if p and p.exists():
+                self.setWindowIcon(QIcon(str(p)))
+                return
+        # Fallback: style pixmap
+        icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
+        self.setWindowIcon(icon)
+
+    def check_for_updates_silent(self):
+        """Silent update check — no user-visible feedback unless update is found."""
+        if self._update_progress is not None:
+            return
+        self._update_nam_silent = QNetworkAccessManager(self)
+        self._update_nam_silent.finished.connect(self._on_silent_update_reply)
+        url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
+        request = QNetworkRequest(url)
+        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setTransferTimeout(15000)
+        self._update_nam_silent.get(request)
+
+    def _on_silent_update_reply(self, reply):
+        http_status = reply.attribute(QNetworkRequest.HttpStatusCodeAttribute)
+        network_error = reply.error() != QNetworkReply.NoError
+        response_body = bytes(reply.readAll()).decode("utf-8")
+        result = self._classify_update_response(
+            http_status, network_error, reply.errorString(), response_body, __version__
+        )
+        reply.deleteLater()
+        if result["outcome"] == "update_available":
+            self.statusBar().showMessage(result["message"], 10000)
+            # Show the interactive update prompt
+            self.check_for_updates()
+
+    # ------------------------------------------------------------------
+    # Drag and drop support
+    # ------------------------------------------------------------------
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dragMoveEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+
+    def dropEvent(self, event):
+        for url in event.mimeData().urls():
+            path = url.toLocalFile()
+            if path.lower().endswith(".pdf"):
+                self.open_pdf(path)
+                event.acceptProposedAction()
+                return
+        event.ignore()
 
     # ------------------------------------------------------------------
     # Auto-update system

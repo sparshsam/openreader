@@ -40,6 +40,7 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: checkedonce
 Name: "quicklaunchicon"; Description: "Create a &Quick Launch icon"; GroupDescription: "Additional icons:"; Flags: unchecked
+Name: "autoupdate"; Description: "&Automatically check for updates on launch"; GroupDescription: "Update preferences:"; Flags: checkedonce
 
 [Files]
 #ifdef AppSourceDir
