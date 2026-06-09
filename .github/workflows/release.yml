@@ -41,25 +41,34 @@ jobs:
         run: |
           Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
-      - name: Build Inno Setup installer
+      - name: Build Inno Setup installer (optional)
+        continue-on-error: true
         shell: pwsh
         run: |
-          $ErrorActionPreference = "Stop"
           $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
-          choco install innosetup --no-progress --limit-output 2>$null
-          $env:Path += ";${env:ProgramFiles(x86)}\Inno Setup 6"
-          iscc /Q /DAppVersion="$version" installer/setup.iss
+          $isccUrl = "https://jrsoftware.org/download.php/iscc.exe"
+          $isccPath = "$env:TEMP\iscc.exe"
+          Invoke-WebRequest -Uri $isccUrl -OutFile $isccPath -ErrorAction Stop
+          & $isccPath /Q /DAppVersion="$version" installer/setup.iss
           if (Test-Path "installer/PDFReader-by-Sparsh-$version-Setup.exe") {
             Copy-Item "installer/PDFReader-by-Sparsh-$version-Setup.exe" "PDFReader-by-Sparsh-Setup.exe"
+            Write-Host "Inno Setup installer built: PDFReader-by-Sparsh-Setup.exe"
+          } else {
+            Write-Host "Inno Setup installer not built (no output file)"
           }
 
-      - name: Upload Windows release asset
+      - name: Upload Windows ZIP
         uses: actions/upload-artifact@v7
         with:
           name: release-windows
-          path: |
-            PDFReader-by-Sparsh-Windows.zip
-            PDFReader-by-Sparsh-Setup.exe
+          path: PDFReader-by-Sparsh-Windows.zip
+
+      - name: Upload Windows Setup installer (if built)
+        if: hashFiles('PDFReader-by-Sparsh-Setup.exe') != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-windows-installer
+          path: PDFReader-by-Sparsh-Setup.exe
 
   build-macos:
     name: Build macOS Release Asset
@@ -124,9 +133,13 @@ jobs:
           merge-multiple: true
           path: release-assets
 
-      - name: List downloaded assets
+      - name: Verify required assets exist
         run: |
           ls -la release-assets/
+          test -f "release-assets/PDFReader-by-Sparsh-Windows.zip" || { echo "Missing Windows ZIP"; exit 1; }
+          test -f "release-assets/PDFReader-by-Sparsh-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
+          test -f "release-assets/PDFReader-by-Sparsh-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
+          echo "All required assets verified"
 
       - name: Generate release notes
         run: |
