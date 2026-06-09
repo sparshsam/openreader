@@ -1,4 +1,45 @@
 # Changelog
+
+## v0.7.0 - 2026-06-09
+
+- **Reliability + Recovery.** Crash-safe document handling and safer file operations:
+  - Backup-before-write for annotation saves (`_save_document_annotations`): creates
+    `.pdf.bak` before incremental save, falls back to full save, preserves backup on failure.
+  - Backup-before-write for explicit document saves (`_save_document`): backs up original,
+    restores from backup if write fails.
+  - Merge (`merge_pdfs`): temp-file-based atomic write with `shutil.move` — no partial
+    output possible. Temp files cleaned up on both success and failure paths.
+- **Improved PDF validation:**
+  - Encrypted/password-protected PDF detection via `fitz.open.is_encrypted` pre-check
+    with clear user-facing error message.
+  - Corrupted PDF detection (`fitz.FileDataError`) with dedicated error message.
+  - `_show_error()` now distinguishes `PdfSafetyError`, `fitz.FileDataError`, and
+    generic exceptions with actionable recovery language.
+- **Session recovery safety:**
+  - Corrupted session data (non-list/tuple, non-dict entries, non-int page numbers)
+    is now handled gracefully — corrupt entries are skipped, bad data is ignored.
+  - Session save wrapped in try/except — failure to save session cannot prevent
+    application close.
+  - Document close at shutdown is best-effort (wrapped in try/except).
+- **Defensive logging:**
+  - New `_log()` and `_log_error()` functions write timestamped entries to
+    `%TEMP%\PDFReader-Logs\app-debug.log`.
+  - Logged at every `_show_error()` call, merge/split/compress failure, and save failure.
+- **Release Pipeline Consolidation (absorbing v0.6.1):**
+  - RELEASE.md: artifact naming convention matrix (6 assets), updater asset expectations
+    table, version-in-filename documentation.
+  - All release artifacts follow documented naming patterns; updater ZIP assets are
+    version-free; DMG assets are versioned.
+- **Tests:** 20 new reliability tests covering:
+  - Backup create/remove/restore behavior (4 tests)
+  - Temp-file atomic operations and cleanup (3 tests)
+  - Corrupted/encrypted error messages (5 tests)
+  - Session recovery edge cases (3 tests)
+  - Defensive logging (3 tests)
+  - PdfSafetyError hierarchy (2 tests)
+- **Bumped `__version__`** to `0.7.0-dev`.
+- No feature changes — data safety, failure handling, and pipeline documentation only.
+
 ## v0.3.6 - 2026-06-08
 
 - Published the Windows installer as `PDFReader-by-Sparsh-Setup.exe` on GitHub Releases.

@@ -46,13 +46,48 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "0.3.0-dev"
+__version__ = "0.7.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
 MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
+
+# ── Defensive logging ─────────────────────────────────────────────────
+_APP_LOG_PATH: Path | None = None
+
+
+def _app_log_dir() -> Path:
+    """Return and create the app log directory."""
+    log_dir = Path(tempfile.gettempdir()) / "PDFReader-Logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    return log_dir
+
+
+def _app_log_path() -> Path:
+    """Return the path for the app's debug log file (lazy init)."""
+    global _APP_LOG_PATH
+    if _APP_LOG_PATH is None:
+        _APP_LOG_PATH = _app_log_dir() / "app-debug.log"
+    return _APP_LOG_PATH
+
+
+def _log(msg: str) -> None:
+    """Append a timestamped message to the app debug log."""
+    try:
+        from datetime import datetime
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(_app_log_path(), "a", encoding="utf-8") as f:
+            f.write(f"[{ts}] {msg}\n")
+    except OSError:
+        pass
+
+
+def _log_error(context: str, exc: Exception) -> None:
+    """Log an error with context and exception details."""
+    _log(f"ERROR [{context}]: {exc.__class__.__name__}: {exc}")
+
 
 # Optional modules (graceful if missing)
 try:
@@ -1184,11 +1219,31 @@ class PdfReaderWindow(QMainWindow):
             raise PdfSafetyError("The selected file is empty.")
         if size > self.MAX_PDF_SIZE_BYTES:
             max_mb = self.MAX_PDF_SIZE_BYTES // (1024 * 1024)
-            raise PdfSafetyError(f"The selected PDF is larger than the {max_mb} MB safety limit.")
+            raise PdfSafetyError(
+                f"The selected PDF is larger than the {max_mb} MB safety limit."
+            )
         with path.open("rb") as file:
             header = file.read(1024)
         if b"%PDF-" not in header:
             raise PdfSafetyError("The selected file does not look like a valid PDF.")
+        # Quick pre-check: try fitz peek to detect encryption
+        try:
+            probe = fitz.open(str(path))
+            is_encrypted = probe.is_encrypted
+            probe.close()
+            if is_encrypted:
+                raise PdfSafetyError(
+                    "This PDF is encrypted or password-protected.\n\n"
+                    "PDFReader by Sparsh does not currently support encrypted PDFs.\n"
+                    "If you know the password, try removing protection with another tool first."
+                )
+        except fitz.FileDataError:
+            raise PdfSafetyError(
+                "This PDF appears to be corrupted and cannot be read."
+            )
+        except Exception:
+            # Other errors are expected for some edge-case files; continue anyway
+            pass
         return path
 
     def _validate_document_pages(self, document):
@@ -1205,7 +1260,13 @@ class PdfReaderWindow(QMainWindow):
                 )
 
     def _show_error(self, title, public_message, exception):
-        detail = str(exception) if isinstance(exception, PdfSafetyError) else "The file could not be processed safely."
+        if isinstance(exception, PdfSafetyError):
+            detail = str(exception)
+        elif isinstance(exception, fitz.FileDataError):
+            detail = "This PDF appears to be corrupted and cannot be read."
+        else:
+            detail = "The file could not be processed safely."
+        _log_error(f"_show_error({title})", exception)
         QMessageBox.critical(self, title, f"{public_message}\n\n{detail}")
 
     def close_document(self):
@@ -1566,27 +1627,79 @@ class PdfReaderWindow(QMainWindow):
         self.statusBar().showMessage(f"Annotations {status}", 3000)
 
     def _save_document_annotations(self):
-        """Save the current document to preserve annotations on disk."""
+        """Save the current document to preserve annotations on disk.
+
+        Creates a backup before incremental save. Falls back to full save
+        with garbage collection if incremental save fails.
+        """
         if self.current_path is None or self.document is None:
             return
+        path = Path(self.current_path)
         try:
-            self.document.save(self.current_path, incremental=True, encryption=0)
-        except Exception:
+            # Backup the original before any write
+            backup_path = path.with_suffix(".pdf.bak")
+            import shutil
+            shutil.copy2(str(path), str(backup_path))
             try:
-                self.document.save(self.current_path, garbage=1, deflate=True)
-            except Exception as exc:
-                self.statusBar().showMessage(f"Could not save annotations: {exc}", 5000)
+                self.document.save(
+                    self.current_path, incremental=True, encryption=0
+                )
+                # Remove backup on success
+                backup_path.unlink(missing_ok=True)
+            except Exception:
+                # Incremental save failed — try full save
+                try:
+                    self.document.save(
+                        self.current_path, garbage=1, deflate=True
+                    )
+                    backup_path.unlink(missing_ok=True)
+                except Exception as exc:
+                    self.statusBar().showMessage(
+                        f"Could not save annotations: {exc}", 5000
+                    )
+                    # Leave backup in place; user can restore manually
+                    self.statusBar().showMessage(
+                        f"Backup saved as {backup_path.name}", 8000
+                    )
+        except Exception as exc:
+            self.statusBar().showMessage(
+                f"Could not create backup before save: {exc}", 5000
+            )
 
     def _save_document(self):
-        """Explicit full save via File > Save."""
+        """Explicit full save via File > Save.
+
+        Creates a backup before writing, then atomically renames if
+        the save target differs from the original path.
+        """
         if self.current_path is None or self.document is None:
             self.statusBar().showMessage("No document open", 3000)
             return
+        path = Path(self.current_path)
+        backup_path = None
         try:
+            # Backup original before overwriting
+            import shutil
+            backup_path = path.with_suffix(".pdf.bak")
+            shutil.copy2(str(path), str(backup_path))
+
             self.document.save(self.current_path, garbage=1, deflate=True)
+
+            # Remove backup on success
+            backup_path.unlink(missing_ok=True)
             self.statusBar().showMessage("Document saved", 3000)
         except Exception as exc:
             self.statusBar().showMessage(f"Save failed: {exc}", 5000)
+            # Try to restore from backup
+            try:
+                if backup_path and backup_path.exists():
+                    import shutil as sh
+                    sh.copy2(str(backup_path), str(path))
+                    self.statusBar().showMessage(
+                        f"Original restored from backup", 5000
+                    )
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------
     # Navigation
@@ -1788,6 +1901,13 @@ class PdfReaderWindow(QMainWindow):
         if not output_path.lower().endswith(".pdf"):
             output_path += ".pdf"
 
+        # Use a temp file for atomic write — protects against partial writes
+        import tempfile
+        import shutil
+        temp_fd, temp_path = tempfile.mkstemp(suffix=".pdf", prefix="pdfreader_merge_")
+        os.close(temp_fd)
+        temp_path = Path(temp_path)
+
         merged = fitz.open()
         opened_docs = []
         try:
@@ -1795,8 +1915,9 @@ class PdfReaderWindow(QMainWindow):
                 source = self._safe_open_pdf(file_name)
                 opened_docs.append(source)
                 merged.insert_pdf(source)
+            # Save to temp file first
             merged.save(
-                output_path,
+                str(temp_path),
                 garbage=4,
                 deflate=True,
                 deflate_images=True,
@@ -1804,13 +1925,22 @@ class PdfReaderWindow(QMainWindow):
                 use_objstms=1,
                 compression_effort=9,
             )
+            # Atomic rename: temp → final destination
+            shutil.move(str(temp_path), output_path)
         except Exception as exc:
+            _log_error("merge_pdfs", exc)
             self._show_error("Merge Failed", "Could not merge the selected PDFs.", exc)
+            # Clean up temp file on failure
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
             return
         finally:
             for source in opened_docs:
                 source.close()
             merged.close()
+            # Ensure temp is cleaned up even on success path
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
 
         QMessageBox.information(self, "Merge Complete", f"Saved merged PDF:\n\n{output_path}")
         self.statusBar().showMessage("Merged PDFs successfully", 5000)
@@ -1859,6 +1989,7 @@ class PdfReaderWindow(QMainWindow):
                 saved_path = self._extract_pages(Path(output_dir), pages)
                 message = f"Saved extracted pages:\n\n{saved_path}"
         except Exception as exc:
+            _log_error("split_pdf", exc)
             self._show_error("Split Failed", "Could not split this PDF.", exc)
             return
 
@@ -1956,6 +2087,7 @@ class PdfReaderWindow(QMainWindow):
                 source.close()
             output_size = Path(output_path).stat().st_size
         except Exception as exc:
+            _log_error("compress_pdf", exc)
             self._show_error("Compression Failed", "Could not compress this PDF.", exc)
             return
 
@@ -2607,9 +2739,22 @@ class PdfReaderWindow(QMainWindow):
     def _restore_session(self, force=False):
         if not self._auto_restore and not force:
             return
-        session = self.settings.value("session", [])
+        try:
+            session = self.settings.value("session", [])
+        except Exception:
+            # Corrupted settings — silently skip session restore
+            self.statusBar().showMessage(
+                "Could not read session data — starting fresh", 5000
+            )
+            return
         if not session:
             return
+        if not isinstance(session, (list, tuple)):
+            self.statusBar().showMessage(
+                "Session data is corrupt — starting fresh", 5000
+            )
+            return
+
         if not force:
             reply = QMessageBox.question(
                 self, "Restore Session",
@@ -2620,31 +2765,53 @@ class PdfReaderWindow(QMainWindow):
             )
             if reply != QMessageBox.Yes:
                 return
+
+        restored_count = 0
         for entry in session:
-            path = entry.get("path", "")
-            page = entry.get("page", 0)
-            if path and Path(path).exists():
-                self.open_pdf(path)
-                if page > 0 and self.document is not None:
-                    self.current_page = min(page, self.document.page_count - 1)
-                    self.render_page()
+            try:
+                if not isinstance(entry, dict):
+                    continue
+                path = entry.get("path", "")
+                page = entry.get("page", 0)
+                if not isinstance(page, int):
+                    page = 0
+                if path and Path(path).exists():
+                    self.open_pdf(path)
+                    if page > 0 and self.document is not None:
+                        self.current_page = min(page, self.document.page_count - 1)
+                        self.render_page()
+                    restored_count += 1
+            except Exception:
+                # Skip corrupt entries
+                continue
+
+        if restored_count > 0:
+            self.statusBar().showMessage(
+                f"Restored {restored_count} document(s)", 5000
+            )
 
     def _toggle_auto_restore(self, checked):
         self._auto_restore = checked
         self.settings.setValue("autoRestore", checked)
 
     def closeEvent(self, event):
-        self._save_current_state()
-        # Save workspace session
-        session = []
-        for tab_id, tab in self.tabs.items():
-            if tab.path and Path(tab.path).exists():
-                session.append({"path": tab.path, "page": tab.current_page})
-        self.settings.setValue("session", session)
+        try:
+            self._save_current_state()
+            # Save workspace session
+            session = []
+            for tab_id, tab in self.tabs.items():
+                if tab.path and Path(tab.path).exists():
+                    session.append({"path": tab.path, "page": tab.current_page})
+            self.settings.setValue("session", session)
+        except Exception:
+            pass  # Non-fatal — session save failure should not prevent close
         # Close docs
         for tab_id, tab in self.tabs.items():
-            if tab.document is not None:
-                tab.document.close()
+            try:
+                if tab.document is not None:
+                    tab.document.close()
+            except Exception:
+                pass  # Best-effort document close
         self.tabs.clear()
         super().closeEvent(event)
 

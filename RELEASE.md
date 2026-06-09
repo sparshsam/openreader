@@ -22,11 +22,37 @@ The release workflow must attach these assets:
 ```text
 PDFReader-by-Sparsh-Windows.zip          (updater canonical asset)
 PDFReader-by-Sparsh-Setup.exe            (Windows installer, additive)
-PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
-PDFReader-by-Sparsh-macOS-Intel.zip
+PDFReader-by-Sparsh-macOS-Apple-Silicon.zip          (updater canonical)
+PDFReader-by-Sparsh-macOS-Apple-Silicon-{version}.dmg  (polished install)
+PDFReader-by-Sparsh-macOS-Intel.zip                   (updater canonical)
+PDFReader-by-Sparsh-macOS-Intel-{version}.dmg          (polished install)
 ```
 
-The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is an additive installer asset.
+### Artifact Naming Convention
+
+| Platform | Format | Updater? | Pattern |
+|----------|--------|----------|---------|
+| Windows (updater) | `.zip` | ✅ Yes | `PDFReader-by-Sparsh-Windows.zip` |
+| Windows (installer) | `.exe` | ❌ No | `PDFReader-by-Sparsh-Setup.exe` |
+| macOS Apple Silicon (updater) | `.zip` | ✅ Yes | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` |
+| macOS Apple Silicon (DMG) | `.dmg` | ❌ No | `PDFReader-by-Sparsh-macOS-Apple-Silicon-{version}.dmg` |
+| macOS Intel (updater) | `.zip` | ✅ Yes | `PDFReader-by-Sparsh-macOS-Intel.zip` |
+| macOS Intel (DMG) | `.dmg` | ❌ No | `PDFReader-by-Sparsh-macOS-Intel-{version}.dmg` |
+
+### Updater Asset Expectations
+
+The in-app updater (see `pdfreader_lib/updater.py`) looks for **exact**
+filenames that **never include a version number**:
+
+- `PDFReader-by-Sparsh-Windows.zip`
+- `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`
+- `PDFReader-by-Sparsh-macOS-Intel.zip`
+
+These names are hardcoded constants. The version-specific DMG files are
+discovered by the user on the Releases page — the updater does not use them.
+DMG filenames include the version to distinguish between releases on the
+GitHub Releases page.
+
 Do not rename or remove the canonical ZIP assets without updating `main.py`.
 
 ## How to Cut a Release
