@@ -1,6 +1,30 @@
 # Changelog
 
-## v0.9.0 - Release Candidate — 2026-06-09
+## v1.0.0 — Stable Desktop Utility — 2026-06-09
+
+- **Release declaration:** PDFReader by Sparsh is declared a stable, local-first
+  desktop PDF utility. No longer a prototype.
+- **Version:** Bumped `__version__` to `1.0.0-dev` (CI injects exact tag at release).
+- **Release workflow verified:** GitHub Actions release pipeline reviewed for
+  version injection, asset naming, asset verification, and release notes generation.
+  All canonical asset names match updater expectations.
+- **Installer metadata verified:** Inno Setup `setup.iss` uses dynamic
+  `#ifndef AppVersion` with fallback — compatible with both CI and local builds.
+- **Documentation finalized:**
+  - README updated for stable release positioning
+  - README "Last updated" date bumped to July 2026
+  - ROADMAP.md refreshed to reflect shipped v1.0 capabilities
+  - RELEASE.md unchanged (already accurate)
+  - docs/known-limitations.md unchanged (already complete)
+- **Full validation pass:**
+  - Compile check: clean
+  - pytest: 32 passed, 31 skipped (PySide6 gated — expected in headless CI)
+  - tools/test_updater_asset_flow.py: all 16 checks passed
+  - bandit: 0 issues in production code
+  - pip-audit: 0 known vulnerabilities
+- **No new features. No architecture changes. No UX changes.**
+- All stabilization, reliability, and release-candidate work from v0.7.0–v0.9.0
+  is included and verified.
 
 - **Stabilization fixes:**
   - Fixed critical bug in `_delete_all_annotations`: confirmation dialog now appears

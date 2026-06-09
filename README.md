@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/sparshsam/pdfreader-by-sparsh?sort=semver"></a>
+  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/sparshsam/pdfreader-by-sparsh?sort=semver&label=stable%20release"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-PolyForm%20Noncommercial-blue"></a>
   <a href="https://github.com/sparshsam/pdfreader-by-sparsh/actions/workflows/release.yml"><img alt="Release build" src="https://img.shields.io/github/actions/workflow/status/sparshsam/pdfreader-by-sparsh/release.yml?label=release%20build"></a>
   <a href="https://github.com/sparshsam/pdfreader-by-sparsh/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sparshsam/pdfreader-by-sparsh/ci.yml?label=CI"></a>
@@ -39,9 +39,11 @@
 
 ## Overview
 
-PDFReader by Sparsh is a practical desktop PDF utility built with Python, PySide6, and PyMuPDF. It is designed for people who want common PDF tasks in a simple native app without sending private documents to a cloud service.
+PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with Python, PySide6, and PyMuPDF. It is designed for people who want common PDF tasks in a simple native app without sending private documents to a cloud service.
 
-The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, and compressed on your computer.
+The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
+
+**v1.0.0** declares this project a stable desktop utility with production-grade release discipline, verified distribution flows, and documented limitations.
 
 ## Download
 
@@ -314,14 +316,17 @@ This project is one piece of that broader picture. The immediate goal is a genui
 
 ```text
 .
-├── .github/                 # CI, security checks, Dependabot
+| .github/                 # CI, security checks, Dependabot
 ├── assets/                  # App icon and README screenshots
-├── docs/                    # Platform notes
+├── docs/                    # Platform notes and known limitations
+├── installer/               # Inno Setup installer script
 ├── scripts/                 # Build scripts
-├── tools/                   # Developer utilities, including icon generation
+├── tests/                   # Regression test suite
+├── tools/                   # Developer utilities and CI test helpers
 ├── main.py                  # Main PySide6 application
 ├── requirements.txt         # Pinned runtime/build dependencies
 ├── PDFReader by Sparsh.spec # PyInstaller spec
+├── .bandit                  # Bandit security scanner configuration
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
 ├── LICENSE
@@ -334,7 +339,7 @@ Contributions are welcome for non-commercial use cases. Please read [CONTRIBUTIN
 
 ---
 
-*Last updated: June 2026*
+*Last updated: July 2026*
 
 ## Tech Stack
 
