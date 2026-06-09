@@ -44,20 +44,30 @@ jobs:
       - name: Build Inno Setup installer
         shell: pwsh
         run: |
+          $ErrorActionPreference = "Stop"
           $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
-          try {
-            # Install Inno Setup via Chocolatey (pre-installed on GitHub Windows runners)
-            choco install innosetup --no-progress --limit-output --acceptlicense -y 2>$null
-            # ISCC is added to PATH by Chocolatey
-            iscc /Q /DAppVersion="$version" installer/setup.iss
-          } catch {
-            # Fallback: download ISCC directly
-            $isccUrl = "https://raw.githubusercontent.com/jrsoftware/issrc/main/Files/ISCC.exe"
-            $isccPath = "$env:TEMP\iscc.exe"
-            Invoke-WebRequest -Uri $isccUrl -OutFile $isccPath -ErrorAction Stop
-            & $isccPath /Q /DAppVersion="$version" installer/setup.iss
-          }
-          # Verify output
+
+          # Install Inno Setup via Chocolatey
+          choco install innosetup --no-progress --limit-output --acceptlicense -y 2>$null
+
+          # Refresh PATH so iscc.exe is found
+          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+          # Common iscc.exe locations
+          $isccPaths = @(
+            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $null
+          foreach ($p in $isccPaths) { if (Test-Path $p) { $iscc = $p; break } }
+          if (-not $iscc) { $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source }
+          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup installation" }
+
+          Write-Host "Using ISCC: $iscc"
+          & $iscc /Q /DAppVersion="$version" installer/setup.iss
+
+          # Verify and copy output
           $expected = "installer/PDFReader-by-Sparsh-$version-Setup.exe"
           if (Test-Path $expected) {
             Copy-Item $expected "PDFReader-by-Sparsh-Setup.exe"
