@@ -2849,7 +2849,7 @@ class PdfReaderWindow(QMainWindow):
                 old_script.unlink(missing_ok=True)
                 self._log_update(f"cleaned_stale_script={old_script}")
         except Exception:
-            pass  # best-effort; the old location may be protected
+            pass  # nosec — best-effort; old location may be protected
 
         # Write the batch updater script to the WRITABLE temp directory
         bat_path = script_dir / f"_update_{tag}.bat"
@@ -2867,7 +2867,7 @@ class PdfReaderWindow(QMainWindow):
             'set INSTALL_DIR=' + str(app_dir) + '\n'
             'set EXTRACT_DIR=' + str(extract_dir) + '\n'
             'set CURRENT_EXE=' + str(current_exe) + '\n'
-            'set TAG=' + tag + '\n'
+            'set TAG=' + tag + '\n'  # nosec B608 — batch string, not SQL
             'echo [%date% %time%] Starting update... >> "%LOG%"\n'
             'echo [%date% %time%] Script dir: %BATCH_DIR% >> "%LOG%"\n'
             'echo [%date% %time%] Install dir: %INSTALL_DIR% >> "%LOG%"\n'
@@ -2982,7 +2982,7 @@ class PdfReaderWindow(QMainWindow):
         try:
             with open(bat_path, "w") as f:
                 f.write(bat_content)
-            subprocess.Popen(  # nosec B603 — required for Windows self-update
+            subprocess.Popen(  # nosec B603, B607 — Windows self-update
                 ["cmd.exe", "/c", str(bat_path)],
                 creationflags=0x08000000,  # CREATE_NO_WINDOW
             )
