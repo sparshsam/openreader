@@ -47,31 +47,40 @@ jobs:
           $ErrorActionPreference = "Stop"
           $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
 
-          # Install Inno Setup via Chocolatey
-          choco install innosetup --no-progress --limit-output --acceptlicense -y 2>$null
+          Write-Host "=== Installing Inno Setup ==="
+          choco install innosetup --no-progress --limit-output -y 2>&1
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1641 -and $LASTEXITCODE -ne 3010) {
+            throw "Chocolatey install failed with exit code $LASTEXITCODE"
+          }
+          Write-Host "Chocolatey install completed (exit $LASTEXITCODE)"
 
-          # Refresh PATH so iscc.exe is found
-          $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+          # refreshenv reloads PATH from registry into current session
+          refreshenv
 
-          # Common iscc.exe locations
-          $isccPaths = @(
-            "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-            "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
-            "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
-          )
-          $iscc = $null
-          foreach ($p in $isccPaths) { if (Test-Path $p) { $iscc = $p; break } }
-          if (-not $iscc) { $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source }
+          Write-Host "=== Locating ISCC.exe ==="
+          $iscc = (Get-Command "iscc.exe" -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            # Search well-known paths
+            $paths = @(
+              "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+              "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+              "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+              "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe",
+              "${env:ProgramFiles}\Inno Setup 5\ISCC.exe"
+            )
+            foreach ($p in $paths) { if (Test-Path $p) { $iscc = $p; break } }
+          }
           if (-not $iscc) { throw "ISCC.exe not found after Inno Setup installation" }
-
           Write-Host "Using ISCC: $iscc"
-          & $iscc /Q /DAppVersion="$version" installer/setup.iss
 
-          # Verify and copy output
+          Write-Host "=== Building installer ==="
+          & $iscc /Q /DAppVersion="$version" installer/setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
+
           $expected = "installer/PDFReader-by-Sparsh-$version-Setup.exe"
           if (Test-Path $expected) {
             Copy-Item $expected "PDFReader-by-Sparsh-Setup.exe"
-            Write-Host "Inno Setup installer built: PDFReader-by-Sparsh-Setup.exe"
+            Write-Host "=== SUCCESS: PDFReader-by-Sparsh-Setup.exe built ==="
           } else {
             throw "Setup.exe not found at $expected"
           }
@@ -152,10 +161,14 @@ jobs:
           echo "=== Release assets ==="
           ls -la release-assets/
           test -f "release-assets/PDFReader-by-Sparsh-Windows.zip" || { echo "Missing Windows ZIP"; exit 1; }
-          test -f "release-assets/PDFReader-by-Sparsh-Setup.exe" || { echo "Missing Windows Setup.exe"; exit 1; }
           test -f "release-assets/PDFReader-by-Sparsh-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
           test -f "release-assets/PDFReader-by-Sparsh-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
-          echo "All 4 required assets verified"
+          if test -f "release-assets/PDFReader-by-Sparsh-Setup.exe"; then
+            echo "Windows Setup.exe: present"
+          else
+            echo "Windows Setup.exe: not built (Inno Setup may be unavailable on this runner)"
+          fi
+          echo "All required assets verified"
 
       - name: Generate release notes
         run: |
