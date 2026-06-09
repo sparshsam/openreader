@@ -1,0 +1,40 @@
+name: Documentation Issue
+description: Report a problem with the project's documentation
+title: "[Docs] "
+labels: ["documentation"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the docs.
+        This can be anything from a typo to a missing section.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Issue Type
+      options:
+        - Typo / grammar
+        - Missing information
+        - Outdated information
+        - Unclear / confusing section
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Document Location
+      description: Which file or URL needs attention?
+      placeholder: "README.md, CONTRIBUTING.md, docs/macos.md"
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Description
+      description: What's wrong and what should it say instead?
+    validations:
+      required: true

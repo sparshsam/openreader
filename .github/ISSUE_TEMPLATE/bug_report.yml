@@ -1,0 +1,63 @@
+name: Bug Report
+description: Report a reproducible bug in PDFReader by Sparsh
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report.
+        Before posting, check existing open/closed issues to see if this has already been reported.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the bug.
+      placeholder: What happened? What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction Steps
+      description: Steps to reproduce the behavior.
+      placeholder: |
+        1. Open PDFReader
+        2. Click '...'
+        3. Scroll to '...'
+        4. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your system and build type.
+      placeholder: |
+        - OS: [e.g. Windows 11, macOS 14.5, Ubuntu 24.04]
+        - Build: [Packaged installer / Source / pip]
+        - Version: [e.g. v0.3.5 — from Help > About]
+        - Architecture: [x64, arm64]
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots / Logs
+      description: If applicable, add screenshots, crash logs, or updater debug logs.
+      placeholder: Drag & drop images or paste log output.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Anything else? PDF size, whether it happens with all PDFs or one specific one, etc.
+      placeholder: The bug only happens with large PDFs (>200 pages).
+    validations:
+      required: false

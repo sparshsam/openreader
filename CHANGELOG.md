@@ -1,4 +1,19 @@
 # Changelog
+
+## v0.4.1 - 2026-06-09
+
+- **Repo Governance Polish.** Added professional GitHub issue templates:
+  - `.github/ISSUE_TEMPLATE/bug_report.yml` — structured form with environment, reproduction steps, screenshots
+  - `.github/ISSUE_TEMPLATE/feature_request.yml` — problem/solution/scope checkbox
+  - `.github/ISSUE_TEMPLATE/documentation_issue.yml` — type dropdown, file location
+- **Polished PR template** at `.github/PULL_REQUEST_TEMPLATE.md` with checklist, type of change, testing instructions.
+- **Refined SUPPORT.md** — added supported platforms table, known limitations, updater limitations, and unsupported workflows.
+- **Refined CONTRIBUTING.md** — added test commands, code quality checks, license agreement, and template references.
+- **Refined RELEASE.md** — updated validation checklist to include pytest and Setup.exe, added CI jobs reference table, added troubleshooting section.
+- **CI enhancement** — pytest service-level tests added to the Validate job in `.github/workflows/ci.yml`.
+- **Bumped `__version__`** to `0.4.1-dev`.
+- All changes are documentation/governance only — no application code or UX changes.
+
 ## v0.3.6 - 2026-06-08
 
 - Published the Windows installer as `PDFReader-by-Sparsh-Setup.exe` on GitHub Releases.
