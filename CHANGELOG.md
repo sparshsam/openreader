@@ -1,4 +1,26 @@
 # Changelog
+
+## v0.5.0 - 2026-06-09
+
+- **Windows Installer Maturity.** Production-grade installer improvements:
+  - `setup.iss`: Added `ChangesAssociations=yes`, `AppVerName`, `UninstallDisplayName`,
+    `CloseApplications` (pre-install process kill), `PrivilegesRequiredOverridesAllowed`,
+    `AppMutex`, output to `dist\installer\` directory, full Pascal Script documentation.
+  - `build_windows.ps1`: Added `--clean` PyInstaller mode, `--workpath` isolation,
+    pre-build artifact cleanup, version tag validation, optional ISCC installer build.
+  - CI: `--clean` and `--workpath` added to `build-windows.yml` and `release.yml`.
+  - `release.yml`: Updated Inno Setup output path to `dist\installer\`.
+- **Comprehensive Windows documentation** in README:
+  - Full install/uninstall/update/upgrade guide with step-by-step instructions.
+  - SmartScreen explanation with "More info → Run anyway" flow.
+  - PowerShell cleanup script for uninstall residuals.
+  - Known Windows limitations table (code signing, silent install, per-user install).
+  - Default PDF association setup via Windows Settings.
+  - Replaced standalone "Use as Default PDF App" section with integrated Windows guide.
+- **Updated Project Structure** in README to reflect current repo layout.
+- **Bumped `__version__`** to `0.5.0-dev`.
+- All changes are installer/CI/documentation — no application code changes.
+
 ## v0.3.6 - 2026-06-08
 
 - Published the Windows installer as `PDFReader-by-Sparsh-Setup.exe` on GitHub Releases.

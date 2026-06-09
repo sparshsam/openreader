@@ -57,6 +57,132 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 
 Packaged builds check the latest GitHub Release for updates. Source builds are intended to be updated with `git pull` and rebuilt locally.
 
+## Windows Installation Guide
+
+### Installing (Normal Install)
+
+1. Go to the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest).
+2. Download **`PDFReader-by-Sparsh-Setup.exe`**.
+3. Double-click the installer.
+4. If **Windows SmartScreen** shows a warning (see below), click **More info** then **Run anyway**.
+5. Follow the installer prompts. The default installation path is:
+   ```
+   C:\Program Files\PDFReader by Sparsh\
+   ```
+6. The installer creates:
+   - **Start Menu** folder named `PDFReader by Sparsh`
+   - Optional **desktop shortcut**
+   - **Add or Remove Programs** entry
+   - **`.pdf` file association** registration
+
+### Installing (Portable / ZIP)
+
+Download **`PDFReader-by-Sparsh-Windows.zip`**, extract it anywhere, and run
+`PDFReader by Sparsh.exe`. No admin rights needed. No file association or
+Start Menu entry is created.
+
+### First Launch and File Association
+
+After installing, `.pdf` files will show the PDFReader icon. To make
+PDFReader your default PDF app:
+
+1. Right-click any `.pdf` file.
+2. Choose **Open with > Choose another app**.
+3. Select **PDFReader by Sparsh** from the list.
+4. Check **Always use this app to open .pdf files**.
+5. Click **OK**.
+
+You can also use Windows Settings:
+**Settings → Apps → Default Apps → Choose defaults by file type → .pdf**.
+
+### Update Behavior
+
+- The **built-in auto-updater** checks GitHub Releases on launch.
+- When an update is found, the app downloads the new ZIP and applies it
+  automatically (user data is preserved).
+- Updates **replace** the app files in `C:\Program Files\PDFReader by Sparsh\`.
+- User settings are stored separately under `%APPDATA%\Sparsh\PDFReader by Sparsh\`
+  (Qt QSettings) and are never touched during updates.
+- Library index data lives under `%USERPROFILE%\.pdfreader\library\` and
+  is preserved across updates.
+
+### Uninstalling
+
+**Via Settings:**
+1. Open **Settings → Apps → Installed apps**.
+2. Find **PDFReader by Sparsh** in the list.
+3. Click the **•••** menu and select **Uninstall**.
+4. Confirm the uninstall.
+
+**Via Start Menu:**
+1. Open **Start Menu → PDFReader by Sparsh** folder.
+2. Click **Uninstall PDFReader by Sparsh**.
+
+The uninstaller removes:
+- All app files from `Program Files`
+- Start Menu shortcut
+- Desktop shortcut (if created)
+- `.pdf` file association entries from the registry
+- App Paths registry entry
+
+User settings, library index, and updater temp files are **not** removed
+during uninstall. To fully clean up after uninstalling:
+
+```powershell
+# Remove user settings
+Remove-Item -Recurse -Force "$env:APPDATA\Sparsh\PDFReader by Sparsh" -ErrorAction SilentlyContinue
+# Remove library index
+Remove-Item -Recurse -Force "$env:USERPROFILE\.pdfreader" -ErrorAction SilentlyContinue
+# Remove updater temp files
+Remove-Item -Recurse -Force "$env:TEMP\PDFReader-Updates" -ErrorAction SilentlyContinue
+```
+
+### Upgrading Over an Existing Install
+
+- Run the new installer **without uninstalling** the old version.
+- Inno Setup detects the existing install and upgrades in place.
+- User settings and library data are preserved.
+- Program Files content is replaced.
+- This is the recommended upgrade path for end users.
+
+### SmartScreen Warning
+
+Windows may show **"Windows protected your PC"** when running the installer.
+This is expected because the build is **not code-signed** with an EV
+certificate (code-signing certificates cost several hundred dollars per year).
+
+What to do:
+
+1. Click **More info** (the text link, not the close button).
+2. Click the **Run anyway** button.
+3. The installer will proceed normally.
+
+Why this happens:
+- Free/open-source builds are almost never code-signed due to cost.
+- SmartScreen has no reputation data for unsigned installers from new publishers.
+- The warning is not about the app's safety — it's about the lack of a
+  signed publisher identity.
+- Once enough Windows users run the installer, SmartScreen builds a
+  reputation and the warning becomes less frequent.
+
+### Portable ZIP and SmartScreen
+
+The `PDFReader-by-Sparsh-Windows.zip` portable build may also trigger
+SmartScreen when extracting and running the `.exe`. The same **More info →
+Run anyway** flow applies.
+
+### Known Windows Limitations
+
+| Limitation | Details |
+|------------|---------|
+| **No code signing** | Installer and EXE trigger SmartScreen (see above). |
+| **No silent install** | The installer always shows a GUI — `/VERYSILENT` is not exposed. Can be added on request. |
+| **No per-user install** | The installer requires admin rights (`PrivilegesRequired=admin`). Per-user (non-admin) installs are not currently supported. |
+| **`.pdf` association not system-default** | The installer registers the app as a PDF handler, but Windows does not change the system default app. Users must set this manually (see above). |
+| **No per-machine mutex** | Multiple instances of the app can be launched. No single-instance enforcement. |
+| **Updater replaces in-place** | The auto-updater replaces app files while the app is closed. If a file is locked, the update will fail (with a diagnostic message logged to `%TEMP%\PDFReader-Updates\updater-debug.log`). |
+| **Tesseract OCR** | OCR requires a separate Tesseract install (see OCR Setup section). The installer does not bundle Tesseract. |
+
 ## Features
 
 | Category | Capabilities |
@@ -192,16 +318,6 @@ PDFReader-by-Sparsh-macOS-Intel.zip
 
 See [RELEASE.md](RELEASE.md) for release instructions, version injection, updater discovery, and validation.
 
-## Use as Default PDF App
-
-Windows does not allow apps to silently take over file defaults. To make this your default PDF app:
-
-1. Right-click a PDF file.
-2. Choose **Open with > Choose another app**.
-3. Pick `PDFReader by Sparsh.exe`.
-4. Select **Always use this app to open .pdf files**.
-5. Click **OK**.
-
 ## OCR Setup
 
 Text selection works natively on PDFs with embedded text. For scanned/image-only PDFs, the app falls back to OCR via PyMuPDF's Tesseract integration.
@@ -314,12 +430,15 @@ This project is one piece of that broader picture. The immediate goal is a genui
 
 ```text
 .
-├── .github/                 # CI, security checks, Dependabot
+├── .github/                 # CI, issue templates, PR template, Dependabot
 ├── assets/                  # App icon and README screenshots
 ├── docs/                    # Platform notes
-├── scripts/                 # Build scripts
+├── installer/               # Inno Setup installer script
+├── scripts/                 # Build scripts (Windows, macOS, version injection)
+├── tests/                   # Service-level tests (pytest)
 ├── tools/                   # Developer utilities, including icon generation
 ├── main.py                  # Main PySide6 application
+├── pdfreader_lib/           # Service modules (updater, validation, pdf tools, theme, tabs)
 ├── requirements.txt         # Pinned runtime/build dependencies
 ├── PDFReader by Sparsh.spec # PyInstaller spec
 ├── CHANGELOG.md

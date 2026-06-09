@@ -26,8 +26,12 @@ PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
 PDFReader-by-Sparsh-macOS-Intel.zip
 ```
 
-The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is an additive installer asset.
-Do not rename or remove the canonical ZIP assets without updating `main.py`.
+The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe`
+is an additive installer asset built by Inno Setup from `installer/setup.iss`.
+The built installer is output to `dist\installer\PDFReader-by-Sparsh-{version}-Setup.exe`
+and copied to the repo root as `PDFReader-by-Sparsh-Setup.exe` for upload.
+Do not rename or remove the canonical ZIP assets without updating the
+updater constants in `pdfreader_lib/updater.py`.
 
 ## How to Cut a Release
 

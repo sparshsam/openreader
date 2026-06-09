@@ -38,15 +38,15 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Build executable
+      - name: Build executable (PyInstaller)
         run: |
-          pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --clean --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" --workpath "build\pyinstaller" main.py
 
       - name: Package as ZIP
         run: |
           Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
 
-      - name: Upload executable artifact
+      - name: Upload executable artifact (ZIP)
         uses: actions/upload-artifact@v7
         with:
           name: PDFReader-by-Sparsh-Windows
