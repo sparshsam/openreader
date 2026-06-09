@@ -50,8 +50,8 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 | Platform | Recommended Download | Alternative | Notes |
 |---|---|---|---|---|
 | Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | Use Setup.exe for normal installation. ZIP remains for updater/portable/manual use. |
-| macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
-| macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
+| macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon-{version}.dmg` | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | DMG provides drag-to-Applications install. ZIP is for updater/manual use. |
+| macOS Intel | `PDFReader-by-Sparsh-macOS-Intel-{version}.dmg` | `PDFReader-by-Sparsh-macOS-Intel.zip` | DMG provides drag-to-Applications install. ZIP is for updater/manual use. |
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
@@ -170,7 +170,22 @@ Output:
 dist/PDFReader by Sparsh.app
 ```
 
-See [docs/macos.md](docs/macos.md) for macOS setup, Finder "Open With" notes, icon generation, OCR notes, and signing/notarization caveats.
+To build a polished DMG (requires `create-dmg`):
+
+```bash
+brew install create-dmg
+./scripts/create_dmg.sh
+```
+
+Output:
+
+```text
+dist/PDFReader-by-Sparsh-{version}-Apple-Silicon.dmg
+```
+
+See [docs/macos.md](docs/macos.md) for detailed macOS setup, Gatekeeper guidance,
+DMG install flow, Apple Silicon vs Intel notes, OCR setup, and code signing/notarization
+roadmap in [docs/macos-signing.md](docs/macos-signing.md).
 
 ## Releases and Auto-Update
 

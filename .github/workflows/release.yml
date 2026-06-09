@@ -125,17 +125,29 @@ jobs:
         run: |
           QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
           iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
-          pyinstaller --windowed --onedir --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+          pyinstaller --windowed --onedir --clean --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" --workpath "build/pyinstaller" main.py
 
-      - name: Package macOS ZIP
+      - name: Package macOS ZIP (updater canonical)
         run: |
           ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.asset-name }}"
 
-      - name: Upload macOS release asset
+      - name: Install create-dmg for DMG
+        run: |
+          brew install create-dmg
+
+      - name: Build macOS DMG (polished installer)
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          chmod +x scripts/create_dmg.sh
+          ./scripts/create_dmg.sh "$VERSION"
+
+      - name: Upload macOS release assets
         uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.asset-name }}
-          path: ${{ matrix.asset-name }}
+          path: |
+            ${{ matrix.asset-name }}
+            dist/*.dmg
 
   publish:
     name: Publish GitHub Release
@@ -164,6 +176,9 @@ jobs:
           else
             echo "Windows Setup.exe: not built (Inno Setup may be unavailable)"
           fi
+          # Check for DMG (optional — only present if Homebrew + create-dmg worked on CI)
+          DMG_COUNT=$(ls release-assets/*.dmg 2>/dev/null | wc -l)
+          echo "macOS DMG files: $DMG_COUNT"
           echo "All required assets verified"
 
       - name: Generate release notes
@@ -174,8 +189,10 @@ jobs:
           ### Assets
           - \`PDFReader-by-Sparsh-Windows.zip\` — Folder-based Windows app (EXE + _internal/). Extract and run.
           - \`PDFReader-by-Sparsh-Setup.exe\` — Windows Inno Setup installer (file association, Start Menu, uninstall).
-          - \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
-          - \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle.
+          - \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle (updater canonical).
+          - \`PDFReader-by-Sparsh-macOS-Apple-Silicon-{version}.dmg\` — macOS Apple Silicon disk image (drag-to-Applications install).
+          - \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle (updater canonical).
+          - \`PDFReader-by-Sparsh-macOS-Intel-{version}.dmg\` — macOS Intel disk image (drag-to-Applications install).
 
           Packaged builds include the tag-injected app version and canonical updater asset names.
           NOTE_EOF

@@ -1,4 +1,32 @@
 # Changelog
+
+## v0.6.0 - 2026-06-09
+
+- **macOS Packaging Maturity.** Production-grade macOS distribution improvements:
+  - New `scripts/create_dmg.sh` — polished DMG with drag-to-Applications UX
+    (uses `create-dmg` with app icon, background support, /Applications symlink).
+    Falls back to basic `hdiutil` DMG if `create-dmg` is unavailable.
+  - `scripts/build_macos.sh` rewritten: `--clean` PyInstaller, `--workpath`
+    isolation, pre-build cleanup, version tag validation.
+  - `build-macos.yml` CI: DMG build step (via `create-dmg`), separate ZIP +
+    DMG artifact uploads.
+  - `release.yml`: macOS builds now produce DMG alongside ZIP; asset
+    verification and release notes updated.
+- **Comprehensive macOS documentation:**
+  - `docs/macos.md` fully rewritten — DMG install flow, Apple Silicon vs Intel
+    matrix, Gatekeeper guidance (3 scenarios with fix steps), update behavior
+    and limitations table, build/DMG build steps, "Open With" setup, known
+    macOS limitations, OCR notes.
+  - `docs/macos-signing.md` — new signing/notarization roadmap with phases,
+    entitlements, CI integration steps, cost breakdown, and references.
+- **README updates:**
+  - Download table now recommends DMG for macOS (ZIP as alternative).
+  - macOS build section updated with DMG build command and doc links.
+- **RELEASE.md** — validation checklist updated with 6 assets (ZIP + DMG per
+  arch + Windows).
+- **Bumped `__version__`** to `0.6.0-dev`.
+- All changes are packaging/CI/documentation — no application code changes.
+
 ## v0.3.6 - 2026-06-08
 
 - Published the Windows installer as `PDFReader-by-Sparsh-Setup.exe` on GitHub Releases.

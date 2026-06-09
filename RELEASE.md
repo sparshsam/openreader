@@ -22,8 +22,10 @@ The release workflow must attach these assets:
 ```text
 PDFReader-by-Sparsh-Windows.zip          (updater canonical asset)
 PDFReader-by-Sparsh-Setup.exe            (Windows installer, additive)
-PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
-PDFReader-by-Sparsh-macOS-Intel.zip
+PDFReader-by-Sparsh-macOS-Apple-Silicon.zip          (updater canonical)
+PDFReader-by-Sparsh-macOS-Apple-Silicon-{version}.dmg  (polished install)
+PDFReader-by-Sparsh-macOS-Intel.zip                   (updater canonical)
+PDFReader-by-Sparsh-macOS-Intel-{version}.dmg          (polished install)
 ```
 
 The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is an additive installer asset.
@@ -64,8 +66,11 @@ After publishing a tag:
 - [ ] The release workflow completed successfully.
 - [ ] The GitHub Release exists for the pushed tag.
 - [ ] The release contains `PDFReader-by-Sparsh-Windows.zip` (updater).
-- [ ] The release contains `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`.
-- [ ] The release contains `PDFReader-by-Sparsh-macOS-Intel.zip`.
+- [ ] The release contains `PDFReader-by-Sparsh-Setup.exe` (installer).
+- [ ] The release contains `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` (updater).
+- [ ] The release contains `PDFReader-by-Sparsh-macOS-Apple-Silicon-{version}.dmg` (DMG).
+- [ ] The release contains `PDFReader-by-Sparsh-macOS-Intel.zip` (updater).
+- [ ] The release contains `PDFReader-by-Sparsh-macOS-Intel-{version}.dmg` (DMG).
 - [ ] Downloaded packaged builds show the tag-injected version in **Help > About**.
 - [ ] `releases/latest` returns the new tag and all assets (including Setup.exe).
 - [ ] An older packaged build detects the newer version.

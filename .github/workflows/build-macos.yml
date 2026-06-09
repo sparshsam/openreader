@@ -14,9 +14,11 @@ jobs:
       matrix:
         include:
           - runner: macos-15
-            artifact-name: PDFReader-by-Sparsh-macOS-Apple-Silicon
+            arch-label: Apple-Silicon
+            artifact-prefix: PDFReader-by-Sparsh-macOS-Apple-Silicon
           - runner: macos-15-intel
-            artifact-name: PDFReader-by-Sparsh-macOS-Intel
+            arch-label: Intel
+            artifact-prefix: PDFReader-by-Sparsh-macOS-Intel
 
     runs-on: ${{ matrix.runner }}
 
@@ -46,18 +48,42 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
-      - name: Build app bundle
+      - name: Build app bundle (PyInstaller)
         run: |
           QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
           iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
-          pyinstaller --windowed --onedir --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+          pyinstaller --windowed --onedir --clean --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" --workpath "build/pyinstaller" main.py
 
-      - name: Package app bundle
+      - name: Package app bundle (ZIP — updater canonical)
         run: |
-          ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.artifact-name }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.artifact-prefix }}.zip"
 
-      - name: Upload app artifact
+      - name: Upload ZIP artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.artifact-name }}
-          path: ${{ matrix.artifact-name }}.zip
+          name: ${{ matrix.artifact-prefix }}
+          path: ${{ matrix.artifact-prefix }}.zip
+
+      - name: Install create-dmg for DMG packaging
+        run: |
+          if command -v brew >/dev/null 2>&1; then
+            brew install create-dmg
+          else
+            echo "Homebrew not available on this runner — skipping DMG"
+            echo "DMG_SKIPPED=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build DMG (polished installer)
+        if: env.DMG_SKIPPED != 'true'
+        run: |
+          VERSION="$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")"
+          VERSION="${VERSION#v}"
+          chmod +x scripts/create_dmg.sh
+          ./scripts/create_dmg.sh "$VERSION"
+          echo "DMG_BUILT=true" >> "$GITHUB_ENV"
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ matrix.artifact-prefix }}-DMG
+          path: dist/*.dmg
