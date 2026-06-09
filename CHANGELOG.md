@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.0 - 2026-06-08
+
+- **Architecture Hardening.** `main.py` (2989→1953 lines) split into service modules:
+  - `pdfreader_lib/pdf_validator.py` — isolated PDF path/document validation.
+  - `pdfreader_lib/tab_state.py` — `TabData` dataclass moved out of main.
+  - `pdfreader_lib/theme_manager.py` — dark/light theme constants and `ThemeManager`.
+  - `pdfreader_lib/pdf_tools.py` — merge, split, compress as pure functions.
+  - `pdfreader_lib/updater.py` — `PdfUpdater` QObject service (check, download, apply).
+- **Service-level test suite** — 37 tests for all extracted modules (run with `pytest`).
+- **Architecture documentation** — `docs/architecture.md` with module map, data flow, design decisions, and security notes.
+- All existing UX, installer, update flow, and packaging compatibility preserved.
+
 ## v0.3.2 - 2026-06-05
 
 - Fixed Windows auto-update downloads losing release asset metadata and saving as `update_None`.

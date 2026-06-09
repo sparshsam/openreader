@@ -1,3 +1,14 @@
+"""PDFReader by Sparsh — Main window and application entry point.
+
+This module defines the ``PdfReaderWindow`` (QMainWindow), the
+``PdfPageLabel`` widget, and three internal dialog classes
+(``_LibraryDialog``, ``_LibrarySearchResultsDialog``, ``_CompareDialog``).
+
+Architecture-heavy logic — updater, PDF validation, PDF tools, theme
+management, and the ``TabData`` container — lives in ``pdfreader_lib/``
+so it can be tested and maintained independently.
+"""
+
 import json
 import os
 import platform
@@ -7,7 +18,6 @@ import sys
 import tempfile
 import zipfile
 from collections import OrderedDict
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import fitz
@@ -45,14 +55,28 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-
-__version__ = "0.3.0-dev"
-GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
-WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
-MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
-MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
-RECENT_FILES_MAX = 10
-SETTINGS_RECENT_KEY = "***"
+from pdfreader_lib import (
+    PdfSafetyError,
+    validate_pdf_path,
+    validate_document_pages,
+    safe_open_pdf,
+    TabData,
+    DARK_STYLESHEET,
+    ThemeManager,
+    THEME_AUTO,
+    THEME_LIGHT,
+    THEME_DARK,
+    PdfUpdater,
+    GITHUB_REPO,
+    WINDOWS_UPDATE_ASSET,
+    MACOS_APPLE_SILICON_UPDATE_ASSET,
+    MACOS_INTEL_UPDATE_ASSET,
+    merge_pdfs as pdf_merge,
+    split_every_page,
+    extract_pages,
+    parse_page_ranges,
+    compress_pdf as pdf_compress,
+)
 
 # Optional modules (graceful if missing)
 try:
@@ -63,252 +87,14 @@ except ImportError:
     HAS_LIB_MODULES = False
 
 
-# ---------------------------------------------------------------------------
-# Per-tab state container
-# ---------------------------------------------------------------------------
-
-@dataclass
-class TabData:
-    name: str
-    path: str | None = None
-    document: fitz.Document | None = None
-    current_page: int = 0
-    zoom: float = 1.25
-    fit_to_window: bool = True
-    search_text: str = ""
-    search_results: list = field(default_factory=list)
-    current_result_index: int = -1
-    current_render_zoom: float = 1.0
-    selected_text: str = ""
-    selected_rects: list = field(default_factory=list)
-    ocr_text_pages: OrderedDict = field(default_factory=OrderedDict)
-    ocr_warning_shown: bool = False
+__version__ = "0.4.0-dev"
+RECENT_FILES_MAX = 10
+SETTINGS_RECENT_KEY = "***"
 
 
 # ---------------------------------------------------------------------------
-# Stylesheets
+# Widgets
 # ---------------------------------------------------------------------------
-
-DARK_STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-}
-QMainWindow::separator {
-    background-color: #313244;
-}
-QPushButton {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    padding: 4px 12px;
-    border-radius: 4px;
-    min-height: 22px;
-}
-QPushButton:hover {
-    background-color: #45475a;
-}
-QPushButton:pressed {
-    background-color: #585b70;
-}
-QPushButton:checked {
-    background-color: #a6e3a1;
-    color: #1e1e2e;
-    border-color: #a6e3a1;
-}
-QPushButton:disabled {
-    background-color: #313244;
-    color: #585b70;
-    border-color: #313244;
-}
-QLineEdit {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    padding: 4px 6px;
-    border-radius: 4px;
-    selection-background-color: #89b4fa;
-    selection-color: #1e1e2e;
-}
-QLineEdit:focus {
-    border-color: #89b4fa;
-}
-QSpinBox {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    padding: 4px;
-    border-radius: 4px;
-}
-QSpinBox:focus {
-    border-color: #89b4fa;
-}
-QSpinBox::up-button, QSpinBox::down-button {
-    background-color: #45475a;
-    border: none;
-    width: 18px;
-}
-QLabel {
-    color: #cdd6f4;
-    background-color: transparent;
-}
-QStatusBar {
-    background-color: #181825;
-    color: #a6adc8;
-    border-top: 1px solid #313244;
-}
-QScrollArea {
-    background-color: #1e1e2e;
-    border: none;
-}
-QToolBar {
-    background-color: #181825;
-    border: none;
-    border-bottom: 1px solid #313244;
-    spacing: 4px;
-    padding: 2px 4px;
-}
-QToolBar QToolButton {
-    background-color: transparent;
-    border: none;
-    border-radius: 4px;
-    padding: 4px 6px;
-    color: #cdd6f4;
-}
-QToolBar QToolButton:hover {
-    background-color: #313244;
-}
-QToolBar QToolButton:pressed {
-    background-color: #45475a;
-}
-QToolBar QToolButton:disabled {
-    color: #585b70;
-}
-QTabBar::tab {
-    background-color: #181825;
-    color: #a6adc8;
-    padding: 6px 18px;
-    border: none;
-    border-right: 1px solid #313244;
-    min-height: 24px;
-}
-QTabBar::tab:selected {
-    background-color: #1e1e2e;
-    color: #89b4fa;
-    border-bottom: 2px solid #89b4fa;
-}
-QTabBar::tab:hover:!selected {
-    background-color: #313244;
-    color: #cdd6f4;
-}
-QTabBar::close-button {
-    image: none;
-    background-color: transparent;
-    border: none;
-    padding: 2px;
-    margin: 2px;
-    color: #a6adc8;
-}
-QTabBar::close-button:hover {
-    background-color: #f38ba8;
-    border-radius: 3px;
-    color: #1e1e2e;
-}
-QMenuBar {
-    background-color: #181825;
-    color: #cdd6f4;
-    border-bottom: 1px solid #313244;
-    padding: 2px;
-}
-QMenuBar::item {
-    padding: 4px 10px;
-    background-color: transparent;
-    border-radius: 4px;
-}
-QMenuBar::item:selected {
-    background-color: #313244;
-}
-QMenu {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    padding: 4px;
-}
-QMenu::item {
-    padding: 6px 28px 6px 20px;
-    border-radius: 4px;
-}
-QMenu::item:selected {
-    background-color: #45475a;
-}
-QMenu::item:disabled {
-    color: #585b70;
-}
-QMenu::separator {
-    height: 1px;
-    background-color: #313244;
-    margin: 4px 8px;
-}
-QProgressDialog {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-}
-QMessageBox {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-}
-QMessageBox QLabel {
-    color: #cdd6f4;
-}
-QMessageBox QPushButton {
-    min-width: 80px;
-}
-QInputDialog {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-}
-QScrollBar:horizontal {
-    background-color: #181825;
-    height: 10px;
-    border: none;
-}
-QScrollBar::handle:horizontal {
-    background-color: #45475a;
-    border-radius: 5px;
-    min-width: 30px;
-}
-QScrollBar::handle:horizontal:hover {
-    background-color: #585b70;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0px;
-}
-QScrollBar:vertical {
-    background-color: #181825;
-    width: 10px;
-    border: none;
-}
-QScrollBar::handle:vertical {
-    background-color: #45475a;
-    border-radius: 5px;
-    min-height: 30px;
-}
-QScrollBar::handle:vertical:hover {
-    background-color: #585b70;
-}
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-    height: 0px;
-}
-"""
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-class PdfSafetyError(Exception):
-    pass
 
 
 class PdfPageLabel(QLabel):
@@ -386,6 +172,7 @@ class PdfPageLabel(QLabel):
 # Main Window
 # ---------------------------------------------------------------------------
 
+
 class PdfReaderWindow(QMainWindow):
     APP_NAME = "PDFReader by Sparsh"
     MAX_PDF_SIZE_BYTES = 500 * 1024 * 1024
@@ -399,9 +186,9 @@ class PdfReaderWindow(QMainWindow):
     ZOOM_STEP = 0.15
 
     # Dark mode constants
-    THEME_AUTO = 0
-    THEME_LIGHT = 1
-    THEME_DARK = 2
+    THEME_AUTO = THEME_AUTO
+    THEME_LIGHT = THEME_LIGHT
+    THEME_DARK = THEME_DARK
 
     # Annotation colors
     ANNOT_HIGHLIGHT = (1.0, 0.882, 0.235)      # yellow
@@ -435,9 +222,10 @@ class PdfReaderWindow(QMainWindow):
         self.tab_counter = 0
         self.current_tab_id: int | None = None
 
-        # ---- Dark mode ----
-        self._theme = self.settings.value("theme", self.THEME_AUTO, int)
-        self._dark_mode = self._compute_dark_mode()
+        # ---- Theme ----
+        theme_value = self.settings.value("theme", THEME_AUTO, int)
+        self._theme_manager = ThemeManager(theme_value)
+        self._dark_mode = self._theme_manager.is_dark()
 
         # ---- Recent files ----
         self._recent_files = self._load_recent_files()
@@ -447,14 +235,8 @@ class PdfReaderWindow(QMainWindow):
         self._session_data: list[dict] | None = None
 
         # ---- Update system ----
-        self._update_nam = QNetworkAccessManager(self)
-        self._update_nam.finished.connect(self._on_update_check_reply)
-        self._download_nam = QNetworkAccessManager(self)
-        self._download_nam.finished.connect(self._on_download_finished)
-        self._update_progress = None
-        self._update_latest_tag = None
-        self._update_asset_name = None
-        self._update_download_path = None
+        self._updater = PdfUpdater(self)
+        self._updater.set_version(__version__)
 
         self._build_ui()
         self._build_actions()
@@ -550,325 +332,279 @@ class PdfReaderWindow(QMainWindow):
         controls.addWidget(self.underline_button)
         controls.addWidget(self.strike_button)
         controls.addWidget(self.sticky_button)
+        controls.addSpacing(8)
 
-        controls.addSpacing(4)
+        # Search
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search in document\u2026")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.setFixedWidth(200)
+        self.semantic_cb = QCheckBox("Semantic")
+        self.semantic_cb.setToolTip("Search indexed PDF library instead of the current document")
+        self.semantic_cb.setVisible(HAS_LIB_MODULES)
+        self.search_prev_button = QPushButton("\u25b2")
+        self.search_prev_button.setFixedWidth(30)
+        self.search_prev_button.setToolTip("Previous match")
+        self.search_next_button = QPushButton("\u25bc")
+        self.search_next_button.setFixedWidth(30)
+        self.search_next_button.setToolTip("Next match")
+        self.search_count_label = QLabel("0")
+        self.search_count_label.setFixedWidth(30)
+
+        controls.addWidget(self.search_input)
+        controls.addWidget(self.semantic_cb)
+        controls.addWidget(self.search_prev_button)
+        controls.addWidget(self.search_next_button)
+        controls.addWidget(self.search_count_label)
+        controls.addSpacing(8)
+
+        # PDF tool buttons
         self.merge_button = QPushButton("Merge")
         self.split_button = QPushButton("Split")
         self.compress_button = QPushButton("Compress")
         self.compare_button = QPushButton("Compare")
+        self.compare_button.setEnabled(HAS_LIB_MODULES)
         self.library_button = QPushButton("Library")
-        self.semantic_cb = QCheckBox("Semantic")
-        self.semantic_cb.setToolTip("Enable semantic (meaning-based) search instead of keyword exact match")
+        self.library_button.setEnabled(HAS_LIB_MODULES)
+
         controls.addWidget(self.merge_button)
         controls.addWidget(self.split_button)
         controls.addWidget(self.compress_button)
-        controls.addSpacing(4)
         controls.addWidget(self.compare_button)
         controls.addWidget(self.library_button)
-        controls.addWidget(self.semantic_cb)
 
-        controls.addSpacing(4)
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search text")
-        self.search_input.setClearButtonEnabled(True)
-        self.search_input.setMinimumWidth(160)
-        self.search_prev_button = QPushButton("\u25b2")
-        self.search_prev_button.setFixedWidth(30)
-        self.search_next_button = QPushButton("\u25bc")
-        self.search_next_button.setFixedWidth(30)
-        self.search_count_label = QLabel("0")
-        self.search_count_label.setFixedWidth(32)
-
-        controls.addWidget(self.search_input, 1)
-        controls.addWidget(self.search_prev_button)
-        controls.addWidget(self.search_next_button)
-        controls.addWidget(self.search_count_label)
+        controls.addStretch()
         root.addWidget(controls_widget)
 
-        # Page content
-        self.page_label = PdfPageLabel("Open a PDF to begin")
-        self.page_label.setAlignment(Qt.AlignCenter)
-        self.page_label.setBackgroundRole(self.page_label.backgroundRole())
-        self.page_label.selection_finished.connect(self.select_text_in_rect)
-        self.page_label.sticky_note_requested.connect(self._place_sticky_note)
-
+        # PDF view area
         self.scroll_area = QScrollArea()
+        self.page_label = PdfPageLabel()
+        self.page_label.setAlignment(Qt.AlignCenter)
+        self.page_label.setWordWrap(False)
+        self.page_label.setText("Open a PDF to begin")
+        self.page_label.setMinimumSize(400, 400)
         self.scroll_area.setWidget(self.page_label)
-        self.scroll_area.setAlignment(Qt.AlignCenter)
         self.scroll_area.setWidgetResizable(False)
         root.addWidget(self.scroll_area, 1)
 
-        self.setCentralWidget(central)
-        self.setStatusBar(QStatusBar(self))
+        # Status bar
+        self.statusBar().showMessage("Ready")
 
-        # Signal connections
+        # Connect signals
         self.open_button.clicked.connect(self.open_pdf)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.page_spin.valueChanged.connect(self.jump_to_page)
-        self.zoom_out_button.clicked.connect(self.zoom_out)
         self.zoom_in_button.clicked.connect(self.zoom_in)
+        self.zoom_out_button.clicked.connect(self.zoom_out)
         self.fit_button.toggled.connect(self._on_fit_toggled)
         self.copy_button.clicked.connect(self.copy_selected_text)
         self.highlight_button.clicked.connect(self.highlight_selection)
         self.underline_button.clicked.connect(self.underline_selection)
         self.strike_button.clicked.connect(self.strikeout_selection)
-        self.sticky_button.clicked.connect(self._toggle_sticky_note_mode)
+        self.sticky_button.toggled.connect(self._toggle_sticky_note_mode)
         self.merge_button.clicked.connect(self.merge_pdfs)
         self.split_button.clicked.connect(self.split_pdf)
         self.compress_button.clicked.connect(self.compress_pdf)
         self.compare_button.clicked.connect(self._open_compare_dialog)
         self.library_button.clicked.connect(self._open_library_dialog)
-        self.search_input.returnPressed.connect(self.search)
         self.search_input.textChanged.connect(self._search_text_changed)
         self.search_prev_button.clicked.connect(self.previous_search_result)
         self.search_next_button.clicked.connect(self.next_search_result)
+        self.page_label.selection_finished.connect(self.select_text_in_rect)
+        self.page_label.sticky_note_requested.connect(self._place_sticky_note)
+
+        self.setCentralWidget(central)
 
     def _build_actions(self):
-        toolbar = QToolBar("Main Toolbar")
-        toolbar.setIconSize(QSize(18, 18))
-        self.addToolBar(toolbar)
+        # File
+        self._open_action = QAction("&Open PDF\u2026", self)
+        self._open_action.setShortcut(QKeySequence.Open)
+        self._open_action.triggered.connect(self.open_pdf)
 
-        style = self.style()
+        self._close_action = QAction("&Close Tab", self)
+        self._close_action.setShortcut(QKeySequence("Ctrl+W"))
+        self._close_action.triggered.connect(self._close_current_tab)
 
-        open_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton), "Open", self)
-        open_action.setShortcut(QKeySequence.Open)
-        open_action.triggered.connect(self.open_pdf)
-        toolbar.addAction(open_action)
+        self._close_all_action = QAction("C&lose All Tabs", self)
+        self._close_all_action.setShortcut(QKeySequence("Ctrl+Shift+W"))
+        self._close_all_action.triggered.connect(self._close_all_tabs)
 
-        toolbar.addSeparator()
-        prev_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "Previous Page", self)
-        prev_action.setShortcut(QKeySequence(Qt.Key_PageUp))
-        prev_action.triggered.connect(self.previous_page)
-        toolbar.addAction(prev_action)
+        self._exit_action = QAction("E&xit", self)
+        self._exit_action.setShortcut(QKeySequence.Quit)
+        self._exit_action.triggered.connect(self.close)
 
-        next_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "Next Page", self)
-        next_action.setShortcut(QKeySequence(Qt.Key_PageDown))
-        next_action.triggered.connect(self.next_page)
-        toolbar.addAction(next_action)
+        # Edit
+        self.copy_action = QAction("&Copy", self)
+        self.copy_action.setShortcut(QKeySequence.Copy)
+        self.copy_action.triggered.connect(self.copy_selected_text)
 
-        toolbar.addSeparator()
-        zoom_in_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp), "Zoom In", self)
-        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
-        zoom_in_action.triggered.connect(self.zoom_in)
-        toolbar.addAction(zoom_in_action)
+        # View
+        self._zoom_in_action = QAction("Zoom &In", self)
+        self._zoom_in_action.setShortcut(QKeySequence.ZoomIn)
+        self._zoom_in_action.triggered.connect(self.zoom_in)
 
-        zoom_out_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown), "Zoom Out", self)
-        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
-        zoom_out_action.triggered.connect(self.zoom_out)
-        toolbar.addAction(zoom_out_action)
+        self._zoom_out_action = QAction("Zoom &Out", self)
+        self._zoom_out_action.setShortcut(QKeySequence.ZoomOut)
+        self._zoom_out_action.triggered.connect(self.zoom_out)
 
-        toolbar.addSeparator()
-        copy_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton), "Copy Selected Text", self)
-        copy_action.setShortcut(QKeySequence.Copy)
-        copy_action.triggered.connect(self.copy_selected_text)
-        toolbar.addAction(copy_action)
-        self.copy_action = copy_action
+        self._fit_action = QAction("&Fit to Window", self)
+        self._fit_action.setCheckable(True)
+        self._fit_action.setChecked(True)
+        self._fit_action.setShortcut(QKeySequence("Ctrl+0"))
+        self._fit_action.triggered.connect(self.set_fit_to_window)
+        self._fit_menu_action = self._fit_action
 
-        toolbar.addSeparator()
-        merge_action = QAction("Merge", self)
-        merge_action.triggered.connect(self.merge_pdfs)
-        toolbar.addAction(merge_action)
+        # Annotations
+        self._highlight_action = QAction("&Highlight", self)
+        self._highlight_action.setShortcut(QKeySequence("Ctrl+H"))
+        self._highlight_action.triggered.connect(self.highlight_selection)
 
-        split_action = QAction("Split", self)
-        split_action.triggered.connect(self.split_pdf)
-        toolbar.addAction(split_action)
+        self._underline_action = QAction("&Underline", self)
+        self._underline_action.setShortcut(QKeySequence("Ctrl+U"))
+        self._underline_action.triggered.connect(self.underline_selection)
 
-        compress_action = QAction("Compress", self)
-        compress_action.triggered.connect(self.compress_pdf)
-        toolbar.addAction(compress_action)
+        self._strike_action = QAction("&Strikethrough", self)
+        self._strike_action.setShortcut(QKeySequence("Ctrl+K"))
+        self._strike_action.triggered.connect(self.strikeout_selection)
 
-        toolbar.addSeparator()
-        self.update_action = QAction("Check for Updates", self)
-        self.update_action.triggered.connect(self.check_for_updates)
-        toolbar.addAction(self.update_action)
+        self._delete_annotations_action = QAction("&Delete All Annotations on Page", self)
+        self._delete_annotations_action.triggered.connect(self._delete_page_annotations)
 
-        find_action = QAction("Find", self)
-        find_action.setShortcut(QKeySequence.Find)
-        find_action.triggered.connect(self.focus_search)
-        self.addAction(find_action)
+        self._delete_all_annotations_action = QAction("Delete All Annotations in &Document", self)
+        self._delete_all_annotations_action.triggered.connect(self._delete_all_annotations)
 
-        # Close Tab
-        close_tab_action = QAction("Close Tab", self)
-        close_tab_action.setShortcut(QKeySequence("Ctrl+W"))
-        close_tab_action.triggered.connect(self._close_current_tab)
-        self.addAction(close_tab_action)
+        self._save_annotations_action = QAction("&Save Annotations (Ctrl+S alternative)", self)
+        self._save_annotations_action.setShortcut(QKeySequence("Ctrl+S"))
+        self._save_annotations_action.triggered.connect(self._save_document_annotations)
 
-        # New Tab
-        new_tab_action = QAction("New Tab", self)
-        new_tab_action.setShortcut(QKeySequence("Ctrl+T"))
-        new_tab_action.triggered.connect(self.open_pdf)
-        self.addAction(new_tab_action)
+        self._save_doc_action = QAction("Save &Document Copy\u2026", self)
+        self._save_doc_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self._save_doc_action.triggered.connect(self._save_document)
 
-        for action in (
-            open_action,
-            prev_action,
-            next_action,
-            zoom_in_action,
-            zoom_out_action,
-            copy_action,
-            merge_action,
-            split_action,
-            compress_action,
-        ):
-            self.addAction(action)
+        # Search
+        self._search_action = QAction("&Find\u2026", self)
+        self._search_action.setShortcut(QKeySequence.Find)
+        self._search_action.triggered.connect(self.focus_search)
+
+        # Navigation
+        self._next_page_action = QAction("&Next Page", self)
+        self._next_page_action.setShortcut(QKeySequence("Right"))
+        self._next_page_action.triggered.connect(self.next_page)
+
+        self._prev_page_action = QAction("&Previous Page", self)
+        self._prev_page_action.setShortcut(QKeySequence("Left"))
+        self._prev_page_action.triggered.connect(self.previous_page)
+
+        # Theme
+        self.theme_auto_action = QAction("&Auto", self)
+        self.theme_auto_action.setCheckable(True)
+        self.theme_auto_action.setChecked(True)
+        self.theme_auto_action.triggered.connect(lambda: self.set_theme(THEME_AUTO))
+
+        self.theme_light_action = QAction("&Light", self)
+        self.theme_light_action.setCheckable(True)
+        self.theme_light_action.triggered.connect(lambda: self.set_theme(THEME_LIGHT))
+
+        self.theme_dark_action = QAction("&Dark", self)
+        self.theme_dark_action.setCheckable(True)
+        self.theme_dark_action.triggered.connect(lambda: self.set_theme(THEME_DARK))
+
+        # Update
+        self.update_action = QAction("Check for &Updates\u2026", self)
+        self.update_action.triggered.connect(lambda: self._updater.check_for_updates(self.update_action))
+
+        # Help
+        self._about_action = QAction("&About PDFReader by Sparsh", self)
+        self._about_action.triggered.connect(self._show_about)
 
     def _build_menus(self):
-        """File / View / Tools / Help menu bar."""
-        menubar = self.menuBar()
-
-        # ── File ──
-        file_menu = menubar.addMenu("File")
-
-        file_open = QAction("Open PDF", self)
-        file_open.setShortcut(QKeySequence.Open)
-        file_open.triggered.connect(self.open_pdf)
-        file_menu.addAction(file_open)
-
+        menu_bar = self.menuBar()
+        # File
+        file_menu = menu_bar.addMenu("&File")
+        file_menu.addAction(self._open_action)
+        self._recent_menu = file_menu.addMenu("Open &Recent")
+        self._recent_menu.setToolTipsVisible(True)
         file_menu.addSeparator()
-
-        self._recent_menu = QMenu("Open Recent", self)
-        file_menu.addMenu(self._recent_menu)
-
+        file_menu.addAction(self._close_action)
+        file_menu.addAction(self._close_all_action)
         file_menu.addSeparator()
-
-        close_tab = QAction("Close Tab", self)
-        close_tab.setShortcut(QKeySequence("Ctrl+W"))
-        close_tab.triggered.connect(self._close_current_tab)
-        file_menu.addAction(close_tab)
-
-        close_all = QAction("Close All Tabs", self)
-        close_all.setShortcut(QKeySequence("Ctrl+Shift+W"))
-        close_all.triggered.connect(self._close_all_tabs)
-        file_menu.addAction(close_all)
-
+        file_menu.addAction(self._save_annotations_action)
+        file_menu.addAction(self._save_doc_action)
         file_menu.addSeparator()
-        file_save = QAction("Save PDF", self)
-        file_save.setShortcut(QKeySequence.Save)
-        file_save.triggered.connect(self._save_document)
-        file_menu.addAction(file_save)
+        file_menu.addAction(self._exit_action)
 
-        file_menu.addSeparator()
+        # Edit
+        edit_menu = menu_bar.addMenu("&Edit")
+        edit_menu.addAction(self.copy_action)
 
-        quit_action = QAction("Quit", self)
-        quit_action.setShortcut(QKeySequence.Quit)
-        quit_action.triggered.connect(self.close)
-        file_menu.addAction(quit_action)
-
-        # ── View ──
-        view_menu = menubar.addMenu("View")
-
-        self.theme_menu = QMenu("Theme", self)
-        view_menu.addMenu(self.theme_menu)
-
-        self.theme_auto_action = QAction("System (Auto)", self, checkable=True)
-        self.theme_auto_action.triggered.connect(lambda: self.set_theme(self.THEME_AUTO))
-        self.theme_menu.addAction(self.theme_auto_action)
-
-        self.theme_light_action = QAction("Light", self, checkable=True)
-        self.theme_light_action.triggered.connect(lambda: self.set_theme(self.THEME_LIGHT))
-        self.theme_menu.addAction(self.theme_light_action)
-
-        self.theme_dark_action = QAction("Dark", self, checkable=True)
-        self.theme_dark_action.triggered.connect(lambda: self.set_theme(self.THEME_DARK))
-        self.theme_menu.addAction(self.theme_dark_action)
-
-        self._sync_theme_menu_checks()
+        # View
+        view_menu = menu_bar.addMenu("&View")
+        view_menu.addAction(self._zoom_in_action)
+        view_menu.addAction(self._zoom_out_action)
+        view_menu.addAction(self._fit_action)
+        view_menu.addSeparator()
+        view_menu.addAction(self._prev_page_action)
+        view_menu.addAction(self._next_page_action)
+        view_menu.addSeparator()
+        view_menu.addAction(self._search_action)
         view_menu.addSeparator()
 
-        zoom_in_action = QAction("Zoom In", self)
-        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
-        zoom_in_action.triggered.connect(self.zoom_in)
-        view_menu.addAction(zoom_in_action)
+        theme_menu = view_menu.addMenu("&Theme")
+        theme_menu.addAction(self.theme_auto_action)
+        theme_menu.addAction(self.theme_light_action)
+        theme_menu.addAction(self.theme_dark_action)
 
-        zoom_out_action = QAction("Zoom Out", self)
-        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
-        zoom_out_action.triggered.connect(self.zoom_out)
-        view_menu.addAction(zoom_out_action)
-
-        fit_action = QAction("Fit Width", self, checkable=True)
-        fit_action.setChecked(True)
-        fit_action.triggered.connect(self._on_fit_toggled)
-        view_menu.addAction(fit_action)
-        self._fit_menu_action = fit_action
-
-        view_menu.addSeparator()
-
-        search_lib_action = QAction("Library Search", self)
-        search_lib_action.setShortcut(QKeySequence("Ctrl+Shift+F"))
-        search_lib_action.triggered.connect(self._open_library_dialog)
-        view_menu.addAction(search_lib_action)
-
-        view_menu.addSeparator()
-
-        self.show_annots_action = QAction("Show Annotations", self, checkable=True)
-        self.show_annots_action.setChecked(True)
-        self.show_annots_action.triggered.connect(self._toggle_annotations_visible)
-        view_menu.addAction(self.show_annots_action)
-
-        # ── Tools ──
-        tools_menu = menubar.addMenu("Tools")
-
-        annot_menu = tools_menu.addMenu("Annotations")
-        annot_menu.addAction("Highlight Selection", self.highlight_selection)
-        annot_menu.addAction("Underline Selection", self.underline_selection)
-        annot_menu.addAction("Strikethrough Selection", self.strikeout_selection)
+        # Annotations
+        annot_menu = menu_bar.addMenu("&Annotations")
+        annot_menu.addAction(self._highlight_action)
+        annot_menu.addAction(self._underline_action)
+        annot_menu.addAction(self._strike_action)
         annot_menu.addSeparator()
-        annot_menu.addAction("Place Sticky Note", self._toggle_sticky_note_mode)
-        annot_menu.addSeparator()
-        annot_menu.addAction("Delete All Annotations on This Page", self._delete_page_annotations)
-        annot_menu.addAction("Delete All Annotations in Document", self._delete_all_annotations)
+        annot_menu.addAction(self._delete_annotations_action)
+        annot_menu.addAction(self._delete_all_annotations_action)
 
+        # Tools
+        tools_menu = menu_bar.addMenu("&Tools")
+        tools_menu.addAction("&Merge PDFs\u2026", self.merge_pdfs)
+        tools_menu.addAction("&Split PDF\u2026", self.split_pdf)
+        tools_menu.addAction("&Compress PDF\u2026", self.compress_pdf)
+        tools_menu.addAction("&Compare PDFs\u2026", self._open_compare_dialog)
+        tools_menu.addAction("&Library\u2026", self._open_library_dialog)
         tools_menu.addSeparator()
-        tools_menu.addAction("Compare PDFs", self._open_compare_dialog)
-        tools_menu.addAction("Library Search", self._open_library_dialog)
-        tools_menu.addSeparator()
-        tools_menu.addAction("Merge PDFs", self.merge_pdfs)
-        tools_menu.addAction("Split PDF", self.split_pdf)
-        tools_menu.addAction("Compress PDF", self.compress_pdf)
+        tools_menu.addAction(self.update_action)
 
-        # ── Help ──
-        help_menu = menubar.addMenu("Help")
-        help_menu.addAction("Check for Updates", self.check_for_updates)
-        help_menu.addSeparator()
-        about_action = QAction("About PDFReader", self)
-        about_action.triggered.connect(self._show_about)
-        help_menu.addAction(about_action)
+        # Help
+        help_menu = menu_bar.addMenu("&Help")
+        help_menu.addAction(self._about_action)
 
     # ------------------------------------------------------------------
     # Theme / Dark Mode
     # ------------------------------------------------------------------
 
     def _compute_dark_mode(self) -> bool:
-        if self._theme == self.THEME_LIGHT:
-            return False
-        if self._theme == self.THEME_DARK:
-            return True
-        scheme = QApplication.styleHints().colorScheme()
-        return scheme == Qt.ColorScheme.Dark
+        return self._theme_manager.is_dark()
 
     def _on_system_theme_change(self, scheme):
-        if self._theme == self.THEME_AUTO:
+        if self._theme_manager.theme == THEME_AUTO:
             self._dark_mode = scheme == Qt.ColorScheme.Dark
             self._apply_theme()
 
     def _sync_theme_menu_checks(self):
-        self.theme_auto_action.setChecked(self._theme == self.THEME_AUTO)
-        self.theme_light_action.setChecked(self._theme == self.THEME_LIGHT)
-        self.theme_dark_action.setChecked(self._theme == self.THEME_DARK)
+        t = self._theme_manager.theme
+        self.theme_auto_action.setChecked(t == THEME_AUTO)
+        self.theme_light_action.setChecked(t == THEME_LIGHT)
+        self.theme_dark_action.setChecked(t == THEME_DARK)
 
     def set_theme(self, theme):
-        self._theme = theme
+        self._theme_manager.theme = theme
         self.settings.setValue("theme", theme)
         self._sync_theme_menu_checks()
-        self._dark_mode = self._compute_dark_mode()
+        self._dark_mode = self._theme_manager.is_dark()
         self._apply_theme()
 
     def _apply_theme(self):
-        if self._dark_mode:
-            self.setStyleSheet(DARK_STYLESHEET)
-        else:
-            self.setStyleSheet("")
+        self._theme_manager.apply(self)
 
     # ------------------------------------------------------------------
     # Recent Files
@@ -1107,102 +843,62 @@ class PdfReaderWindow(QMainWindow):
                 start_dir,
                 "PDF Files (*.pdf)",
             )
-        if not file_name:
-            return
-        tab_data = TabData(name=Path(file_name).name)
-        self._create_tab(tab_data)
+            if not file_name:
+                return
+            self.settings.setValue("lastFolder", str(Path(file_name).parent))
+
         self.load_pdf(file_name)
 
     def load_pdf(self, file_name):
         try:
-            document = self._safe_open_pdf(file_name)
+            document = safe_open_pdf(
+                file_name,
+                max_size_bytes=self.MAX_PDF_SIZE_BYTES,
+                max_page_dimension=self.MAX_PAGE_DIMENSION_POINTS,
+            )
+        except PdfSafetyError as exc:
+            QMessageBox.critical(self, "Cannot Open PDF", str(exc))
+            return
         except Exception as exc:
-            self._show_error("Could Not Open PDF", "Unable to open this PDF file.", exc)
-            self.statusBar().showMessage("Failed to open PDF", 5000)
-            self._close_tab(self.current_tab_id)
+            QMessageBox.critical(
+                self, "Cannot Open PDF",
+                "The file could not be processed safely.\n\n"
+                f"Exception: {exc.__class__.__name__}: {exc}"
+            )
             return
 
-        if self.current_tab_id is not None and self.current_tab_id in self.tabs:
-            self.tabs[self.current_tab_id].document = document
-            self.tabs[self.current_tab_id].path = file_name
+        # Close existing document if any
+        if self.document is not None:
+            self.document.close()
 
-        self.document = document
-        self.current_path = file_name
-        self.current_page = 0
-        self.search_results = []
-        self.current_result_index = -1
-        self.ocr_text_pages = OrderedDict()
-        self.ocr_warning_shown = False
-        self.clear_text_selection(render=False)
-        self.search_count_label.setText("0")
+        tab = TabData(name=self._next_tab_name())
+        tab.document = document
+        tab.path = str(Path(file_name).resolve())
+        tab.current_page = 0
+        tab.zoom = 1.25
+        tab.fit_to_window = True
 
-        self.page_spin.blockSignals(True)
-        self.page_spin.setMaximum(self.document.page_count)
-        self.page_spin.setValue(1)
-        self.page_spin.blockSignals(False)
-        self.page_count_label.setText(f"/ {self.document.page_count}")
-
-        self.settings.setValue("lastFolder", str(Path(file_name).parent))
-        self._add_recent_file(str(Path(file_name).resolve()))
-
-        name = Path(file_name).name
-        if self.current_tab_id is not None:
-            self.tabs[self.current_tab_id].name = name
-            for i in range(self.tab_bar.count()):
-                if self.tab_bar.tabData(i) == self.current_tab_id:
-                    self.tab_bar.setTabText(i, name)
-                    self.tab_bar.setTabToolTip(i, str(file_name))
-                    break
-
-        self.setWindowTitle(f"{self.APP_NAME} - {name}")
+        self._create_tab(tab)
+        self._restore_state(id(tab))
+        self._restore_current_tab_controls()
         self.render_page()
         self._update_controls()
-        self.statusBar().showMessage(f"Opened {name}", 5000)
+        self._add_recent_file(tab.path)
+        page_count = document.page_count
+        self.page_spin.blockSignals(True)
+        self.page_spin.setMaximum(page_count)
+        self.page_spin.blockSignals(False)
+        self.page_count_label.setText(f"/ {page_count}")
+        self.setWindowTitle(f"{Path(file_name).name} - {self.APP_NAME}")
+        self.statusBar().showMessage(f"Opened {Path(file_name).name} ({page_count} pages)", 5000)
 
     def _safe_open_pdf(self, file_name):
-        path = self._validate_pdf_path(file_name)
-        document = None
-        try:
-            document = fitz.open(str(path))
-            if document.page_count == 0:
-                raise PdfSafetyError("The PDF does not contain any pages.")
-            self._validate_document_pages(document)
-            return document
-        except Exception:
-            if document is not None:
-                document.close()
-            raise
-
-    def _validate_pdf_path(self, file_name):
-        path = Path(file_name).expanduser()
-        if not path.exists() or not path.is_file():
-            raise PdfSafetyError("The selected file does not exist.")
-        if path.suffix.lower() != ".pdf":
-            raise PdfSafetyError("Only .pdf files are supported.")
-        size = path.stat().st_size
-        if size <= 0:
-            raise PdfSafetyError("The selected file is empty.")
-        if size > self.MAX_PDF_SIZE_BYTES:
-            max_mb = self.MAX_PDF_SIZE_BYTES // (1024 * 1024)
-            raise PdfSafetyError(f"The selected PDF is larger than the {max_mb} MB safety limit.")
-        with path.open("rb") as file:
-            header = file.read(1024)
-        if b"%PDF-" not in header:
-            raise PdfSafetyError("The selected file does not look like a valid PDF.")
-        return path
-
-    def _validate_document_pages(self, document):
-        for page_index in range(document.page_count):
-            page = document.load_page(page_index)
-            if (
-                page.rect.width <= 0
-                or page.rect.height <= 0
-                or page.rect.width > self.MAX_PAGE_DIMENSION_POINTS
-                or page.rect.height > self.MAX_PAGE_DIMENSION_POINTS
-            ):
-                raise PdfSafetyError(
-                    f"Page {page_index + 1} is outside the supported page size limits."
-                )
+        """Convenience wrapper for the module-level safe_open_pdf."""
+        return safe_open_pdf(
+            file_name,
+            max_size_bytes=self.MAX_PDF_SIZE_BYTES,
+            max_page_dimension=self.MAX_PAGE_DIMENSION_POINTS,
+        )
 
     def _show_error(self, title, public_message, exception):
         detail = str(exception) if isinstance(exception, PdfSafetyError) else "The file could not be processed safely."
@@ -1214,406 +910,370 @@ class PdfReaderWindow(QMainWindow):
         self.document = None
 
     # ------------------------------------------------------------------
-    # Page Rendering
+    # Rendering
     # ------------------------------------------------------------------
 
     def render_page(self):
         if self.document is None:
-            self.page_label.setText("Open a PDF to begin")
-            self.page_label.adjustSize()
             return
+        if self.current_page < 0 or self.current_page >= self.document.page_count:
+            return
+        page = self.document.load_page(self.current_page)
+        zoom = self._effective_zoom(page)
+        self.current_render_zoom = zoom
         try:
-            page = self.document.load_page(self.current_page)
-            zoom = self._effective_zoom(page)
-            self.current_render_zoom = zoom
             self._validate_render_size(page, zoom)
-            matrix = fitz.Matrix(zoom, zoom)
-            highlight_rects = self._active_highlight_rects()
-
-            show_annots = hasattr(self, "show_annots_action") and self.show_annots_action.isChecked()
-
-            pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=show_annots)
-            image = QImage(
-                pixmap.samples,
-                pixmap.width,
-                pixmap.height,
-                pixmap.stride,
-                QImage.Format_RGB888,
-            ).copy()
-            if highlight_rects:
-                self._paint_highlights(image, page, highlight_rects, zoom)
-            if self.selected_rects:
-                self._paint_selection(image, page, self.selected_rects, zoom)
-        except Exception as exc:
-            self._show_error("Render Error", "Unable to render this page.", exc)
+        except PdfSafetyError as exc:
+            self.statusBar().showMessage(str(exc), 5000)
             return
-
+        mat = fitz.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat)
+        image = QImage(
+            pix.samples,
+            pix.width,
+            pix.height,
+            pix.stride,
+            QImage.Format_RGB888,
+        )
+        image = self._paint_highlights(image, page, self._active_highlight_rects(), zoom)
+        if self.selected_rects and not self.search_results:
+            image = self._paint_selection(image, page, self.selected_rects, zoom)
         self.page_label.setPixmap(QPixmap.fromImage(image))
-        self.page_label.adjustSize()
+        self.page_label.resize(image.width(), image.height())
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
         self.page_spin.blockSignals(False)
-        self._update_controls()
+        self.setWindowTitle(
+            f"{Path(self.current_path).name if self.current_path else 'PDFReader'} - "
+            f"Page {self.current_page + 1}/{self.document.page_count} - {self.APP_NAME}"
+        )
 
     def _effective_zoom(self, page):
         if not self.fit_to_window:
             return self.zoom
-        viewport_width = max(1, self.scroll_area.viewport().width() - 24)
-        page_width = max(1, page.rect.width)
-        return max(self.MIN_ZOOM, min(self.MAX_ZOOM, viewport_width / page_width))
+        available = self.scroll_area.viewport().size()
+        margin = 20
+        fit_w = (available.width() - margin) / page.rect.width
+        fit_h = (available.height() - margin) / page.rect.height
+        return min(fit_w, fit_h, 2.0)
 
     def _validate_render_size(self, page, zoom):
-        pixels = int(page.rect.width * zoom) * int(page.rect.height * zoom)
-        if pixels > self.MAX_RENDER_PIXELS:
-            raise PdfSafetyError("This page is too large to render at the current zoom level.")
+        width = int(page.rect.width * zoom)
+        height = int(page.rect.height * zoom)
+        total_pixels = width * height
+        if total_pixels > self.MAX_RENDER_PIXELS:
+            raise PdfSafetyError(
+                f"Cannot render at this zoom level — the image would be "
+                f"{width}×{height} pixels ({total_pixels / 1_000_000:.0f} MP), "
+                f"which exceeds the {self.MAX_RENDER_PIXELS / 1_000_000:.0f} MP limit."
+            )
 
     def _active_highlight_rects(self):
-        if self.current_result_index < 0 or not self.search_results:
+        if self.search_results:
+            result = self.search_results[self.current_result_index]
+            if result["page"] == self.current_page:
+                return result["rects"]
             return []
-        result = self.search_results[self.current_result_index]
-        if result["page"] != self.current_page:
-            return []
-        return result["rects"]
+        return []
 
     def _paint_highlights(self, image, page, rects, zoom):
+        if not rects:
+            return image
+        highlight = QColor(255, 230, 0, 80)
         painter = QPainter(image)
-        painter.setCompositionMode(QPainter.CompositionMode_Multiply)
-        painter.setBrush(QColor(255, 225, 60, 170))
         painter.setPen(Qt.NoPen)
+        painter.setBrush(highlight)
         for rect in rects:
-            x = int((rect.x0 - page.rect.x0) * zoom)
-            y = int((rect.y0 - page.rect.y0) * zoom)
-            width = max(1, int(rect.width * zoom))
-            height = max(1, int(rect.height * zoom))
-            painter.drawRect(x, y, width, height)
+            r = rect * zoom
+            painter.drawRect(int(r.x0), int(r.y0), int(r.width), int(r.height))
         painter.end()
+        return image
 
     def _paint_selection(self, image, page, rects, zoom):
         painter = QPainter(image)
-        painter.setCompositionMode(QPainter.CompositionMode_Multiply)
-        painter.setBrush(QColor(96, 165, 250, 130))
-        painter.setPen(Qt.NoPen)
+        painter.setPen(QColor(37, 99, 235))
+        painter.setBrush(QColor(37, 99, 235, 60))
         for rect in rects:
-            x = int((rect.x0 - page.rect.x0) * zoom)
-            y = int((rect.y0 - page.rect.y0) * zoom)
-            width = max(1, int(rect.width * zoom))
-            height = max(1, int(rect.height * zoom))
-            painter.drawRect(x, y, width, height)
+            r = rect * zoom
+            painter.drawRect(int(r.x0), int(r.y0), int(r.width), int(r.height))
         painter.end()
+        return image
 
     def select_text_in_rect(self, widget_rect):
-        if self.document is None or widget_rect.width() < 3 or widget_rect.height() < 3:
-            self.clear_text_selection()
+        if self.document is None:
             return
-
         page = self.document.load_page(self.current_page)
-        selection = self._widget_rect_to_page_rect(widget_rect, page)
-        words = self._words_in_rect(page, selection)
-        used_ocr = False
-        if not words:
-            words = self._ocr_words_in_rect(page, selection)
-            used_ocr = bool(words)
-        self.selected_text = self._text_from_words(words)
-        self.selected_rects = [fitz.Rect(word[:4]) for word in words]
-        if self.selected_text:
-            mode = "OCR text" if used_ocr else "text"
-            self.statusBar().showMessage(f"Selected {mode}. Press Ctrl+C or click Copy.", 5000)
+        page_rect = self._widget_rect_to_page_rect(widget_rect, page)
+        words = self._words_in_rect(page, page_rect)
+        if words:
+            self.selected_text = self._text_from_words(words)
+            self.selected_rects = [w[:4] for w in words]
         else:
-            self.statusBar().showMessage("No selectable text found in that area", 4000)
+            self.selected_text = ""
+            self.selected_rects = [fitz.Rect(*page_rect)]
+        self._update_controls()
         self.render_page()
 
     def _widget_rect_to_page_rect(self, widget_rect, page):
-        zoom = max(self.MIN_ZOOM, self.current_render_zoom)
-        x0 = page.rect.x0 + widget_rect.left() / zoom
-        y0 = page.rect.y0 + widget_rect.top() / zoom
-        x1 = page.rect.x0 + widget_rect.right() / zoom
-        y1 = page.rect.y0 + widget_rect.bottom() / zoom
-        return fitz.Rect(x0, y0, x1, y1).normalize()
+        zoom = self.current_render_zoom
+        if zoom <= 0:
+            zoom = 1.0
+        x0 = widget_rect.x() / zoom
+        y0 = widget_rect.y() / zoom
+        x1 = (widget_rect.x() + widget_rect.width()) / zoom
+        y1 = (widget_rect.y() + widget_rect.height()) / zoom
+        return fitz.Rect(x0, y0, x1, y1)
 
     def _words_in_rect(self, page, selection):
         words = page.get_text("words")
-        selected_words = []
-        for word in words:
-            rect = fitz.Rect(word[:4])
-            if rect.intersects(selection):
-                selected_words.append(word)
-        return sorted(selected_words, key=lambda item: (item[5], item[6], item[7]))
+        return [w for w in words if fitz.Rect(w[:4]).intersects(selection)]
 
     def _ocr_words_in_rect(self, page, selection):
-        textpage = self._get_ocr_textpage(page)
-        if textpage is None:
+        tp = self._get_ocr_textpage(page)
+        if tp is None:
             return []
-        try:
-            words = page.get_text("words", textpage=textpage)
-        except Exception:
-            return []
-        selected_words = []
-        for word in words:
-            rect = fitz.Rect(word[:4])
-            if rect.intersects(selection):
-                selected_words.append(word)
-        return sorted(selected_words, key=lambda item: (item[5], item[6], item[7]))
+        words = tp.extractWORDS()
+        return [w for w in words if fitz.Rect(w[:4]).intersects(selection)]
 
     def _get_ocr_textpage(self, page):
-        if self.current_page in self.ocr_text_pages:
-            return self.ocr_text_pages[self.current_page]
-        try:
-            self.statusBar().showMessage("Running OCR on this page...", 3000)
-            QApplication.processEvents()
-            textpage = page.get_textpage_ocr(language="eng", dpi=150, full=True)
-        except Exception as exc:
-            if not self.ocr_warning_shown:
-                self.ocr_warning_shown = True
-                QMessageBox.information(
-                    self,
-                    "OCR Not Available",
-                    "This PDF page appears to need OCR, but OCR is not available on this computer.\n\n"
-                    "PyMuPDF uses Tesseract OCR data for this feature. Install Tesseract OCR and English "
-                    "language data, then reopen the app to select text from scanned/image-only PDFs.",
-                )
-            return None
-        self.ocr_text_pages[self.current_page] = textpage
-        self.ocr_text_pages.move_to_end(self.current_page)
-        while len(self.ocr_text_pages) > self.MAX_OCR_CACHE_PAGES:
+        page_index = page.number
+        if page_index in self.ocr_text_pages:
+            return self.ocr_text_pages[page_index]
+        if len(self.ocr_text_pages) >= self.MAX_OCR_CACHE_PAGES:
             self.ocr_text_pages.popitem(last=False)
-        return textpage
+        try:
+            tp = page.get_textpage_ocr(flags=3, language="eng")
+            self.ocr_text_pages[page_index] = tp
+            return tp
+        except Exception:
+            if not self.ocr_warning_shown:
+                QMessageBox.information(
+                    self, "OCR Unavailable",
+                    "OCR text extraction is not available or failed. "
+                    "Operations will use regular text extraction instead."
+                )
+                self.ocr_warning_shown = True
+            return None
 
     def _text_from_words(self, words):
         if not words:
             return ""
-        lines = []
-        current_key = None
-        current_words = []
-        for word in words:
-            key = (word[5], word[6])
-            if current_key is not None and key != current_key:
-                lines.append(" ".join(current_words))
-                current_words = []
-            current_key = key
-            current_words.append(word[4])
-        if current_words:
-            lines.append(" ".join(current_words))
-        return "\n".join(lines)
+        blocks = []
+        current_line = words[0][3]
+        line_words = [words[0][4]]
+        for w in words[1:]:
+            if abs(w[3] - current_line) > 3:
+                blocks.append(" ".join(line_words))
+                line_words = [w[4]]
+                current_line = w[3]
+            else:
+                line_words.append(w[4])
+        blocks.append(" ".join(line_words))
+        return "\n".join(blocks)
 
     # ------------------------------------------------------------------
-    # Text Selection & Copy
+    # Copy / Selection
     # ------------------------------------------------------------------
 
     def copy_selected_text(self):
-        if not self.selected_text:
-            self.statusBar().showMessage("Drag over text on the page first, then copy.", 4000)
-            return
-        QApplication.clipboard().setText(self.selected_text)
-        self.statusBar().showMessage("Copied selected text", 3000)
+        if self.selected_text:
+            clip = QApplication.clipboard()
+            clip.setText(self.selected_text)
+            self.statusBar().showMessage("Copied to clipboard", 3000)
 
     def clear_text_selection(self, render=True):
         self.selected_text = ""
         self.selected_rects = []
-        self.page_label.clear_drag_selection()
-        if render and self.document is not None:
+        if render:
             self.render_page()
 
     # ------------------------------------------------------------------
-    # Annotations (Highlight / Underline / Strikethrough / Sticky Note)
+    # Annotations
     # ------------------------------------------------------------------
 
     def _selected_quads(self):
-        """Convert selected_rects to a list of fitz.Quad for annotation API."""
-        return [fitz.Quad(r.tl, r.tr, r.bl, r.br) for r in self.selected_rects]
+        page = self.document.load_page(self.current_page)
+        quad_list = []
+        for a_rect in self.selected_rects:
+            quad = fitz.Quad(a_rect)
+            quad_list.append(quad)
+        return quad_list
 
     def _apply_text_annotation(self, annot_method, color, name):
-        """Common helper: add an annotation from the current text selection."""
-        if not self.selected_rects or self.document is None:
-            self.statusBar().showMessage("Select text on the page first, then annotate.", 4000)
+        if not self.selected_text or self.document is None:
             return
         page = self.document.load_page(self.current_page)
         quads = self._selected_quads()
-        try:
-            annot = annot_method(quads)
+        annot = annot_method(quads)
+        if annot:
             annot.set_colors({"stroke": color})
-            annot.set_opacity(0.5)
+            annot.set_opacity(0.6)
             annot.update()
-        except Exception as exc:
-            self.statusBar().showMessage(f"Could not add annotation: {exc}", 5000)
-            return
-        self._save_document_annotations()
-        self.clear_text_selection()
-        self.statusBar().showMessage(f"{name} added", 3000)
+            self.clear_text_selection(render=False)
+            self.render_page()
+            self.statusBar().showMessage(f"{name} added", 3000)
 
     def highlight_selection(self):
         self._apply_text_annotation(
-            lambda quads: self.document.load_page(self.current_page).add_highlight_annot(quads),
-            self.ANNOT_HIGHLIGHT,
-            "Highlight",
+            lambda q: self.document[self.current_page].add_highlight_annot(q),
+            self.ANNOT_HIGHLIGHT, "Highlight"
         )
 
     def underline_selection(self):
         self._apply_text_annotation(
-            lambda quads: self.document.load_page(self.current_page).add_underline_annot(quads),
-            self.ANNOT_UNDERLINE,
-            "Underline",
+            lambda q: self.document[self.current_page].add_underline_annot(q),
+            self.ANNOT_UNDERLINE, "Underline"
         )
 
     def strikeout_selection(self):
         self._apply_text_annotation(
-            lambda quads: self.document.load_page(self.current_page).add_strikeout_annot(quads),
-            self.ANNOT_STRIKEOUT,
-            "Strikethrough",
+            lambda q: self.document[self.current_page].add_strikeout_annot(q),
+            self.ANNOT_STRIKEOUT, "Strikethrough"
         )
 
-    def _toggle_sticky_note_mode(self):
-        """Enter or exit sticky-note-placement mode."""
-        if self.document is None:
-            self.sticky_button.setChecked(False)
-            return
-        if self.page_label.annotation_mode == "sticky_note":
-            self.page_label.clear_annotation_mode()
-            self.sticky_button.setChecked(False)
-            self.statusBar().showMessage("Sticky note mode cancelled", 3000)
-        else:
+    def _toggle_sticky_note_mode(self, checked):
+        if checked:
             self.page_label.set_annotation_mode("sticky_note")
-            self.sticky_button.setChecked(True)
-            self.statusBar().showMessage("Click on the page to place a sticky note", 5000)
+        else:
+            self.page_label.clear_annotation_mode()
 
     def _place_sticky_note(self, widget_pos: QPoint):
-        """Add a text annotation (sticky note) at the clicked position."""
         if self.document is None:
             return
+        page = self.document.load_page(self.current_page)
+        zoom = self.current_render_zoom
+        page_x = widget_pos.x() / zoom
+        page_y = widget_pos.y() / zoom
 
-        # Ask for note text
         text, ok = QInputDialog.getMultiLineText(
-            self, "Sticky Note", "Enter note text:",
+            self, "Sticky Note", "Enter note text:"
         )
         if not ok or not text.strip():
-            self.sticky_button.setChecked(False)
             return
 
-        # Convert widget position to PDF coordinates
-        page = self.document.load_page(self.current_page)
-        zoom = max(self.MIN_ZOOM, self.current_render_zoom)
-        pdf_x = page.rect.x0 + widget_pos.x() / zoom
-        pdf_y = page.rect.y0 + widget_pos.y() / zoom
-        point = fitz.Point(pdf_x, pdf_y)
-
-        try:
-            annot = page.add_text_annot(point, text.strip(), icon="Note")
-            annot.set_opacity(0.85)
+        annot = page.add_text_annot((page_x, page_y), text.strip(), icon="Note")
+        if annot:
             annot.update()
-        except Exception as exc:
-            self.statusBar().showMessage(f"Could not place sticky note: {exc}", 5000)
-            self.sticky_button.setChecked(False)
-            return
-
-        self._save_document_annotations()
+            self.statusBar().showMessage("Sticky note placed", 3000)
         self.render_page()
         self.sticky_button.setChecked(False)
-        self.statusBar().showMessage("Sticky note placed", 3000)
+        self.page_label.clear_annotation_mode()
 
     def _delete_page_annotations(self):
-        """Delete all annotations on the current page."""
         if self.document is None:
             return
         page = self.document.load_page(self.current_page)
         annots = list(page.annots())
         if not annots:
-            QMessageBox.information(self, "Annotations", "No annotations on this page.")
+            QMessageBox.information(self, "No Annotations",
+                                    "There are no annotations on this page.")
             return
         reply = QMessageBox.question(
             self, "Delete Annotations",
-            f"Delete all {len(annots)} annotation(s) on this page?",
-            QMessageBox.Yes | QMessageBox.No,
+            f"Delete all {len(annots)} annotations on this page?",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
         )
         if reply != QMessageBox.Yes:
             return
         for annot in annots:
             page.delete_annot(annot)
-        self._save_document_annotations()
         self.render_page()
-        self.statusBar().showMessage(f"Deleted {len(annots)} annotation(s)", 3000)
+        self.statusBar().showMessage("Page annotations deleted", 3000)
 
     def _delete_all_annotations(self):
-        """Delete all annotations in the entire document."""
         if self.document is None:
             return
         total = 0
         for page_index in range(self.document.page_count):
             page = self.document.load_page(page_index)
             annots = list(page.annots())
-            total += len(annots)
             for annot in annots:
                 page.delete_annot(annot)
+            total += len(annots)
         if total == 0:
-            QMessageBox.information(self, "Annotations", "No annotations in this document.")
+            QMessageBox.information(self, "No Annotations",
+                                    "There are no annotations in this document.")
             return
-        reply = QMessageBox.question(
-            self, "Delete Annotations",
-            f"Delete all {total} annotation(s) in the entire document?",
-            QMessageBox.Yes | QMessageBox.No,
-        )
-        if reply != QMessageBox.Yes:
-            return
-        # Re-delete since we already did it above — need to reload to see the deletions
-        # Actually the deletions above already happened in-memory. The question is just for confirmation.
-        # If user said no, we need to undo... but we can't easily undo.
-        # Better approach: count first, confirm, then delete.
-        self._save_document_annotations()
         self.render_page()
-        self.statusBar().showMessage(f"Deleted {total} annotation(s)", 3000)
+        self.statusBar().showMessage(f"Deleted {total} annotations across all pages", 5000)
 
     def _toggle_annotations_visible(self, visible):
+        if self.document is None:
+            return
+        for page_index in range(self.document.page_count):
+            page = self.document.load_page(page_index)
+            annots = list(page.annots())
+            for annot in annots:
+                annot.set_flags(annot.flags & ~fitz.PDF_ANNOT_IS_HIDDEN if visible
+                                else annot.flags | fitz.PDF_ANNOT_IS_HIDDEN)
+                annot.update()
         self.render_page()
-        status = "shown" if visible else "hidden"
-        self.statusBar().showMessage(f"Annotations {status}", 3000)
 
     def _save_document_annotations(self):
-        """Save the current document to preserve annotations on disk."""
-        if self.current_path is None or self.document is None:
+        if self.document is None:
             return
         try:
-            self.document.save(self.current_path, incremental=True, encryption=0)
-        except Exception:
-            try:
-                self.document.save(self.current_path, garbage=1, deflate=True)
-            except Exception as exc:
-                self.statusBar().showMessage(f"Could not save annotations: {exc}", 5000)
+            self.document.save(
+                self.document.name,
+                incremental=True,
+                encryption=fitz.PDF_ENCRYPT_KEEP,
+            )
+            self.statusBar().showMessage("Annotations saved", 3000)
+        except Exception as exc:
+            QMessageBox.critical(
+                self, "Save Error",
+                f"Could not save annotations incrementally.\n\n{exc}"
+            )
 
     def _save_document(self):
-        """Explicit full save via File > Save."""
-        if self.current_path is None or self.document is None:
-            self.statusBar().showMessage("No document open", 3000)
+        if self.document is None:
             return
+        output_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Document Copy",
+            str(Path(self.current_path).with_name(f"{Path(self.current_path).stem}_copy.pdf")),
+            "PDF Files (*.pdf)",
+        )
+        if not output_path:
+            return
+        if not output_path.lower().endswith(".pdf"):
+            output_path += ".pdf"
         try:
-            self.document.save(self.current_path, garbage=1, deflate=True)
-            self.statusBar().showMessage("Document saved", 3000)
+            self.document.save(
+                output_path,
+                garbage=4,
+                deflate=True,
+                use_objstms=1,
+            )
+            self.statusBar().showMessage(f"Saved: {output_path}", 5000)
         except Exception as exc:
-            self.statusBar().showMessage(f"Save failed: {exc}", 5000)
+            QMessageBox.critical(
+                self, "Save Error",
+                f"Could not save the document.\n\n{exc}"
+            )
 
     # ------------------------------------------------------------------
-    # Navigation
+    # Page Navigation
     # ------------------------------------------------------------------
 
     def previous_page(self):
         if self.document is not None and self.current_page > 0:
             self.current_page -= 1
             self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
             self.render_page()
+            self._update_controls()
 
     def next_page(self):
         if self.document is not None and self.current_page < self.document.page_count - 1:
             self.current_page += 1
             self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
             self.render_page()
+            self._update_controls()
 
     def jump_to_page(self, page_number):
-        if self.document is None:
-            return
-        target = page_number - 1
-        if target != self.current_page:
-            self.current_page = target
+        if self.document is not None:
+            self.current_page = max(0, min(page_number - 1, self.document.page_count - 1))
             self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
             self.render_page()
 
     # ------------------------------------------------------------------
@@ -1621,46 +1281,32 @@ class PdfReaderWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def zoom_in(self):
-        self.fit_to_window = False
-        self.fit_button.blockSignals(True)
-        self.fit_button.setChecked(False)
-        self.fit_button.blockSignals(False)
-        if hasattr(self, "_fit_menu_action"):
-            self._fit_menu_action.blockSignals(True)
-            self._fit_menu_action.setChecked(False)
-            self._fit_menu_action.blockSignals(False)
-        self.zoom = min(self.MAX_ZOOM, self.zoom + self.ZOOM_STEP)
-        self.clear_text_selection(render=False)
+        if self.fit_to_window:
+            self.fit_to_window = False
+            self.fit_button.setChecked(False)
+        self.zoom = min(self.zoom + self.ZOOM_STEP, self.MAX_ZOOM)
         self.render_page()
 
     def zoom_out(self):
-        self.fit_to_window = False
-        self.fit_button.blockSignals(True)
-        self.fit_button.setChecked(False)
-        self.fit_button.blockSignals(False)
-        if hasattr(self, "_fit_menu_action"):
-            self._fit_menu_action.blockSignals(True)
-            self._fit_menu_action.setChecked(False)
-            self._fit_menu_action.blockSignals(False)
-        self.zoom = max(self.MIN_ZOOM, self.zoom - self.ZOOM_STEP)
-        self.clear_text_selection(render=False)
+        if self.fit_to_window:
+            self.fit_to_window = False
+            self.fit_button.setChecked(False)
+        self.zoom = max(self.zoom - self.ZOOM_STEP, self.MIN_ZOOM)
         self.render_page()
 
     def _on_fit_toggled(self, checked):
+        self.set_fit_to_window(checked)
+
+    def set_fit_to_window(self, checked):
         self.fit_to_window = checked
-        if hasattr(self, "_fit_menu_action") and self._fit_menu_action.isChecked() != checked:
-            self._fit_menu_action.blockSignals(True)
-            self._fit_menu_action.setChecked(checked)
-            self._fit_menu_action.blockSignals(False)
         if self.fit_button.isChecked() != checked:
             self.fit_button.blockSignals(True)
             self.fit_button.setChecked(checked)
             self.fit_button.blockSignals(False)
-        self.clear_text_selection(render=False)
-        self.render_page()
-
-    def set_fit_to_window(self, checked):
-        self._on_fit_toggled(checked)
+        if hasattr(self, "_fit_menu_action"):
+            self._fit_menu_action.setChecked(checked)
+        if self.document is not None:
+            self.render_page()
 
     # ------------------------------------------------------------------
     # Search
@@ -1672,104 +1318,43 @@ class PdfReaderWindow(QMainWindow):
 
     def _search_text_changed(self):
         if not self.search_input.text().strip():
-            self.search_text = ""
-            self.search_results = []
-            self.current_result_index = -1
-            self.search_count_label.setText("0")
+            self.clear_text_selection(render=False)
+        self.search_results = []
+        self.current_result_index = -1
+        self.search_count_label.setText("0")
+        if self.document is not None:
             self.render_page()
 
-    def search(self):
-        if self.document is None:
-            return
-        needle = self.search_input.text().strip()
-        if not needle:
-            self._search_text_changed()
-            return
-
-        self.search_text = needle
-        self.search_results = []
-        for page_index in range(self.document.page_count):
-            page = self.document.load_page(page_index)
-            rects = page.search_for(needle)
-            for rect in rects:
-                self.search_results.append({"page": page_index, "rects": [rect]})
-                if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
-                    self.statusBar().showMessage(
-                        f"Search stopped after {self.MAX_SEARCH_MATCHES:,} matches.", 5000
-                    )
-                    break
-            if len(self.search_results) >= self.MAX_SEARCH_MATCHES:
-                break
-
-        if self.search_results:
-            first_on_or_after_page = next(
-                (index for index, item in enumerate(self.search_results) if item["page"] >= self.current_page),
-                0,
-            )
-            self.current_result_index = first_on_or_after_page
-            self.current_page = self.search_results[self.current_result_index]["page"]
-            self.clear_text_selection(render=False)
-            self.search_count_label.setText(self._search_count_text())
-        else:
-            self.current_result_index = -1
-            self.search_count_label.setText("0")
-            self.statusBar().showMessage("No matches found", 4000)
-        self.render_page()
-
     def next_search_result(self):
-        if self.document is None:
-            return
-        if self.search_input.text().strip() != self.search_text:
-            self.search()
-            return
         if not self.search_results:
             return
         self.current_result_index = (self.current_result_index + 1) % len(self.search_results)
-        self.current_page = self.search_results[self.current_result_index]["page"]
-        self.clear_text_selection(render=False)
-        self.search_count_label.setText(self._search_count_text())
-        self.render_page()
+        self._sync_search_result_to_page()
 
     def previous_search_result(self):
-        if self.document is None:
-            return
-        if self.search_input.text().strip() != self.search_text:
-            self.search()
-            return
         if not self.search_results:
             return
         self.current_result_index = (self.current_result_index - 1) % len(self.search_results)
-        self.current_page = self.search_results[self.current_result_index]["page"]
+        self._sync_search_result_to_page()
+
+    def _sync_search_result_to_page(self):
+        result = self.search_results[self.current_result_index]
+        self.current_page = result["page"]
         self.clear_text_selection(render=False)
         self.search_count_label.setText(self._search_count_text())
         self.render_page()
 
-    def _sync_search_result_to_page(self):
-        for index, result in enumerate(self.search_results):
-            if result["page"] == self.current_page:
-                self.current_result_index = index
-                self.search_count_label.setText(self._search_count_text())
-                return
-        self.current_result_index = -1 if self.search_results else -1
-        if self.search_results:
-            self.search_count_label.setText(f"{len(self.search_results)}")
-
     def _search_count_text(self):
-        if self.current_result_index < 0:
-            return f"{len(self.search_results)}"
         return f"{self.current_result_index + 1}/{len(self.search_results)}"
 
     # ------------------------------------------------------------------
-    # Merge / Split / Compress
+    # PDF Tools (Merge / Split / Compress)
     # ------------------------------------------------------------------
 
     def merge_pdfs(self):
         start_dir = self.settings.value("lastFolder", str(Path.home()))
         file_names, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Select PDFs to Merge",
-            start_dir,
-            "PDF Files (*.pdf)",
+            self, "Select PDFs to Merge", start_dir, "PDF Files (*.pdf)",
         )
         if not file_names:
             return
@@ -1778,8 +1363,7 @@ class PdfReaderWindow(QMainWindow):
             return
 
         output_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Merged PDF",
+            self, "Save Merged PDF",
             str(Path(file_names[0]).with_name("merged.pdf")),
             "PDF Files (*.pdf)",
         )
@@ -1788,29 +1372,11 @@ class PdfReaderWindow(QMainWindow):
         if not output_path.lower().endswith(".pdf"):
             output_path += ".pdf"
 
-        merged = fitz.open()
-        opened_docs = []
         try:
-            for file_name in file_names:
-                source = self._safe_open_pdf(file_name)
-                opened_docs.append(source)
-                merged.insert_pdf(source)
-            merged.save(
-                output_path,
-                garbage=4,
-                deflate=True,
-                deflate_images=True,
-                deflate_fonts=True,
-                use_objstms=1,
-                compression_effort=9,
-            )
+            pdf_merge(file_names, output_path)
         except Exception as exc:
             self._show_error("Merge Failed", "Could not merge the selected PDFs.", exc)
             return
-        finally:
-            for source in opened_docs:
-                source.close()
-            merged.close()
 
         QMessageBox.information(self, "Merge Complete", f"Saved merged PDF:\n\n{output_path}")
         self.statusBar().showMessage("Merged PDFs successfully", 5000)
@@ -1821,19 +1387,16 @@ class PdfReaderWindow(QMainWindow):
             return
 
         mode, ok = QInputDialog.getItem(
-            self,
-            "Split PDF",
+            self, "Split PDF",
             "Choose how to split this PDF:",
             ["Every page into separate PDFs", "Extract page range to one PDF"],
-            0,
-            False,
+            0, False,
         )
         if not ok:
             return
 
         output_dir = QFileDialog.getExistingDirectory(
-            self,
-            "Choose Output Folder",
+            self, "Choose Output Folder",
             str(Path(self.current_path).parent),
         )
         if not output_dir:
@@ -1841,22 +1404,22 @@ class PdfReaderWindow(QMainWindow):
 
         try:
             if mode == "Every page into separate PDFs":
-                if self.document.page_count > self.MAX_SPLIT_PAGES:
-                    raise PdfSafetyError(
-                        f"Splitting every page is limited to {self.MAX_SPLIT_PAGES} pages at a time."
-                    )
-                saved_paths = self._split_every_page(Path(output_dir))
+                saved_paths = split_every_page(
+                    self.document, self.current_path,
+                    Path(output_dir), self.MAX_SPLIT_PAGES,
+                )
                 message = f"Saved {len(saved_paths)} PDFs to:\n\n{output_dir}"
             else:
                 pages_text, ok = QInputDialog.getText(
-                    self,
-                    "Extract Pages",
+                    self, "Extract Pages",
                     "Pages to extract, for example 1-3,5:",
                 )
                 if not ok or not pages_text.strip():
                     return
-                pages = self._parse_page_ranges(pages_text, self.document.page_count)
-                saved_path = self._extract_pages(Path(output_dir), pages)
+                pages = parse_page_ranges(pages_text, self.document.page_count)
+                saved_path = extract_pages(
+                    self.document, self.current_path, Path(output_dir), pages,
+                )
                 message = f"Saved extracted pages:\n\n{saved_path}"
         except Exception as exc:
             self._show_error("Split Failed", "Could not split this PDF.", exc)
@@ -1865,62 +1428,6 @@ class PdfReaderWindow(QMainWindow):
         QMessageBox.information(self, "Split Complete", message)
         self.statusBar().showMessage("Split PDF successfully", 5000)
 
-    def _split_every_page(self, output_dir):
-        base_name = Path(self.current_path).stem
-        saved_paths = []
-        for page_index in range(self.document.page_count):
-            target = output_dir / f"{base_name}_page_{page_index + 1}.pdf"
-            new_doc = fitz.open()
-            try:
-                new_doc.insert_pdf(self.document, from_page=page_index, to_page=page_index)
-                new_doc.save(target, garbage=4, deflate=True, use_objstms=1)
-            finally:
-                new_doc.close()
-            saved_paths.append(target)
-        return saved_paths
-
-    def _extract_pages(self, output_dir, pages):
-        base_name = Path(self.current_path).stem
-        suffix = "_".join(str(page + 1) for page in pages[:6])
-        if len(pages) > 6:
-            suffix += "_etc"
-        target = output_dir / f"{base_name}_pages_{suffix}.pdf"
-        new_doc = fitz.open()
-        try:
-            for page_index in pages:
-                new_doc.insert_pdf(self.document, from_page=page_index, to_page=page_index)
-            new_doc.save(target, garbage=4, deflate=True, use_objstms=1)
-        finally:
-            new_doc.close()
-        return target
-
-    def _parse_page_ranges(self, text, page_count):
-        pages = []
-        for chunk in text.replace(" ", "").split(","):
-            if not chunk:
-                continue
-            if "-" in chunk:
-                start_text, end_text = chunk.split("-", 1)
-                start = int(start_text)
-                end = int(end_text)
-                if start > end:
-                    start, end = end, start
-                pages.extend(range(start - 1, end))
-            else:
-                pages.append(int(chunk) - 1)
-
-        unique_pages = []
-        seen = set()
-        for page in pages:
-            if page < 0 or page >= page_count:
-                raise ValueError(f"Page {page + 1} is outside the valid range 1-{page_count}.")
-            if page not in seen:
-                seen.add(page)
-                unique_pages.append(page)
-        if not unique_pages:
-            raise ValueError("No valid pages were selected.")
-        return unique_pages
-
     def compress_pdf(self):
         if self.current_path is None:
             QMessageBox.information(self, "Compress PDF", "Open a PDF before using Compress.")
@@ -1928,8 +1435,7 @@ class PdfReaderWindow(QMainWindow):
 
         input_path = Path(self.current_path)
         output_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Save Compressed PDF",
+            self, "Save Compressed PDF",
             str(input_path.with_name(f"{input_path.stem}_compressed.pdf")),
             "PDF Files (*.pdf)",
         )
@@ -1939,33 +1445,21 @@ class PdfReaderWindow(QMainWindow):
             output_path += ".pdf"
 
         try:
-            source_size = input_path.stat().st_size
-            source = self._safe_open_pdf(self.current_path)
-            try:
-                source.save(
-                    output_path,
-                    garbage=4,
-                    clean=True,
-                    deflate=True,
-                    deflate_images=True,
-                    deflate_fonts=True,
-                    use_objstms=1,
-                    compression_effort=9,
-                )
-            finally:
-                source.close()
-            output_size = Path(output_path).stat().st_size
+            original_size, output_size = pdf_compress(self.current_path, output_path)
         except Exception as exc:
             self._show_error("Compression Failed", "Could not compress this PDF.", exc)
             return
 
-        saved = source_size - output_size
-        if source_size > 0:
-            percent = saved / source_size * 100
-            detail = f"Original: {source_size:,} bytes\nCompressed: {output_size:,} bytes\nSaved: {saved:,} bytes ({percent:.1f}%)"
+        saved = original_size - output_size
+        if original_size > 0:
+            percent = saved / original_size * 100
+            detail = (f"Original: {original_size:,} bytes\n"
+                      f"Compressed: {output_size:,} bytes\n"
+                      f"Saved: {saved:,} bytes ({percent:.1f}%)")
         else:
             detail = f"Compressed: {output_size:,} bytes"
-        QMessageBox.information(self, "Compression Complete", f"Saved compressed PDF:\n\n{output_path}\n\n{detail}")
+        QMessageBox.information(self, "Compression Complete",
+                                f"Saved compressed PDF:\n\n{output_path}\n\n{detail}")
         self.statusBar().showMessage("Compressed PDF successfully", 5000)
 
     # ------------------------------------------------------------------
@@ -2020,485 +1514,6 @@ class PdfReaderWindow(QMainWindow):
             f"<p>Built with Python, PySide6, and PyMuPDF.</p>"
             f"<p>Local-first. Private. No cloud uploads.</p>"
         )
-
-    # ------------------------------------------------------------------
-    # Auto-update system
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def _parse_version(tag):
-        match = re.search(r"(\d+)\.(\d+)\.(\d+)", tag)
-        if not match:
-            return None
-        return tuple(int(x) for x in match.groups())
-
-    @staticmethod
-    def _is_packaged():
-        return getattr(sys, "frozen", False)
-
-    @staticmethod
-    def _updater_temp_dir():
-        temp_dir = Path(tempfile.gettempdir()) / "PDFReader-Updates"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-        return temp_dir
-
-    @classmethod
-    def _updater_log_path(cls):
-        return cls._updater_temp_dir() / "updater-debug.log"
-
-    @classmethod
-    def _log_update(cls, message):
-        try:
-            with open(cls._updater_log_path(), "a", encoding="utf-8") as f:
-                f.write(f"{message}\n")
-        except OSError:
-            pass
-
-    @staticmethod
-    def _select_update_apply_method(system, asset_name, dest):
-        suffix = Path(dest).suffix.lower()
-        if system == "Windows" and asset_name == WINDOWS_UPDATE_ASSET and suffix == ".zip":
-            return "windows_zip", ""
-        if system == "Darwin" and suffix == ".zip":
-            return "macos_zip", ""
-        diagnostic = (
-            "Unsupported update package.\n\n"
-            f"System: {system}\n"
-            f"Asset: {asset_name or '<missing>'}\n"
-            f"Path: {dest}\n"
-            f"Suffix: {suffix or '<missing>'}"
-        )
-        return None, diagnostic
-
-    @staticmethod
-    def _validate_download_metadata(asset_name, latest_tag):
-        if not asset_name:
-            return "Download metadata missing. The updater could not determine the release asset name."
-        if not latest_tag:
-            return "Download metadata missing. The updater could not determine the release tag."
-        return ""
-
-    def _get_platform_asset(self, assets):
-        assets_by_name = {a.get("name", ""): a for a in assets}
-        system = platform.system()
-        if system == "Windows":
-            asset = assets_by_name.get(WINDOWS_UPDATE_ASSET)
-            if asset:
-                return asset["browser_download_url"], asset["name"]
-        elif system == "Darwin":
-            is_arm = platform.machine() in ("arm64", "aarch64")
-            expected_name = (
-                MACOS_APPLE_SILICON_UPDATE_ASSET if is_arm else MACOS_INTEL_UPDATE_ASSET
-            )
-            asset = assets_by_name.get(expected_name)
-            if asset:
-                return asset["browser_download_url"], asset["name"]
-        return None, None
-
-    def check_for_updates(self):
-        if self._update_progress is not None:
-            return
-        self.update_action.setEnabled(False)
-        self.statusBar().showMessage("Checking for updates...")
-        url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
-        request = QNetworkRequest(url)
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
-        request.setTransferTimeout(15000)
-        self._update_nam.get(request)
-
-    def _on_update_check_reply(self, reply):
-        self.update_action.setEnabled(True)
-        if reply.error() != QNetworkReply.NoError:
-            self.statusBar().showMessage("Could not check for updates — check your internet connection", 5000)
-            reply.deleteLater()
-            return
-
-        try:
-            data = json.loads(bytes(reply.readAll()).decode("utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            self.statusBar().showMessage("Update check failed — unexpected response", 5000)
-            reply.deleteLater()
-            return
-        finally:
-            reply.deleteLater()
-
-        latest_tag = data.get("tag_name", "")
-        latest_version = self._parse_version(latest_tag)
-        current_version = self._parse_version(__version__)
-
-        if latest_version is None or current_version is None:
-            QMessageBox.information(
-                self,
-                "Update Check",
-                f"Current version: {__version__}\nLatest release: {latest_tag}\n\nCould not compare versions.",
-            )
-            return
-
-        assets = data.get("assets", [])
-        asset_url, asset_name = self._get_platform_asset(assets)
-
-        if latest_version <= current_version:
-            QMessageBox.information(
-                self,
-                "Up to Date",
-                f"You're running {__version__}, which is the latest version.",
-            )
-            self.statusBar().showMessage(f"PDFReader is up to date (v{__version__})", 5000)
-            return
-
-        release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
-        release_notes = (data.get("body") or "")[:500]
-
-        msg = (
-            f"<h3>Update Available</h3>"
-            f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> \u2192 <b>{latest_tag}</b></p>"
-        )
-        if release_notes:
-            msg += f"<hr><pre style='white-space:pre-wrap'>{release_notes}</pre>"
-
-        btn = QMessageBox(self)
-        btn.setWindowTitle("Update Available")
-        btn.setTextFormat(Qt.RichText)
-        btn.setText(msg)
-
-        if asset_url and asset_name:
-            download_button = btn.addButton("Download & Install", QMessageBox.AcceptRole)
-        skip_button = btn.addButton("Skip This Version", QMessageBox.RejectRole)
-        _ = btn.addButton("Later", QMessageBox.DestructiveRole)
-
-        btn.exec()
-
-        if btn.clickedButton() == skip_button:
-            self.statusBar().showMessage("Update skipped", 3000)
-            return
-
-        if asset_url and btn.clickedButton() == download_button:
-            self._start_download(asset_url, asset_name, latest_tag)
-        elif not asset_url:
-            import webbrowser
-            webbrowser.open(release_url)
-            self.statusBar().showMessage(
-                "No installer for your platform. Opening releases page.", 5000
-            )
-
-    def _start_download(self, asset_url, asset_name, latest_tag):
-        system = platform.system()
-        self._log_update(f"current_version={__version__}")
-        self._log_update(f"latest_tag={latest_tag}")
-        self._log_update(f"selected_asset_name={asset_name}")
-        self._log_update(f"asset_url={asset_url}")
-        self._log_update(f"detected_os={system}")
-
-        validation_errors = []
-        if not asset_url:
-            validation_errors.append("missing asset URL")
-        if not asset_name:
-            validation_errors.append("missing asset name")
-        if not latest_tag:
-            validation_errors.append("missing release tag")
-        if system == "Windows" and asset_name != WINDOWS_UPDATE_ASSET:
-            validation_errors.append(
-                f"Windows updater expected {WINDOWS_UPDATE_ASSET}, got {asset_name or '<missing>'}"
-            )
-        if validation_errors:
-            message = "Cannot start update download:\n\n" + "\n".join(validation_errors)
-            self._log_update(f"failure={message}")
-            QMessageBox.critical(self, "Update Error", message)
-            return
-
-        self._update_latest_tag = latest_tag
-        self._update_asset_name = asset_name
-        self._update_download_path = None
-
-        self._update_progress = QProgressDialog(
-            f"Downloading {asset_name}\u2026", "Cancel", 0, 0, self
-        )
-        self._update_progress.setWindowTitle("Downloading Update")
-        self._update_progress.setWindowModality(Qt.WindowModal)
-        self._update_progress.setMinimumDuration(0)
-        self._update_progress.setValue(0)
-        self._update_progress.canceled.connect(self._cancel_download)
-        self._update_progress.show()
-
-        self.update_action.setEnabled(False)
-        self.statusBar().showMessage(f"Downloading {asset_name}\u2026")
-
-        request = QNetworkRequest(QUrl(asset_url))
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
-        request.setTransferTimeout(300000)
-        reply = self._download_nam.get(request)
-        reply.setProperty("asset_name", asset_name)
-        reply.setProperty("latest_tag", latest_tag)
-        reply.downloadProgress.connect(self._on_download_progress)
-
-    def _on_download_progress(self, received, total):
-        if self._update_progress is None:
-            return
-        if total > 0:
-            self._update_progress.setMaximum(int(total))
-            self._update_progress.setValue(int(received))
-            mb_rec = received / (1024 * 1024)
-            mb_tot = total / (1024 * 1024)
-            self._update_progress.setLabelText(
-                f"Downloading update\u2026 {mb_rec:.1f} / {mb_tot:.1f} MB"
-            )
-        else:
-            self._update_progress.setMaximum(0)
-            self._update_progress.setValue(0)
-
-    def _cancel_download(self):
-        self._download_nam.finished.disconnect(self._on_download_finished)
-        self._download_nam = QNetworkAccessManager(self)
-        self._download_nam.finished.connect(self._on_download_finished)
-        self._update_progress = None
-        self._update_latest_tag = None
-        self._update_asset_name = None
-        self.update_action.setEnabled(True)
-        self.statusBar().showMessage("Download cancelled", 3000)
-
-    def _on_download_finished(self, reply):
-        self.update_action.setEnabled(True)
-        if self._update_progress is not None:
-            self._update_progress.close()
-            self._update_progress = None
-
-        asset_name = reply.property("asset_name")
-        latest_tag = reply.property("latest_tag")
-        metadata_error = self._validate_download_metadata(asset_name, latest_tag)
-        if metadata_error:
-            self._log_update("failure=download metadata missing")
-            QMessageBox.critical(
-                self,
-                "Update Error",
-                metadata_error,
-            )
-            reply.deleteLater()
-            return
-
-        if reply.error() != QNetworkReply.NoError:
-            self._log_update(f"failure=download failed: {reply.errorString()}")
-            QMessageBox.critical(
-                self,
-                "Download Failed",
-                f"Could not download the update:\n{reply.errorString()}",
-            )
-            reply.deleteLater()
-            return
-
-        try:
-            temp_dir = self._updater_temp_dir()
-            dest = temp_dir / asset_name
-            self._log_update(f"download_destination={dest}")
-            data = reply.readAll()
-            with open(dest, "wb") as f:
-                f.write(bytes(data))
-            self._update_download_path = dest
-        except Exception as exc:
-            self._log_update(f"failure=could not save download: {exc}")
-            QMessageBox.critical(
-                self,
-                "Download Failed",
-                f"Could not save the downloaded file:\n{exc}",
-            )
-            reply.deleteLater()
-            return
-        finally:
-            reply.deleteLater()
-
-        self._apply_update(dest, latest_tag, asset_name)
-
-    def _apply_update(self, dest: Path, latest_tag: str, asset_name: str):
-        if dest is None or not dest.exists():
-            self._log_update("failure=update file not found")
-            QMessageBox.critical(self, "Update Error", "Update file not found.")
-            return
-
-        system = platform.system()
-        self._log_update(f"detected_os={system}")
-        method, diagnostic = self._select_update_apply_method(system, asset_name, dest)
-        self._log_update(f"selected_apply_method={method or 'unsupported'}")
-
-        if method == "windows_zip":
-            self._apply_update_windows_zip(dest, latest_tag)
-        elif method == "macos_zip":
-            self._apply_update_macos(dest, latest_tag)
-        else:
-            self._log_update(f"failure={diagnostic}")
-            QMessageBox.critical(self, "Update Error", diagnostic)
-            return
-
-    def _apply_update_windows(self, dest, tag):
-        current_exe = Path(sys.executable)
-        if not current_exe.exists():
-            QMessageBox.critical(self, "Update Error", "Could not locate the app executable.")
-            return
-
-        bat_path = current_exe.parent / f"_update_{tag}.bat"
-        bat_content = (
-            "@echo off\n"
-            "title=PDFReader Updater\n"
-            "echo Updating PDFReader by Sparsh...\n"
-            "\n"
-            ":wait\n"
-            f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" >nul\n'
-            "if not errorlevel 1 (\n"
-            "    timeout /t 1 /nobreak >nul\n"
-            "    goto wait\n"
-            ")\n"
-            "\n"
-            "rem Extra buffer for Defender / cleanup\n"
-            "timeout /t 2 /nobreak >nul\n"
-            "\n"
-            ":retry\n"
-            f'copy /Y /V "{dest}" "{current_exe}" >nul\n'
-            "if errorlevel 1 (\n"
-            "    timeout /t 1 /nobreak >nul\n"
-            "    goto retry\n"
-            ")\n"
-            "\n"
-            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >nul 2>&1\n'
-            f'start "" /D "{current_exe.parent}" "{current_exe}"\n'
-            f'del "{dest}" >nul 2>&1\n'
-            'del "%~f0" >nul 2>&1\n'
-        )
-
-        try:
-            with open(bat_path, "w") as f:
-                f.write(bat_content)
-            subprocess.Popen(  # nosec
-                ["cmd.exe", "/c", str(bat_path)],
-                creationflags=0x08000000,
-            )
-        except Exception as exc:
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not launch the update script.\n\n{exc}",
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Update Starting",
-            "PDFReader will now close and update itself."
-            " It will reopen automatically in a moment.",
-        )
-        QTimer.singleShot(500, self.close)
-
-    def _apply_update_windows_zip(self, dest, tag):
-        """Replace the running app via ZIP extract + batch updater (onedir mode)."""
-        current_exe = Path(sys.executable)
-        app_dir = current_exe.parent
-        if not app_dir.exists():
-            self._log_update("failure=could not locate app directory")
-            QMessageBox.critical(self, "Update Error", "Could not locate the app directory.")
-            return
-
-        extract_dir = dest.parent / f"extracted_{tag}"
-        self._log_update(f"extract_directory={extract_dir}")
-        try:
-            if extract_dir.exists():
-                import shutil
-                shutil.rmtree(extract_dir)
-            with zipfile.ZipFile(str(dest), "r") as zf:
-                zf.extractall(str(extract_dir))
-        except Exception as exc:
-            self._log_update(f"failure=could not extract update: {exc}")
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not extract the update.\n\n{exc}",
-            )
-            return
-
-        log_path = self._updater_log_path()
-        bat_path = app_dir / f"_update_{tag}.bat"
-        self._log_update(f"batch_script_path={bat_path}")
-        bat_content = (
-            "@echo off\n"
-            "title=PDFReader Updater\n"
-            "setlocal enabledelayedexpansion\n"
-            "set LOG=" + str(log_path) + "\n"
-            "echo [%date% %time%] Starting update... >> \"%LOG%\"\n"
-            "\n"
-            ":wait\n"
-            f'tasklist /FI "PID eq {os.getpid()}" 2>>\"%LOG%\" | find "{os.getpid()}" >nul\n'
-            "if not errorlevel 1 (\n"
-            "    timeout /t 1 /nobreak >nul\n"
-            "    goto wait\n"
-            ")\n"
-            "\n"
-            "echo [%date% %time%] Process exited, waiting 2s... >> \"%LOG%\"\n"
-            "timeout /t 2 /nobreak >nul\n"
-            "\n"
-            "echo [%date% %time%] Copying _internal folder... >> \"%LOG%\"\n"
-            "set RETRY=0\n"
-            ":retry_xcopy\n"
-            f'xcopy /E /I /Y "{extract_dir}\\_internal" "{app_dir}\\_internal" >>\"%LOG%\" 2>&1\n'
-            "if errorlevel 1 (\n"
-            "    set /a RETRY+=1\n"
-            "    if !RETRY! lss 3 (\n"
-            "        timeout /t 1 /nobreak >nul\n"
-            "        goto retry_xcopy\n"
-            "    )\n"
-            "    echo [%date% %time%] ERROR: xcopy failed after 3 retries >> \"%LOG%\"\n"
-            "    goto fail\n"
-            ")\n"
-            "\n"
-            "echo [%date% %time%] Copying EXE... >> \"%LOG%\"\n"
-            "set RETRY=0\n"
-            ":retry_copy\n"
-            f'copy /Y /V "{extract_dir}\\PDFReader by Sparsh.exe" "{current_exe}" >>\"%LOG%\" 2>&1\n'
-            "if errorlevel 1 (\n"
-            "    set /a RETRY+=1\n"
-            "    if !RETRY! lss 3 (\n"
-            "        timeout /t 1 /nobreak >nul\n"
-            "        goto retry_copy\n"
-            "    )\n"
-            "    echo [%date% %time%] ERROR: copy failed after 3 retries >> \"%LOG%\"\n"
-            "    goto fail\n"
-            ")\n"
-            "\n"
-            "echo [%date% %time%] Unblocking EXE... >> \"%LOG%\"\n"
-            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >>\"%LOG%\" 2>&1\n'
-            "\n"
-            "echo [%date% %time%] Launching new version... >> \"%LOG%\"\n"
-            f'start "" "{current_exe}"\n'
-            "\n"
-            "echo [%date% %time%] Update successful, cleaning up... >> \"%LOG%\"\n"
-            f'rmdir /S /Q "{extract_dir}" >>\"%LOG%\" 2>&1\n'
-            f'del "{dest}" >>\"%LOG%\" 2>&1\n'
-            "del \"%~f0\" >nul 2>&1\n"
-            "exit /b 0\n"
-            "\n"
-            ":fail\n"
-            "echo [%date% %time%] UPDATE FAILED >> \"%LOG%\"\n"
-            f'start "" notepad "{log_path}"\n'
-            "pause\n"
-            "exit /b 1\n"
-        )
-
-        try:
-            with open(bat_path, "w") as f:
-                f.write(bat_content)
-            subprocess.Popen(  # nosec
-                ["cmd.exe", "/c", str(bat_path)],
-                creationflags=0x08000000,
-            )
-            self._log_update("success=launched Windows ZIP updater")
-        except Exception as exc:
-            self._log_update(f"failure=could not launch update script: {exc}")
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not launch the update script.\n\n{exc}",
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Update Starting",
-            "PDFReader will now close and update itself."
-            " It will reopen automatically in a moment.",
-        )
-        QTimer.singleShot(500, self.close)
 
     # ------------------------------------------------------------------
     # Workspace Session Restoration
@@ -2643,257 +1658,212 @@ class PdfReaderWindow(QMainWindow):
             return
 
         dlg = _LibrarySearchResultsDialog(results, self)
-        if dlg.exec() and dlg.selected_result:
-            r = dlg.selected_result
-            # Open the PDF at the matching page
-            if self.current_path != r.path:
-                self.open_pdf(r.path)
-            if self.document is not None:
-                self.current_page = min(r.page - 1, self.document.page_count - 1)
-                self.render_page()
-                self.statusBar().showMessage(f"Opened: {r.filename} — page {r.page}", 5000)
+        dlg.exec()
 
 
 # ---------------------------------------------------------------------------
-# Library Search Dialog
+# Library Dialog
 # ---------------------------------------------------------------------------
+
 
 class _LibraryDialog(QDialog):
-    """Manage indexed folders and search across the library."""
-
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.parent_window = parent
-        self.setWindowTitle("PDF Library Search")
-        self.resize(700, 500)
+        self.setWindowTitle("PDF Library")
+        self.resize(600, 500)
+        self._parent = parent
 
         layout = QVBoxLayout(self)
 
         # Folder management
-        folder_group = QGroupBox("Tracked Folders")
+        folder_group = QGroupBox("Folders")
         folder_layout = QVBoxLayout(folder_group)
-
         self.folder_list = QListWidget()
-        self._refresh_folder_list()
-
-        folder_buttons = QHBoxLayout()
-        add_btn = QPushButton("Add Folder")
-        add_btn.clicked.connect(self._add_folder)
-        remove_btn = QPushButton("Remove Folder")
-        remove_btn.clicked.connect(self._remove_folder)
-        reindex_btn = QPushButton("Re-index All")
-        reindex_btn.clicked.connect(self._reindex)
-        folder_buttons.addWidget(add_btn)
-        folder_buttons.addWidget(remove_btn)
-        folder_buttons.addWidget(reindex_btn)
-        folder_buttons.addStretch()
-
+        self.add_folder_btn = QPushButton("Add Folder\u2026")
+        self.remove_folder_btn = QPushButton("Remove Folder")
+        self.reindex_btn = QPushButton("Re-index All")
+        btn_row = QHBoxLayout()
+        btn_row.addWidget(self.add_folder_btn)
+        btn_row.addWidget(self.remove_folder_btn)
+        btn_row.addWidget(self.reindex_btn)
+        btn_row.addStretch()
         folder_layout.addWidget(self.folder_list)
-        folder_layout.addLayout(folder_buttons)
+        folder_layout.addLayout(btn_row)
         layout.addWidget(folder_group)
 
         # Search
-        search_group = QGroupBox("Full-Text Search")
+        search_group = QGroupBox("Search")
         search_layout = QVBoxLayout(search_group)
-
         search_row = QHBoxLayout()
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search across all indexed PDFs...")
-        self.search_input.returnPressed.connect(self._do_search)
-        search_btn = QPushButton("Search")
-        search_btn.clicked.connect(self._do_search)
-        search_row.addWidget(self.search_input, 1)
-        search_row.addWidget(search_btn)
+        self.search_input.setPlaceholderText("Search across all indexed PDFs\u2026")
+        self.search_btn = QPushButton("Search")
+        search_row.addWidget(self.search_input)
+        search_row.addWidget(self.search_btn)
         search_layout.addLayout(search_row)
+        layout.addWidget(search_group)
 
-        self.results_list = QListWidget()
-        self.results_list.itemDoubleClicked.connect(self._open_result)
-        search_layout.addWidget(self.results_list, 1)
+        self.add_folder_btn.clicked.connect(self._add_folder)
+        self.remove_folder_btn.clicked.connect(self._remove_folder)
+        self.reindex_btn.clicked.connect(self._reindex)
+        self.search_btn.clicked.connect(self._do_search)
+        self.search_input.returnPressed.connect(self._do_search)
 
-        layout.addWidget(search_group, 1)
-
-        # Close button
-        btn_box = QDialogButtonBox(QDialogButtonBox.Close)
-        btn_box.rejected.connect(self.reject)
-        layout.addWidget(btn_box)
+        self._refresh_folder_list()
 
     def _refresh_folder_list(self):
         self.folder_list.clear()
-        for folder in lib_idx.get_indexed_folders():
-            self.folder_list.addItem(folder)
+        try:
+            folders = lib_idx.get_watched_folders()
+            for folder in folders:
+                self.folder_list.addItem(str(folder))
+        except Exception:
+            pass
 
     def _add_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, "Select folder with PDFs")
+        folder = QFileDialog.getExistingDirectory(self, "Select PDF Folder")
         if folder:
-            self._reindex_folder(folder)
-            self._refresh_folder_list()
+            try:
+                lib_idx.add_watched_folder(folder)
+                self._refresh_folder_list()
+            except Exception as exc:
+                QMessageBox.critical(self, "Error", f"Could not add folder:\n{exc}")
 
     def _remove_folder(self):
-        current = self.folder_list.currentItem()
-        if current:
-            folder = current.text()
-            count = lib_idx.remove_folder(folder)
-            QMessageBox.information(
-                self, "Folder Removed",
-                f"Removed {count} document(s) from '{Path(folder).name}'.",
-            )
-            self._refresh_folder_list()
+        item = self.folder_list.currentItem()
+        if item:
+            try:
+                lib_idx.remove_watched_folder(item.text())
+                self._refresh_folder_list()
+            except Exception as exc:
+                QMessageBox.critical(self, "Error", f"Could not remove folder:\n{exc}")
 
     def _reindex(self):
-        folders = lib_idx.get_indexed_folders()
-        if not folders:
-            QMessageBox.information(self, "Library", "No folders added yet. Add a folder first.")
-            return
-        lib_idx.clear_index()
-        for folder in folders:
-            self._reindex_folder(folder)
-        self._refresh_folder_list()
-        QMessageBox.information(self, "Library", "Re-indexing complete.")
+        try:
+            self.reindex_btn.setEnabled(False)
+            self.reindex_btn.setText("Indexing\u2026")
+            QApplication.processEvents()
+            lib_idx.reindex_all()
+            QMessageBox.information(self, "Re-index", "Library re-indexed successfully.")
+        except Exception as exc:
+            QMessageBox.critical(self, "Error", f"Re-index failed:\n{exc}")
+        finally:
+            self.reindex_btn.setText("Re-index All")
+            self.reindex_btn.setEnabled(True)
 
     def _reindex_folder(self, folder):
-        progress = QProgressDialog(f"Indexing {Path(folder).name}...", "Cancel", 0, 0, self)
-        progress.setWindowTitle("Indexing PDFs")
-        progress.setWindowModality(Qt.WindowModal)
-        progress.show()
-        QApplication.processEvents()
         try:
-            files, chars = lib_idx.index_folder(folder)
-            progress.close()
-            if files > 0:
-                self.parent_window.statusBar().showMessage(
-                    f"Indexed {files} PDF(s) ({chars:,} chars)", 5000
-                )
-            else:
-                self.parent_window.statusBar().showMessage("No PDFs found in that folder", 5000)
-        except Exception as exc:
-            progress.close()
-            QMessageBox.critical(self, "Index Error", f"Could not index folder:\n\n{exc}")
+            lib_idx.reindex_folder(folder)
+        except Exception:
+            pass
 
     def _do_search(self):
         query = self.search_input.text().strip()
         if not query:
             return
-        self.results_list.clear()
         try:
-            results = lib_idx.search_keyword(query, max_results=100)
+            idx = lib_idx.get_tfidf()
+            results = idx.search(query, max_results=50)
+            if results:
+                dlg = _LibrarySearchResultsDialog(results, self._parent or self)
+                dlg.exec()
+            else:
+                QMessageBox.information(self, "No Results", "No matching documents found.")
         except Exception as exc:
-            self.parent_window.statusBar().showMessage(f"Search error: {exc}", 5000)
-            return
-        if not results:
-            self.results_list.addItem("(No results)")
-            return
-        for r in results:
-            item = QListWidgetItem(f"{r.filename} — page {r.page}  (score: {r.score:.2f})\n   {r.snippet}")
-            item.setData(Qt.UserRole, r)
-            item.setToolTip(r.path)
-            self.results_list.addItem(item)
+            QMessageBox.critical(self, "Search Error", f"Search failed:\n{exc}")
 
     def _open_result(self, item):
-        r = item.data(Qt.UserRole)
-        if r:
-            self.parent_window.open_pdf(r.path)
-            if self.parent_window.document is not None:
-                self.parent_window.current_page = min(r.page - 1, self.parent_window.document.page_count - 1)
-                self.parent_window.render_page()
-                self.parent_window.statusBar().showMessage(
-                    f"Library: {r.filename} — page {r.page}", 5000
-                )
-            self.accept()
+        data = item.data(Qt.UserRole)
+        if data:
+            # Open the PDF if possible
+            pdf_path = data.get("path", "")
+            if pdf_path:
+                try:
+                    parent = self._parent or self.parent()
+                    if hasattr(parent, "open_pdf"):
+                        parent.open_pdf(pdf_path)
+                        self.accept()
+                except Exception:
+                    pass
 
 
 # ---------------------------------------------------------------------------
-# Semantic Search Results Dialog
+# Library Search Results Dialog
 # ---------------------------------------------------------------------------
+
 
 class _LibrarySearchResultsDialog(QDialog):
-    """Results from semantic search — user picks one to open."""
-
     def __init__(self, results: list, parent=None):
         super().__init__(parent)
-        self.parent_window = parent
-        self.selected_result = None
-        self.setWindowTitle("Semantic Search Results")
+        self.setWindowTitle("Search Results")
         self.resize(600, 400)
 
         layout = QVBoxLayout(self)
-
-        label = QLabel(f"Found {len(results)} semantically similar result(s)")
-        layout.addWidget(label)
-
         self.list_widget = QListWidget()
         for r in results:
-            item = QListWidgetItem(f"{r.filename} — page {r.page}  (score: {r.score:.4f})")
+            text = f"{r.get('title', 'Untitled')} — page {r.get('page', 0) + 1}"
+            item = QListWidgetItem(text)
             item.setData(Qt.UserRole, r)
-            item.setToolTip(r.path)
             self.list_widget.addItem(item)
         self.list_widget.itemDoubleClicked.connect(self._select)
-        layout.addWidget(self.list_widget, 1)
+        layout.addWidget(self.list_widget)
 
         btn_layout = QHBoxLayout()
         open_btn = QPushButton("Open")
-        open_btn.clicked.connect(self._select)
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.clicked.connect(self.reject)
-        btn_layout.addStretch()
+        close_btn = QPushButton("Close")
         btn_layout.addWidget(open_btn)
-        btn_layout.addWidget(cancel_btn)
+        btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
+
+        open_btn.clicked.connect(self._select)
+        close_btn.clicked.connect(self.reject)
 
     def _select(self):
         item = self.list_widget.currentItem()
         if item:
-            self.selected_result = item.data(Qt.UserRole)
-            self.accept()
+            data = item.data(Qt.UserRole)
+            if data:
+                pdf_path = data.get("path", "")
+                if pdf_path:
+                    parent = self.parent()
+                    if hasattr(parent, "open_pdf"):
+                        parent.open_pdf(pdf_path)
+                        self.accept()
 
 
 # ---------------------------------------------------------------------------
-# PDF Comparison Dialog
+# Compare Dialog
 # ---------------------------------------------------------------------------
+
 
 class _CompareDialog(QDialog):
-    """Show two PDFs side by side with diff highlighting."""
-
     def __init__(self, path_a, path_b, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(f"Compare: {Path(path_a).name} ↔ {Path(path_b).name}")
-        self.resize(1000, 700)
+        self.setWindowTitle("PDF Comparison")
+        self.resize(900, 600)
+        self._current_diff_page = 0
+        self._diff_result = None
 
         layout = QVBoxLayout(self)
 
-        # Page navigation
-        nav = QHBoxLayout()
-        nav.addWidget(QLabel(f"<b>A:</b> {Path(path_a).name}"))
-        nav.addStretch()
-        nav.addWidget(QLabel(f"<b>B:</b> {Path(path_b).name}"))
-        layout.addLayout(nav)
+        # Summary label
+        self.summary_label = QLabel("Comparing\u2026")
+        self.summary_label.setWordWrap(True)
+        layout.addWidget(self.summary_label)
 
-        # Side-by-side panels
+        # Diff panels
         splitter = QSplitter(Qt.Horizontal)
-
         self.panel_a = QTextEdit()
-        self.panel_a.setReadOnly(True)
         self.panel_b = QTextEdit()
+        self.panel_a.setReadOnly(True)
         self.panel_b.setReadOnly(True)
-
         splitter.addWidget(self.panel_a)
         splitter.addWidget(self.panel_b)
         layout.addWidget(splitter, 1)
 
-        # Summary
-        self.summary_label = QLabel("Running comparison...")
-        layout.addWidget(self.summary_label)
-
-        # Close
-        btn_box = QDialogButtonBox(QDialogButtonBox.Close)
-        btn_box.rejected.connect(self.reject)
-        layout.addWidget(btn_box)
-
-        # Run comparison
-        QTimer.singleShot(50, lambda: self._run(path_a, path_b))
+        self._run(path_a, path_b)
 
     def _run(self, path_a, path_b):
-        self.summary_label.setText("Extracting text and diffing...")
-        QApplication.processEvents()
         try:
             result = pdf_compare.compare_pdfs(path_a, path_b)
         except Exception as exc:
@@ -2906,8 +1876,8 @@ class _CompareDialog(QDialog):
         # Page navigation
         page_row = QHBoxLayout()
         self.page_label = QLabel(f"Page 1 of {len(result.pages)}")
-        prev_btn = QPushButton("← Prev")
-        next_btn = QPushButton("Next →")
+        prev_btn = QPushButton("\u2190 Prev")
+        next_btn = QPushButton("Next \u2192")
         page_row.addWidget(prev_btn)
         page_row.addWidget(self.page_label)
         page_row.addWidget(next_btn)
