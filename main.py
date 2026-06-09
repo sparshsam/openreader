@@ -1432,7 +1432,7 @@ class PdfReaderWindow(QMainWindow):
                 self._continuous_pages.append(label)
                 self._continuous_layout.addWidget(label, 0, Qt.AlignCenter)
             except Exception:
-                continue
+                continue  # nosec — skip unrenderable pages gracefully
 
         self._continuous_layout.addStretch(1)
 
