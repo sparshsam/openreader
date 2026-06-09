@@ -73,9 +73,15 @@ jobs:
           if (-not $iscc) { throw "ISCC.exe not found after Inno Setup installation" }
           Write-Host "Using ISCC: $iscc"
 
+          Write-Host "=== Staging build output for ISCC ==="
+          Copy-Item -Path "dist\PDFReader by Sparsh" -Destination "installer\dist\PDFReader by Sparsh" -Recurse -Force
+
           Write-Host "=== Building installer ==="
           & $iscc /Q /DAppVersion="$version" installer/setup.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
+
+          Write-Host "=== Cleaning up staged files ==="
+          Remove-Item -Path "installer\dist\PDFReader by Sparsh" -Recurse -Force -ErrorAction SilentlyContinue
 
           $expected = "installer/PDFReader-by-Sparsh-$version-Setup.exe"
           if (Test-Path $expected) {

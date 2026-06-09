@@ -42,7 +42,7 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "quicklaunchicon"; Description: "Create a &Quick Launch icon"; GroupDescription: "Additional icons:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\PDFReader by Sparsh\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\PDFReader by Sparsh\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"
