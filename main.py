@@ -46,7 +46,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "0.8.0-dev"
+__version__ = "0.9.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
@@ -1594,13 +1594,11 @@ class PdfReaderWindow(QMainWindow):
         """Delete all annotations in the entire document."""
         if self.document is None:
             return
+        # Count first, ask for confirmation, then delete
         total = 0
         for page_index in range(self.document.page_count):
             page = self.document.load_page(page_index)
-            annots = list(page.annots())
-            total += len(annots)
-            for annot in annots:
-                page.delete_annot(annot)
+            total += len(list(page.annots()))
         if total == 0:
             QMessageBox.information(self, "Annotations", "No annotations in this document.")
             return
@@ -1611,10 +1609,11 @@ class PdfReaderWindow(QMainWindow):
         )
         if reply != QMessageBox.Yes:
             return
-        # Re-delete since we already did it above — need to reload to see the deletions
-        # Actually the deletions above already happened in-memory. The question is just for confirmation.
-        # If user said no, we need to undo... but we can't easily undo.
-        # Better approach: count first, confirm, then delete.
+        # Now actually delete
+        for page_index in range(self.document.page_count):
+            page = self.document.load_page(page_index)
+            for annot in list(page.annots()):
+                page.delete_annot(annot)
         self._save_document_annotations()
         self.render_page()
         self.statusBar().showMessage(f"Deleted {total} annotation(s)", 3000)
@@ -1927,7 +1926,14 @@ class PdfReaderWindow(QMainWindow):
     def _split_every_page(self, output_dir):
         base_name = Path(self.current_path).stem
         saved_paths = []
-        for page_index in range(self.document.page_count):
+        page_count = self.document.page_count
+        show_progress = page_count > 50
+        for page_index in range(page_count):
+            if show_progress and page_index % 25 == 0:
+                self.statusBar().showMessage(
+                    f"Splitting... page {page_index + 1}/{page_count}"
+                )
+                QApplication.processEvents()
             target = output_dir / f"{base_name}_page_{page_index + 1}.pdf"
             new_doc = fitz.open()
             try:
@@ -2495,63 +2501,7 @@ class PdfReaderWindow(QMainWindow):
             QMessageBox.critical(self, "Update Error", diagnostic)
             return
 
-    def _apply_update_windows(self, dest, tag):
-        current_exe = Path(sys.executable)
-        if not current_exe.exists():
-            QMessageBox.critical(self, "Update Error", "Could not locate the app executable.")
-            return
-
-        bat_path = current_exe.parent / f"_update_{tag}.bat"
-        bat_content = (
-            "@echo off\n"
-            "title=PDFReader Updater\n"
-            "echo Updating PDFReader by Sparsh...\n"
-            "\n"
-            ":wait\n"
-            f'tasklist /FI "PID eq {os.getpid()}" 2>nul | find "{os.getpid()}" >nul\n'
-            "if not errorlevel 1 (\n"
-            "    timeout /t 1 /nobreak >nul\n"
-            "    goto wait\n"
-            ")\n"
-            "\n"
-            "rem Extra buffer for Defender / cleanup\n"
-            "timeout /t 2 /nobreak >nul\n"
-            "\n"
-            ":retry\n"
-            f'copy /Y /V "{dest}" "{current_exe}" >nul\n'
-            "if errorlevel 1 (\n"
-            "    timeout /t 1 /nobreak >nul\n"
-            "    goto retry\n"
-            ")\n"
-            "\n"
-            f'powershell -Command "Unblock-File -Path \'{current_exe}\'" >nul 2>&1\n'
-            f'start "" /D "{current_exe.parent}" "{current_exe}"\n'
-            f'del "{dest}" >nul 2>&1\n'
-            'del "%~f0" >nul 2>&1\n'
-        )
-
-        try:
-            with open(bat_path, "w") as f:
-                f.write(bat_content)
-            subprocess.Popen(  # nosec
-                ["cmd.exe", "/c", str(bat_path)],
-                creationflags=0x08000000,
-            )
-        except Exception as exc:
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not launch the update script.\n\n{exc}",
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Update Starting",
-            "PDFReader will now close and update itself."
-            " It will reopen automatically in a moment.",
-        )
-        QTimer.singleShot(500, self.close)
-
+    # ------------------------------------------------------------------
     def _apply_update_windows_zip(self, dest, tag):
         """Replace the running app via ZIP extract + batch updater (onedir mode)."""
         current_exe = Path(sys.executable)
@@ -2702,17 +2652,26 @@ class PdfReaderWindow(QMainWindow):
         self.settings.setValue("autoRestore", checked)
 
     def closeEvent(self, event):
-        self._save_current_state()
+        try:
+            self._save_current_state()
+        except Exception:
+            pass  # best-effort; don't let state save block window close  # nosec B110
         # Save workspace session
-        session = []
-        for tab_id, tab in self.tabs.items():
-            if tab.path and Path(tab.path).exists():
-                session.append({"path": tab.path, "page": tab.current_page})
-        self.settings.setValue("session", session)
+        try:
+            session = []
+            for tab_id, tab in self.tabs.items():
+                if tab.path and Path(tab.path).exists():
+                    session.append({"path": tab.path, "page": tab.current_page})
+            self.settings.setValue("session", session)
+        except Exception:
+            pass  # best-effort session save  # nosec B110
         # Close docs
         for tab_id, tab in self.tabs.items():
             if tab.document is not None:
-                tab.document.close()
+                try:
+                    tab.document.close()
+                except Exception:
+                    pass  # best-effort document close  # nosec B110
         self.tabs.clear()
         super().closeEvent(event)
 

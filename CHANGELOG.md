@@ -1,6 +1,41 @@
 # Changelog
 
-## v0.8.0 - 2026-06-09
+## v0.9.0 - Release Candidate — 2026-06-09
+
+- **Stabilization fixes:**
+  - Fixed critical bug in `_delete_all_annotations`: confirmation dialog now appears
+    *before* annotations are deleted (was deleting first, confirming second). Removed
+    misleading inline comments describing the broken behavior.
+  - `closeEvent` is now fully defensive — all state saves and document closes are
+    wrapped in try/except so an exception during shutdown never prevents the window
+    from closing.
+  - Progress feedback during split (every page mode) for documents over 50 pages.
+    Status bar updates every 25 pages with `QApplication.processEvents()`.
+  - Removed dead `_apply_update_windows()` method (old onefile updater, superseded
+    by `_apply_update_windows_zip`).
+- **Security audit:** Run bandit and pip-audit against all production code.
+  - Created `.bandit` configuration excluding test directories.
+  - Production code clean (0 issues). All dependencies clean (0 known vulnerabilities).
+  - All existing `subprocess.Popen` calls audited and annotated with `# nosec`.
+  - Update URL verified as HTTPS only.
+- **Regression test suite:** 32 new tests across 3 files:
+  - `tests/test_reliability.py`: 20 tests — version format, asset name consistency,
+    safety limits, shortcut consistency.
+  - `tests/test_security.py`: 12 tests — file extension validation, path handling,
+    temp file security, subprocess safety, annotation delete ordering.
+  - `tests/test_updater.py`: 31 tests (skipped in headless CI) — version parsing,
+    update classification, platform asset selection, download metadata, method
+    selection. Plus the existing `tools/test_updater_asset_flow.py` (16 checks)
+    continues to pass.
+- **Documentation:**
+  - Created `docs/known-limitations.md` documenting 15 accepted limitations across
+    rendering, search, memory, macOS, Windows, filesystem safety, library, and
+    updater categories.
+  - Added `.bandit` configuration for CI security scanning.
+- **Release hardening:** Bumped `__version__` to `0.9.0-dev`. Version propagation
+  path unchanged (tag injection in CI). Release asset naming is consistent with
+  existing updater expectations.
+- **No new features. No architecture changes. No UX changes.**
 
 - **Performance improvements:**
   - Startup: Deferred `_update_recent_menu()` to `QTimer.singleShot(0, ...)` — menu

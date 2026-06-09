@@ -1,0 +1,5 @@
+[bandit]
+# Exclude test directories — assert statements are expected in test code
+exclude: tests
+# Only scan production code
+targets: main.py,tools,installer
