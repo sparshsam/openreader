@@ -52,36 +52,26 @@ jobs:
           if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1641 -and $LASTEXITCODE -ne 3010) {
             throw "Chocolatey install failed with exit code $LASTEXITCODE"
           }
-          Write-Host "Chocolatey install completed (exit $LASTEXITCODE)"
-
-          # refreshenv reloads PATH from registry into current session
           refreshenv
 
           Write-Host "=== Locating ISCC.exe ==="
           $iscc = (Get-Command "iscc.exe" -ErrorAction SilentlyContinue).Source
           if (-not $iscc) {
-            # Search well-known paths
             $paths = @(
               "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
               "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
-              "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
-              "${env:ProgramFiles(x86)}\Inno Setup 5\ISCC.exe",
-              "${env:ProgramFiles}\Inno Setup 5\ISCC.exe"
+              "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
             )
             foreach ($p in $paths) { if (Test-Path $p) { $iscc = $p; break } }
           }
-          if (-not $iscc) { throw "ISCC.exe not found after Inno Setup installation" }
+          if (-not $iscc) { throw "ISCC.exe not found" }
           Write-Host "Using ISCC: $iscc"
 
-          Write-Host "=== Staging build output for ISCC ==="
-          Copy-Item -Path "dist\PDFReader by Sparsh" -Destination "installer\dist\PDFReader by Sparsh" -Recurse -Force
-
-          Write-Host "=== Building installer ==="
-          & $iscc /Q /DAppVersion="$version" installer/setup.iss
+          Write-Host "=== Building installer via ISCC ==="
+          $srcDir = (Get-Item "dist\PDFReader by Sparsh").FullName
+          Write-Host "Source dir: $srcDir"
+          & $iscc /Q "/DAppVersion=$version" "/DAppSourceDir=$srcDir" installer/setup.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
-
-          Write-Host "=== Cleaning up staged files ==="
-          Remove-Item -Path "installer\dist\PDFReader by Sparsh" -Recurse -Force -ErrorAction SilentlyContinue
 
           $expected = "installer/PDFReader-by-Sparsh-$version-Setup.exe"
           if (Test-Path $expected) {
@@ -172,7 +162,7 @@ jobs:
           if test -f "release-assets/PDFReader-by-Sparsh-Setup.exe"; then
             echo "Windows Setup.exe: present"
           else
-            echo "Windows Setup.exe: not built (Inno Setup may be unavailable on this runner)"
+            echo "Windows Setup.exe: not built (Inno Setup may be unavailable)"
           fi
           echo "All required assets verified"
 
