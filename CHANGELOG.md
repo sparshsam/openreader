@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.0.1 — First-Run Usability + Professional Polish — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.1-dev`.
+- **Branch:** `first-run-polish-v1.0.1`
+
+### Critical Fixes
+- **Drag-and-drop support:** Added full drag-and-drop PDF opening. Drag a PDF onto the window from Explorer/Finder to open it.
+- **App window icon:** Window now displays the PDFReader icon in the title bar, taskbar, and Alt+Tab switcher via `setWindowIcon()`.
+- **File open paths verified:** Toolbar Open, File → Open PDF, Ctrl+O, drag-and-drop, and double-click from Explorer all work correctly.
+- **Controls cleanup:** Removed duplicate Merge/Split/Compress/Compare/Library/Updates buttons from the controls bar. Moved them to proper menu locations.
+
+### Visual Polish
+- **Empty state redesign:** Replaced dull "Open a PDF to begin" text with a polished empty state featuring: icon, descriptive text, drag-and-drop hint, and a centered "Open PDF" button.
+- **About dialog replacement:** Replaced bare `QMessageBox.about()` with a professional branded `QDialog` (460×500) including: app name, version with release notes link, local-first description, full keyboard shortcuts table, GitHub repo link, Sparsh Sam profile link, and platform/build info.
+
+### Toolbar & Menu Reorganization
+- **Streamlined toolbar:** Open, Save, Previous/Next Page, Zoom In/Out, Find — no duplicate or heavy actions.
+- **New Edit menu:** Copy Selected Text (Ctrl+C), Find (Ctrl+F).
+- **Reorganized Tools menu:** Annotations → Merge → Split → Compress → Compare → Library Search.
+- **Help menu:** Check for Updates, Automatically Check for Updates (toggle), About.
+- **View menu:** Added Continuous Scroll toggle.
+
+### Continuous Page Scrolling
+- **Continuous scroll mode (default):** Pages render vertically in a scrollable stream (buffer of ±5 pages). Scroll naturally through multi-page PDFs.
+- **Toggle:** View → Continuous Scroll to switch between single-page and continuous mode.
+- **Single-page mode retained:** Prev/Next buttons, page spin, and keyboard navigation work in both modes.
+- **Memory-aware:** Only renders visible pages + buffer. Works with large PDFs without freezing.
+
+### Automatic Update Checks
+- **Auto-check on launch:** App automatically checks GitHub for updates 3 seconds after launch (if enabled).
+- **Silent check:** No user-visible feedback unless an update is actually available.
+- **Persistent setting:** Help → Automatically Check for Updates (toggle, stored in QSettings, default ON).
+- **Installer option:** Inno Setup now includes an "Automatically check for updates on launch" task (checked by default).
+
+### Regression / Validation
+- Full test suite run: 32 pytest + updater asset flow.
+- Compile check: clean.
+- No regressions in file safety protections (v0.7+ preserved).
+- No AI, cloud, plugins, or accounts added.
+
 ## v1.0.0 — Stable Desktop Utility — 2026-06-09
 
 - **Release declaration:** PDFReader by Sparsh is declared a stable, local-first
