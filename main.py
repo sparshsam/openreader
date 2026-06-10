@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.0.4-dev"
+__version__ = "1.0.5-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
@@ -726,8 +726,6 @@ class PdfReaderWindow(QMainWindow):
         controls.setSpacing(4)
         controls.setContentsMargins(0, 0, 0, 0)
 
-        self.open_button = QPushButton("Open")
-        self.open_button.setToolTip("Open a PDF file (Ctrl+O)")
         self.prev_button = QPushButton("Prev")
         self.prev_button.setToolTip("Previous page (Page Up)")
         self.next_button = QPushButton("Next")
@@ -753,7 +751,6 @@ class PdfReaderWindow(QMainWindow):
         self.copy_button = QPushButton("Copy")
         self.copy_button.setToolTip("Copy selected text (Ctrl+C)")
 
-        controls.addWidget(self.open_button)
         controls.addSpacing(4)
         controls.addWidget(self.prev_button)
         controls.addWidget(self.next_button)
@@ -866,7 +863,6 @@ class PdfReaderWindow(QMainWindow):
         self._current_content = None
 
         # Signal connections
-        self.open_button.clicked.connect(self.open_pdf)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.page_spin.valueChanged.connect(self.jump_to_page)
@@ -1354,6 +1350,8 @@ class PdfReaderWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def open_pdf(self, file_name: str | None = None):
+        """Primary open entry point — all open paths converge here."""
+        self._log_update(f"open_pdf called with file_name={file_name}")
         if file_name is None:
             start_dir = self.settings.value("lastFolder", str(Path.home()))
             file_name, _ = QFileDialog.getOpenFileName(
@@ -1363,10 +1361,13 @@ class PdfReaderWindow(QMainWindow):
                 "PDF Files (*.pdf)",
             )
         if not file_name:
+            self._log_update("open_pdf: no file selected")
             return
-        tab_data = TabData(name=Path(file_name).name)
+        file_path = str(Path(file_name).resolve())
+        self._log_update(f"open_pdf: resolved path={file_path}")
+        tab_data = TabData(name=Path(file_path).name)
         self._create_tab(tab_data)
-        self.load_pdf(file_name)
+        self.load_pdf(file_path)
 
     def load_pdf(self, file_name):
         try:
@@ -2527,16 +2528,28 @@ class PdfReaderWindow(QMainWindow):
         dlg.exec()
 
     def _set_app_icon(self):
-        """Set window icon from bundled .ico file."""
-        icon_paths = [
-            Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico",
-            Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico" if getattr(sys, "frozen", False) else None,
-        ]
+        """Set window icon from bundled .ico file with fallback logging."""
+        icon_paths = []
+        # Frozen (PyInstaller) build: icon next to the EXE in assets/
+        if getattr(sys, "frozen", False):
+            frozen_asset = Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico"
+            icon_paths.append(frozen_asset)
+        # Dev/source build: icon in repo root assets/
+        src_asset = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
+        icon_paths.append(src_asset)
+        # Also check _internal/assets/ for some frozen layouts
+        if getattr(sys, "frozen", False):
+            internal_asset = Path(sys.executable).parent / "_internal" / "assets" / "pdfreader_by_sparsh.ico"
+            icon_paths.append(internal_asset)
+
         for p in icon_paths:
             if p and p.exists():
                 self.setWindowIcon(QIcon(str(p)))
+                self._log_update(f"icon_set={p}")
                 return
-        # Fallback: style pixmap
+
+        # Log failure and fall back to style icon
+        self._log_update("icon_not_found: checked paths=" + ";".join(str(p) for p in icon_paths if p))
         icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
         self.setWindowIcon(icon)
 
@@ -3710,7 +3723,7 @@ def main():
     window.show()
     if len(sys.argv) > 1:
         initial_path = sys.argv[1]
-        QTimer.singleShot(0, lambda: window.load_pdf(initial_path))
+        QTimer.singleShot(0, lambda: window.open_pdf(initial_path))
     sys.exit(app.exec())
 
 

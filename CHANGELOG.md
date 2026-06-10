@@ -1,5 +1,50 @@
 # Changelog
 
+## v1.0.5 — Windows Distribution + Open Flow Fix — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.5-dev`.
+- **Branch:** `windows-distribution-open-flow-v1.0.5`
+
+### Open Flow — Critical Fix
+- **All open paths unified** through `open_pdf()` — toolbar Open, File→Open PDF, Ctrl+O, empty-state Open PDF button, drag-and-drop, and double-click `.pdf` from Explorer now all converge on one method.
+- **`main()` entry point** now calls `window.open_pdf(path)` instead of raw `window.load_pdf(path)` — ensures a tab is created and UI state is initialized properly when a PDF is opened via file association or command line.
+- **Debug logging** added to `open_pdf`: logs file path, resolution, and any failures to the updater debug log for troubleshooting.
+- **Path resolution** now uses `Path(file_name).resolve()` for consistent absolute paths.
+
+### Duplicate Open Button Removed
+- The redundant "Open" button has been removed from the **controls bar** (the lower button row). Open is now available only from:
+  - Toolbar Open (icon + tooltip)
+  - File → Open PDF (Ctrl+O)
+  - Empty state "Open PDF" button
+  - Drag-and-drop
+  - Double-click `.pdf` from Windows Explorer
+- Keeps the UI clean and professional — one primary Open action.
+
+### Icon Fix — Critical
+- **`_set_app_icon`** rewritten with systematic path checking: frozen build (`assets/` next to EXE), source build (`assets/` in repo root), and `_internal/assets/` fallback for some PyInstaller layouts.
+- **Logging** added: logs successful icon path on load, and all checked paths on failure for debugging.
+- **PyInstaller spec** updated: `datas=[('assets', 'assets')]` now bundles the entire `assets/` folder into the build so icons are available at runtime.
+- Window taskbar icon, title bar icon, and Alt+Tab icon should now display correctly in packaged builds.
+
+### Release Asset Cleanup
+- **RELEASE.md**: Windows ZIP asset description changed from "updater canonical asset" to "updater package — do not download unless instructed". Setup.exe is now marked as the recommended download.
+- **Release workflow notes**: Asset listing now separates Windows and macOS sections. Setup.exe is bolded and marked with ✅ as the recommended choice. ZIP is described as updater-only with a note about the SUPPORT.md recovery guide.
+- Canonical ZIP asset names unchanged — updater compatibility preserved.
+
+### Toolbar Cleanup Verified
+- Controls bar: Prev, Next, Page spin, Zoom -, Zoom +, Fit, Copy, HL, UL, ST, Sticky Note, Semantic Checkbox, Search field.
+- Toolbar: Open, Save, Prev, Next, Zoom In, Zoom Out, Find.
+- No Merge, Split, Compress, Compare, Library, or Check for Updates buttons anywhere in the visible UI.
+- All tool actions accessible from top menus (File, Edit, View, Tools, Help).
+
+### Validation
+- Full test suite: 32 passed, 31 skipped (expected).
+- Updater regression checks: All 16 passed.
+- Bandit: clean.
+- Compile check: clean.
+- ZIP asset names unchanged — canonical names preserved.
+- No changes to installer, updater internals, or file safety protections.
+
 ## v1.0.4 — Visual Quality + PDF Rendering Polish — 2026-06-10
 
 - **Version:** Bumped `__version__` to `1.0.4-dev`.

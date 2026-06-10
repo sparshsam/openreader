@@ -171,9 +171,11 @@ jobs:
           cat > /tmp/release-notes.md <<- NOTE_EOF
           Release ${GITHUB_REF_NAME}.
 
-          ### Assets
-          - \`PDFReader-by-Sparsh-Windows.zip\` — Folder-based Windows app (EXE + _internal/). Extract and run.
-          - \`PDFReader-by-Sparsh-Setup.exe\` — Windows Inno Setup installer (file association, Start Menu, uninstall).
+          ### Assets for Windows
+          - **\`PDFReader-by-Sparsh-Setup.exe\`** — ✅ **Recommended for normal use.** Inno Setup installer with PDF file association, Start Menu shortcut, desktop shortcut, and Add/Remove Programs entry. Requires admin rights.
+          - \`PDFReader-by-Sparsh-Windows.zip\` — Updater package only. Do not download unless you are upgrading from v1.0.0/v1.0.1 (see SUPPORT.md recovery guide) or need a portable copy.
+
+          ### Assets for macOS
           - \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
           - \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle.
 

@@ -20,13 +20,13 @@ https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 The release workflow must attach these assets:
 
 ```text
-PDFReader-by-Sparsh-Windows.zip          (updater canonical asset)
-PDFReader-by-Sparsh-Setup.exe            (Windows installer, additive)
+PDFReader-by-Sparsh-Windows.zip          (updater package — do not download unless instructed)
+PDFReader-by-Sparsh-Setup.exe            (Windows installer — recommended for normal use)
 PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
 PDFReader-by-Sparsh-macOS-Intel.zip
 ```
 
-The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is an additive installer asset.
+The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is the recommended download for normal Windows users.
 Do not rename or remove the canonical ZIP assets without updating `main.py`.
 
 ## How to Cut a Release
