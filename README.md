@@ -51,7 +51,7 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 
 | Platform | Recommended Download | Alternative | Notes |
 |---|---|---|---|---|
-| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | Use Setup.exe for normal installation. ZIP remains for updater/portable/manual use. |
+| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | Use Setup.exe for normal installation (requires admin — see [Windows installer notes](SUPPORT.md#windows-installer)). ZIP remains for updater/portable/manual use. |
 | macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
 | macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
 

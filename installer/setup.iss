@@ -28,11 +28,19 @@ SetupIconFile=..\assets\pdfreader_by_sparsh.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
+UninstallDisplayName={#MyAppName}
+UninstallDisplaySize=180
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 ShowLanguageDialog=no
 DisableWelcomePage=no
+DisableDirPage=auto
+AlwaysShowDirOnReadyPage=yes
+
+; Close PDFReader if running before install
+CloseApplications=force
+AppMutex=PDFReaderBySparsh
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -56,14 +64,14 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDi
 Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Tasks: quicklaunchicon
 
 [Registry]
-; Register as a PDF handler
+; Register as a PDF handler — all keys cleaned up on uninstall
 Root: HKCR; Subkey: ".pdf\OpenWithProgids"; ValueType: string; ValueName: "PDFReaderbySparsh"; ValueData: ""; Flags: uninsdeletevalue
 Root: HKCR; Subkey: "PDFReaderbySparsh"; ValueType: string; ValueName: ""; ValueData: "PDF Document"; Flags: uninsdeletekey
 Root: HKCR; Subkey: "PDFReaderbySparsh\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
 Root: HKCR; Subkey: "PDFReaderbySparsh\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
 Root: HKCR; Subkey: "PDFReaderbySparsh\shell\open\command"; ValueType: expandsz; ValueName: "DelegateExecute"; Flags: deletevalue
 
-; Register application path
+; Register application path — cleaned up on uninstall
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{#MyAppExeName}"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName}"; Flags: uninsdeletekey
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{#MyAppExeName}"; ValueType: string; ValueName: "Path"; ValueData: "{app}"
 
@@ -72,3 +80,9 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChang
 
 [UninstallRun]
 Filename: "{cmd}"; Parameters: "/c taskkill /f /im ""{#MyAppExeName}"" 2>nul"; Flags: runhidden
+
+[Code]
+function InitializeSetup: Boolean;
+begin
+  Result := True;
+end;
