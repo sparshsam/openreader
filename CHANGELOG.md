@@ -39,22 +39,19 @@ The icon file was used to **stamp the EXE** at build time (visible in the file's
 
 ### File → Open Fix — Root Cause: Native QFileDialog Failure
 
-**Root cause:** `QFileDialog.getOpenFileName()` is a static convenience method that uses the **native Windows file dialog**. In frozen PyInstaller builds, the native dialog can fail silently — the window never appears, the call returns immediately with an empty result, and no exception is raised. This is a known issue with PySide6 + PyInstaller on Windows.
+**Root cause:** `QFileDialog.getOpenFileName()` uses the **native Windows file dialog**, which fails silently in frozen PyInstaller builds — the window never appears, returns immediately empty. Even the **non-native Qt dialog** (`DontUseNativeDialog`) fails to return a file in some frozen build configurations on Windows — `exec()` returns `Accepted` but `selectedFiles()` is empty.
 
-**Fix:** Replaced the static call with an explicit `QFileDialog` instance using the **`DontUseNativeDialog`** option:
+**Fix:** Replaced the single-dialog approach with a **3-tier fallback chain**:
 
-```python
-# BEFORE — native dialog, silent failure in frozen builds
-file_name, _ = QFileDialog.getOpenFileName(self, "Open PDF", start_dir, "PDF Files (*.pdf)")
+| Tier | Method | Description |
+|------|--------|-------------|
+| 1 | Qt non-native `QFileDialog` | Explicit instance with `setFileMode(ExistingFile)`, `setNameFilter("PDF Files (*.pdf)")`, `setOption(DontUseNativeDialog, True)` |
+| 2 | Tkinter native file dialog | `tkinter.filedialog.askopenfilename` with hidden root window, topmost attribute, PDF filter |
+| 3 | Manual path input | `QInputDialog.getText` — user pastes a PDF path, validated for `.pdf` suffix and file existence |
 
-# AFTER — Qt dialog, works reliably in frozen builds
-dlg = QFileDialog(self, "Open PDF", start_dir, "PDF Files (*.pdf)")
-dlg.setOptions(QFileDialog.DontUseNativeDialog)
-if dlg.exec() == QDialog.Accepted:
-    file_name = dlg.selectedFiles()[0]
-```
+Each tier logs its attempt/result to the updater debug log and shows a status bar message (`"Opening file picker..."` → `"Qt file picker unavailable; trying Windows fallback..."` → `"File dialogs unavailable; enter path manually..."`). Only when all three return empty does the user see `"Open cancelled"`.
 
-The Qt dialog renders consistently in all build modes. A try/except wrapper catches any remaining errors and logs them visibly. Status bar messages now show at every step: `"Opening file..."` → `"Opening {filename}..."` → result or `"Open failed: {detail}"`.
+Direct-path entry points (drag/drop, double-click, IPC) are unaffected — they skip all dialogs.
 
 Now works:
 - ✅ File → Open PDF

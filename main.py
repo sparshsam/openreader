@@ -1355,31 +1355,105 @@ class PdfReaderWindow(QMainWindow):
     # PDF File Operations
     # ------------------------------------------------------------------
 
-    def open_pdf(self, file_name: str | None = None):
-        """Primary open entry point — all open paths converge here."""
-        self._log_update(f"open_pdf called with file_name={file_name}")
-        self.statusBar().showMessage("Opening file...", 2000)
+    def _pick_file_qt_dialog(self, start_dir: str) -> str | None:
+        """Tier 1: Non-native Qt file dialog."""
+        self.statusBar().showMessage("Opening file picker...", 2000)
         QApplication.processEvents()
-        if file_name is None:
-            start_dir = self.settings.value("lastFolder", str(Path.home()))
-            try:
-                # Use explicit QFileDialog instance with DontUseNativeDialog
-                # in frozen builds — native dialog can fail silently on Windows
-                dlg = QFileDialog(self, "Open PDF", start_dir, "PDF Files (*.pdf)")
-                dlg.setOptions(QFileDialog.DontUseNativeDialog)
-                if dlg.exec() == QDialog.Accepted:
-                    selected = dlg.selectedFiles()
-                    file_name = selected[0] if selected else None
-                else:
-                    file_name = None
-            except Exception as exc:
-                self._log_update(f"open_pdf: QFileDialog exception: {exc}")
-                self.statusBar().showMessage(f"Open failed: {exc}", 5000)
-                return
+        try:
+            dlg = QFileDialog(self, "Open PDF", start_dir)
+            dlg.setFileMode(QFileDialog.ExistingFile)
+            dlg.setNameFilter("PDF Files (*.pdf)")
+            dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                selected = dlg.selectedFiles()
+                if selected:
+                    return selected[0]
+            self._log_update("qt_dialog: no file selected (cancelled or empty)")
+        except Exception as exc:
+            self._log_update(f"qt_dialog: exception={exc}")
+        return None
+
+    def _pick_file_tkinter(self) -> str | None:
+        """Tier 2: Tkinter native file dialog (Windows-safe fallback)."""
+        self.statusBar().showMessage("Qt file picker unavailable; trying Windows fallback...", 3000)
+        QApplication.processEvents()
+        self._log_update("tkinter_fallback: attempting")
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            result = filedialog.askopenfilename(
+                title="Open PDF",
+                filetypes=[("PDF Files", "*.pdf")],
+            )
+            root.destroy()
+            if result:
+                self._log_update(f"tkinter_fallback: selected={result}")
+                return result
+            self._log_update("tkinter_fallback: cancelled")
+        except ImportError:
+            self._log_update("tkinter_fallback: tkinter not available")
+        except Exception as exc:
+            self._log_update(f"tkinter_fallback: exception={exc}")
+        return None
+
+    def _pick_file_manual_input(self) -> str | None:
+        """Tier 3: Manual path input dialog."""
+        self.statusBar().showMessage("File dialogs unavailable; enter path manually...", 3000)
+        QApplication.processEvents()
+        self._log_update("manual_input: attempting")
+        try:
+            path, ok = QInputDialog.getText(
+                self, "Open PDF", "Enter PDF file path:",
+            )
+            if ok and path:
+                path = path.strip().strip("\"'")
+                p = Path(path).expanduser()
+                if p.suffix.lower() == ".pdf" and p.exists():
+                    self._log_update(f"manual_input: path={p}")
+                    return str(p)
+                self._log_update(f"manual_input: invalid path={path}")
+                self.statusBar().showMessage(f"Invalid PDF path: {path}", 5000)
+            else:
+                self._log_update("manual_input: cancelled")
+        except Exception as exc:
+            self._log_update(f"manual_input: exception={exc}")
+        return None
+
+    def open_pdf(self, file_name: str | None = None):
+        """Primary open entry point — all open paths converge here.
+
+        When file_name is not provided, tries a 3-tier fallback chain:
+          1. Qt non-native QFileDialog
+          2. Tkinter native dialog
+          3. Manual path input via QInputDialog
+        """
+        self._log_update(f"open_pdf called with file_name={file_name}")
+        if file_name is not None:
+            # Direct path — no dialog needed
+            file_path = str(Path(file_name).resolve())
+            self._log_update(f"open_pdf: direct path={file_path}")
+            self.statusBar().showMessage(f"Opening {Path(file_path).name}...", 3000)
+            QApplication.processEvents()
+            tab_data = TabData(name=Path(file_path).name)
+            self._create_tab(tab_data)
+            self.load_pdf(file_path)
+            return
+
+        # No path — try the fallback dialog chain
+        start_dir = self.settings.value("lastFolder", str(Path.home()))
+        file_name = self._pick_file_qt_dialog(start_dir)
         if not file_name:
-            self._log_update("open_pdf: no file selected / dialog cancelled")
+            file_name = self._pick_file_tkinter()
+        if not file_name:
+            file_name = self._pick_file_manual_input()
+        if not file_name:
+            self._log_update("open_pdf: all pickers returned no file")
             self.statusBar().showMessage("Open cancelled", 3000)
             return
+
         file_path = str(Path(file_name).resolve())
         self._log_update(f"open_pdf: resolved path={file_path}")
         self.statusBar().showMessage(f"Opening {Path(file_path).name}...", 3000)
