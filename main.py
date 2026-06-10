@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.0.3-dev"
+__version__ = "1.0.4-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
@@ -114,117 +114,99 @@ class TabData:
 # Stylesheets
 # ---------------------------------------------------------------------------
 
-DARK_STYLESHEET = """
+# ---------------------------------------------------------------------------
+# Stylesheets
+# ---------------------------------------------------------------------------
+
+LIGHT_STYLESHEET = """
 QMainWindow, QWidget {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
+    background-color: #f5f5f5;
+    color: #1a1a1a;
 }
 QMainWindow::separator {
-    background-color: #313244;
+    background-color: #d0d0d0;
 }
 QPushButton {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
-    padding: 4px 12px;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #c8c8c8;
+    padding: 4px 14px;
     border-radius: 4px;
     min-height: 22px;
 }
 QPushButton:hover {
-    background-color: #45475a;
+    background-color: #e8e8e8;
+    border-color: #a0a0a0;
 }
 QPushButton:pressed {
-    background-color: #585b70;
+    background-color: #d0d0d0;
 }
 QPushButton:checked {
-    background-color: #a6e3a1;
-    color: #1e1e2e;
-    border-color: #a6e3a1;
+    background-color: #4a90d9;
+    color: #ffffff;
+    border-color: #357abd;
 }
 QPushButton:disabled {
-    background-color: #313244;
-    color: #585b70;
-    border-color: #313244;
+    background-color: #e8e8e8;
+    color: #a0a0a0;
+    border-color: #e0e0e0;
 }
 QLineEdit {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #c8c8c8;
     padding: 4px 6px;
     border-radius: 4px;
-    selection-background-color: #89b4fa;
-    selection-color: #1e1e2e;
+    selection-background-color: #4a90d9;
+    selection-color: #ffffff;
 }
 QLineEdit:focus {
-    border-color: #89b4fa;
+    border-color: #4a90d9;
 }
 QSpinBox {
-    background-color: #313244;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #c8c8c8;
     padding: 4px;
     border-radius: 4px;
 }
 QSpinBox:focus {
-    border-color: #89b4fa;
+    border-color: #4a90d9;
 }
 QSpinBox::up-button, QSpinBox::down-button {
-    background-color: #45475a;
+    background-color: #e8e8e8;
     border: none;
     width: 18px;
 }
 QLabel {
-    color: #cdd6f4;
+    color: #1a1a1a;
     background-color: transparent;
 }
 QStatusBar {
-    background-color: #181825;
-    color: #a6adc8;
-    border-top: 1px solid #313244;
+    background-color: #e8e8e8;
+    color: #666666;
+    border-top: 1px solid #d0d0d0;
 }
 QScrollArea {
-    background-color: #1e1e2e;
+    background-color: #e0e0e0;
     border: none;
-}
-QToolBar {
-    background-color: #181825;
-    border: none;
-    border-bottom: 1px solid #313244;
-    spacing: 4px;
-    padding: 2px 4px;
-}
-QToolBar QToolButton {
-    background-color: transparent;
-    border: none;
-    border-radius: 4px;
-    padding: 4px 6px;
-    color: #cdd6f4;
-}
-QToolBar QToolButton:hover {
-    background-color: #313244;
-}
-QToolBar QToolButton:pressed {
-    background-color: #45475a;
-}
-QToolBar QToolButton:disabled {
-    color: #585b70;
 }
 QTabBar::tab {
-    background-color: #181825;
-    color: #a6adc8;
+    background-color: #e0e0e0;
+    color: #666666;
     padding: 6px 18px;
     border: none;
-    border-right: 1px solid #313244;
+    border-right: 1px solid #d0d0d0;
     min-height: 24px;
 }
 QTabBar::tab:selected {
-    background-color: #1e1e2e;
-    color: #89b4fa;
-    border-bottom: 2px solid #89b4fa;
+    background-color: #f5f5f5;
+    color: #1a1a1a;
+    border-bottom: 2px solid #4a90d9;
 }
 QTabBar::tab:hover:!selected {
-    background-color: #313244;
-    color: #cdd6f4;
+    background-color: #d8d8d8;
+    color: #1a1a1a;
 }
 QTabBar::close-button {
     image: none;
@@ -232,17 +214,17 @@ QTabBar::close-button {
     border: none;
     padding: 2px;
     margin: 2px;
-    color: #a6adc8;
+    color: #666666;
 }
 QTabBar::close-button:hover {
-    background-color: #f38ba8;
+    background-color: #e74c3c;
     border-radius: 3px;
-    color: #1e1e2e;
+    color: #ffffff;
 }
 QMenuBar {
-    background-color: #181825;
-    color: #cdd6f4;
-    border-bottom: 1px solid #313244;
+    background-color: #e8e8e8;
+    color: #1a1a1a;
+    border-bottom: 1px solid #d0d0d0;
     padding: 2px;
 }
 QMenuBar::item {
@@ -251,12 +233,12 @@ QMenuBar::item {
     border-radius: 4px;
 }
 QMenuBar::item:selected {
-    background-color: #313244;
+    background-color: #d0d0d0;
 }
 QMenu {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #c8c8c8;
     padding: 4px;
 }
 QMenu::item {
@@ -264,63 +246,255 @@ QMenu::item {
     border-radius: 4px;
 }
 QMenu::item:selected {
-    background-color: #45475a;
+    background-color: #4a90d9;
+    color: #ffffff;
 }
 QMenu::item:disabled {
-    color: #585b70;
+    color: #a0a0a0;
 }
 QMenu::separator {
     height: 1px;
-    background-color: #313244;
+    background-color: #d0d0d0;
     margin: 4px 8px;
 }
 QProgressDialog {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
-    border: 1px solid #45475a;
+    background-color: #ffffff;
+    color: #1a1a1a;
+    border: 1px solid #c8c8c8;
 }
 QMessageBox {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
+    background-color: #f5f5f5;
+    color: #1a1a1a;
 }
 QMessageBox QLabel {
-    color: #cdd6f4;
+    color: #1a1a1a;
 }
 QMessageBox QPushButton {
     min-width: 80px;
 }
 QInputDialog {
-    background-color: #1e1e2e;
-    color: #cdd6f4;
+    background-color: #f5f5f5;
+    color: #1a1a1a;
 }
 QScrollBar:horizontal {
-    background-color: #181825;
+    background-color: #e0e0e0;
     height: 10px;
     border: none;
 }
 QScrollBar::handle:horizontal {
-    background-color: #45475a;
+    background-color: #b0b0b0;
     border-radius: 5px;
     min-width: 30px;
 }
 QScrollBar::handle:horizontal:hover {
-    background-color: #585b70;
+    background-color: #909090;
 }
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0px;
 }
 QScrollBar:vertical {
-    background-color: #181825;
+    background-color: #e0e0e0;
     width: 10px;
     border: none;
 }
 QScrollBar::handle:vertical {
-    background-color: #45475a;
+    background-color: #b0b0b0;
     border-radius: 5px;
     min-height: 30px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: #585b70;
+    background-color: #909090;
+}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+    height: 0px;
+}
+"""
+
+DARK_STYLESHEET = """
+QMainWindow, QWidget {
+    background-color: #1a1b26;
+    color: #c0caf5;
+}
+QMainWindow::separator {
+    background-color: #292e42;
+}
+QPushButton {
+    background-color: #24283b;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    padding: 4px 14px;
+    border-radius: 4px;
+    min-height: 22px;
+}
+QPushButton:hover {
+    background-color: #33467c;
+    border-color: #565f89;
+}
+QPushButton:pressed {
+    background-color: #414868;
+}
+QPushButton:checked {
+    background-color: #7aa2f7;
+    color: #1a1b26;
+    border-color: #7aa2f7;
+}
+QPushButton:disabled {
+    background-color: #1a1b26;
+    color: #3b4261;
+    border-color: #24283b;
+}
+QLineEdit {
+    background-color: #24283b;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    padding: 4px 6px;
+    border-radius: 4px;
+    selection-background-color: #7aa2f7;
+    selection-color: #1a1b26;
+}
+QLineEdit:focus {
+    border-color: #7aa2f7;
+}
+QSpinBox {
+    background-color: #24283b;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    padding: 4px;
+    border-radius: 4px;
+}
+QSpinBox:focus {
+    border-color: #7aa2f7;
+}
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #3b4261;
+    border: none;
+    width: 18px;
+}
+QLabel {
+    color: #c0caf5;
+    background-color: transparent;
+}
+QStatusBar {
+    background-color: #13141f;
+    color: #565f89;
+    border-top: 1px solid #292e42;
+}
+QScrollArea {
+    background-color: #1a1b26;
+    border: none;
+}
+QTabBar::tab {
+    background-color: #13141f;
+    color: #565f89;
+    padding: 6px 18px;
+    border: none;
+    border-right: 1px solid #292e42;
+    min-height: 24px;
+}
+QTabBar::tab:selected {
+    background-color: #1a1b26;
+    color: #7aa2f7;
+    border-bottom: 2px solid #7aa2f7;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #292e42;
+    color: #c0caf5;
+}
+QTabBar::close-button {
+    image: none;
+    background-color: transparent;
+    border: none;
+    padding: 2px;
+    margin: 2px;
+    color: #565f89;
+}
+QTabBar::close-button:hover {
+    background-color: #f7768e;
+    border-radius: 3px;
+    color: #1a1b26;
+}
+QMenuBar {
+    background-color: #13141f;
+    color: #c0caf5;
+    border-bottom: 1px solid #292e42;
+    padding: 2px;
+}
+QMenuBar::item {
+    padding: 4px 10px;
+    background-color: transparent;
+    border-radius: 4px;
+}
+QMenuBar::item:selected {
+    background-color: #292e42;
+}
+QMenu {
+    background-color: #1a1b26;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+    padding: 4px;
+}
+QMenu::item {
+    padding: 6px 28px 6px 20px;
+    border-radius: 4px;
+}
+QMenu::item:selected {
+    background-color: #33467c;
+}
+QMenu::item:disabled {
+    color: #3b4261;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #292e42;
+    margin: 4px 8px;
+}
+QProgressDialog {
+    background-color: #1a1b26;
+    color: #c0caf5;
+    border: 1px solid #3b4261;
+}
+QMessageBox {
+    background-color: #1a1b26;
+    color: #c0caf5;
+}
+QMessageBox QLabel {
+    color: #c0caf5;
+}
+QMessageBox QPushButton {
+    min-width: 80px;
+}
+QInputDialog {
+    background-color: #1a1b26;
+    color: #c0caf5;
+}
+QScrollBar:horizontal {
+    background-color: #13141f;
+    height: 10px;
+    border: none;
+}
+QScrollBar::handle:horizontal {
+    background-color: #3b4261;
+    border-radius: 5px;
+    min-width: 30px;
+}
+QScrollBar::handle:horizontal:hover {
+    background-color: #565f89;
+}
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+    width: 0px;
+}
+QScrollBar:vertical {
+    background-color: #13141f;
+    width: 10px;
+    border: none;
+}
+QScrollBar::handle:vertical {
+    background-color: #3b4261;
+    border-radius: 5px;
+    min-height: 30px;
+}
+QScrollBar::handle:vertical:hover {
+    background-color: #565f89;
 }
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
     height: 0px;
@@ -949,7 +1123,7 @@ class PdfReaderWindow(QMainWindow):
         if self._dark_mode:
             self.setStyleSheet(DARK_STYLESHEET)
         else:
-            self.setStyleSheet("")
+            self.setStyleSheet(LIGHT_STYLESHEET)
 
     # ------------------------------------------------------------------
     # Recent Files
@@ -1332,13 +1506,17 @@ class PdfReaderWindow(QMainWindow):
         _perf_end(_t, f"_do_render page={self.current_page} zoom={self.current_render_zoom:.2f}")
 
     def _render_single_page(self):
-        """Render a single page in the scroll area."""
+        """Render a single page in the scroll area at display resolution."""
         try:
             page = self.document.load_page(self.current_page)
             zoom = self._effective_zoom(page)
             self.current_render_zoom = zoom
             self._validate_render_size(page, zoom)
-            matrix = fitz.Matrix(zoom, zoom)
+
+            # HiDPI-aware rendering: render at device pixel ratio for crisp output
+            dpr = self.devicePixelRatioF() if hasattr(self, 'devicePixelRatioF') else 1.0
+            render_zoom = zoom * dpr
+            matrix = fitz.Matrix(render_zoom, render_zoom)
             highlight_rects = self._active_highlight_rects()
 
             show_annots = hasattr(self, "show_annots_action") and self.show_annots_action.isChecked()
@@ -1352,9 +1530,9 @@ class PdfReaderWindow(QMainWindow):
                 QImage.Format_RGB888,
             )
             if highlight_rects:
-                self._paint_highlights(image, page, highlight_rects, zoom)
+                self._paint_highlights(image, page, highlight_rects, render_zoom)
             if self.selected_rects:
-                self._paint_selection(image, page, self.selected_rects, zoom)
+                self._paint_selection(image, page, self.selected_rects, render_zoom)
         except Exception as exc:
             self._show_error("Render Error", "Unable to render this page.", exc)
             return
@@ -1365,7 +1543,14 @@ class PdfReaderWindow(QMainWindow):
             self.scroll_area.setWidget(self.page_label)
             self.scroll_area.setWidgetResizable(False)
 
-        self.page_label.setPixmap(QPixmap.fromImage(image))
+        qp = QPixmap.fromImage(image)
+        qp.setDevicePixelRatio(dpr)
+        self.page_label.setPixmap(qp)
+        self.page_label.setStyleSheet(
+            "border: 1px solid #3b4261; background-color: white;"
+            if self._dark_mode else
+            "border: 1px solid #c8c8c8; background-color: white;"
+        )
         self.page_label.adjustSize()
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
@@ -1375,8 +1560,16 @@ class PdfReaderWindow(QMainWindow):
     def _render_continuous(self):
         """Render pages in continuous vertical scroll layout."""
         page_count = self.document.page_count
-        zoom = self._effective_zoom(self.document.load_page(0))
+        page0 = self.document.load_page(0)
+        zoom = self._effective_zoom(page0)
         self.current_render_zoom = zoom
+
+        # HiDPI-aware: render at device pixel ratio for crisp output
+        dpr = self.devicePixelRatioF() if hasattr(self, 'devicePixelRatioF') else 1.0
+        render_zoom = zoom * dpr
+        border_style = ("border: 1px solid #3b4261; background-color: white;"
+                        if self._dark_mode else
+                        "border: 1px solid #c8c8c8; background-color: white;")
 
         # Determine visible range (current page + buffer)
         buffer_pages = 5
@@ -1387,8 +1580,8 @@ class PdfReaderWindow(QMainWindow):
         if self._continuous_container is None:
             self._continuous_container = QWidget()
             self._continuous_layout = QVBoxLayout(self._continuous_container)
-            self._continuous_layout.setContentsMargins(0, 0, 0, 0)
-            self._continuous_layout.setSpacing(8)
+            self._continuous_layout.setContentsMargins(12, 12, 12, 12)
+            self._continuous_layout.setSpacing(12)
 
         # Show continuous container in scroll area
         if self.scroll_area.widget() is not self._continuous_container:
@@ -1410,14 +1603,11 @@ class PdfReaderWindow(QMainWindow):
             if item.widget():
                 item.widget().deleteLater()
 
-        # Add a stretch on top for centering
-        self._continuous_layout.addStretch(1)
-
         for page_idx in range(start_page, end_page):
             try:
                 page = self.document.load_page(page_idx)
-                self._validate_render_size(page, zoom)
-                matrix = fitz.Matrix(zoom, zoom)
+                self._validate_render_size(page, render_zoom)
+                matrix = fitz.Matrix(render_zoom, render_zoom)
                 pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=show_annots)
                 image = QImage(
                     pixmap.samples,
@@ -1426,15 +1616,16 @@ class PdfReaderWindow(QMainWindow):
                     pixmap.stride,
                     QImage.Format_RGB888,
                 )
+                qp = QPixmap.fromImage(image)
+                qp.setDevicePixelRatio(dpr)
                 label = QLabel()
-                label.setPixmap(QPixmap.fromImage(image))
+                label.setPixmap(qp)
+                label.setStyleSheet(border_style)
                 label.setAlignment(Qt.AlignCenter)
                 self._continuous_pages.append(label)
                 self._continuous_layout.addWidget(label, 0, Qt.AlignCenter)
             except Exception:
                 continue  # nosec — skip unrenderable pages gracefully
-
-        self._continuous_layout.addStretch(1)
 
         # Scroll to show current page
         if self._continuous_pages:

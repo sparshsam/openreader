@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.0.4 — Visual Quality + PDF Rendering Polish — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.4-dev`.
+- **Branch:** `visual-quality-rendering-v1.0.4`
+
+### PDF Rendering Quality
+- **HiDPI-aware rendering:** Pages are now rendered at the screen's device pixel ratio, then displayed with `setDevicePixelRatio()` for crisp, sharp text on Retina/High-DPI displays.
+- **No blurry low-res scaling:** The render zoom is multiplied by DPR so the pixmap contains HiDPI detail; the UI displays it at the correct logical size without scaling up a low-resolution image.
+- **Page border:** Each rendered page now has a professional 1px border (`#3b4261` dark, `#c8c8c8` light) and white background — creating a clear paper-like canvas.
+- **Continuous scroll margins:** Increased from 0/8 to 12/12 for natural breathing room between pages.
+- Rendering quality verified: crisp at all zoom levels, in both single-page and continuous modes.
+
+### Theme Polish (Dark & Light)
+- **New light theme** (`LIGHT_STYLESHEET`): Bright, clean, modern — white backgrounds, blue accent (`#4a90d9`), proper hover/pressed states, readable gray text for secondary elements. Replaces the previous no-stylesheet default (plain system look).
+- **Refined dark theme** (`DARK_STYLESHEET`): Tokyo Night-inspired palette (`#1a1b26` background, `#7aa2f7` accent, `#c0caf5` text) — replaces Catppuccin Mocha with a more premium, desktop-appropriate scheme. Improved contrast, button hover states, menu hierarchy.
+- **Menus:** Light theme now uses blue accent for selected items (matching the selected tab color) — consistent visual language.
+- **Removed QToolBar styles** from both themes (toolbar is no longer used in v1.0.1+; the controls bar is a QPushButton-based layout styled via QPushButton rules).
+
+### Toolbar Cleanup Verified
+- No Merge, Split, Compress, Compare, Library, or Check for Updates buttons exist in the controls bar or toolbar.
+- These actions are accessible only through the top menus (Tools, Help).
+- Toolbar contains only: Open, Save, Prev, Next, Zoom In, Zoom Out, Find.
+
+### Validation
+- Full test suite: 32 passed, 31 skipped (expected).
+- Updater regression checks: All 16 passed.
+- Bandit: clean.
+- Compile check: clean.
+- ZIP asset names unchanged — canonical names preserved.
+- No changes to installer, updater, or file safety protections.
+
 ## v1.0.3 — Windows Installer Admin + Uninstall Polish — 2026-06-10
 
 - **Version:** Bumped `__version__` to `1.0.3-dev`.
