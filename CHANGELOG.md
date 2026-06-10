@@ -37,6 +37,55 @@ The icon file was used to **stamp the EXE** at build time (visible in the file's
 - Dialog cancellation now logged as `"open_pdf: no file selected / dialog cancelled"` with a status bar message.
 - All open paths still converge on the one `open_pdf()` method.
 
+### File → Open Fix — Root Cause: Native QFileDialog Failure
+
+**Root cause:** `QFileDialog.getOpenFileName()` is a static convenience method that uses the **native Windows file dialog**. In frozen PyInstaller builds, the native dialog can fail silently — the window never appears, the call returns immediately with an empty result, and no exception is raised. This is a known issue with PySide6 + PyInstaller on Windows.
+
+**Fix:** Replaced the static call with an explicit `QFileDialog` instance using the **`DontUseNativeDialog`** option:
+
+```python
+# BEFORE — native dialog, silent failure in frozen builds
+file_name, _ = QFileDialog.getOpenFileName(self, "Open PDF", start_dir, "PDF Files (*.pdf)")
+
+# AFTER — Qt dialog, works reliably in frozen builds
+dlg = QFileDialog(self, "Open PDF", start_dir, "PDF Files (*.pdf)")
+dlg.setOptions(QFileDialog.DontUseNativeDialog)
+if dlg.exec() == QDialog.Accepted:
+    file_name = dlg.selectedFiles()[0]
+```
+
+The Qt dialog renders consistently in all build modes. A try/except wrapper catches any remaining errors and logs them visibly. Status bar messages now show at every step: `"Opening file..."` → `"Opening {filename}..."` → result or `"Open failed: {detail}"`.
+
+Now works:
+- ✅ File → Open PDF
+- ✅ Toolbar Open
+- ✅ Ctrl+O
+- ✅ Empty-state Open
+- ✅ Ctrl+T (New Tab)
+
+### Single-Instance Tab Routing (IPC)
+
+**Problem:** Double-clicking a `.pdf` from Windows Explorer while the app is already running launched a **separate app window** instead of opening a new tab.
+
+**Solution:** Implemented `QLocalServer`/`QLocalSocket` IPC for single-instance routing:
+
+1. The first running instance creates a `QLocalServer` listening on a well-known name (`PDFReaderBySparsh-IPC`).
+2. When a second instance starts (via double-click or file association), it:
+   - Attempts to connect to the IPC server
+   - On success: serialises the file paths as JSON, sends them, and exits immediately
+   - On failure (no existing instance): starts normally (becomes the primary)
+3. The primary instance's `_on_ipc_connection` handler receives the paths and opens each one as a new tab via `open_pdf()`.
+4. Multiple `.pdf` files selected/opened at once are all routed and opened as individual tabs.
+
+**Edge cases handled:**
+- Stale server name from a previous crash → `removeServer()` cleans up before listening
+- Connection timeout (2000 ms) → client falls through to start a new window
+- Non-PDF paths in argv → filtered out
+- IPC handler exceptions → logged to updater debug log, don't crash the app
+- `QLocalSocket` cleanup → `disconnectFromServer()` + `deleteLater()` in finally block
+
+**Status: Implemented for v1.0.6.**
+
 ### Build System Fix
 
 | Workflow | Before | After |
@@ -58,14 +107,24 @@ The icon file was used to **stamp the EXE** at build time (visible in the file's
 This release is **held back** from tagging. v1.0.6 will not be tagged until:
 1. A `Setup.exe` is manually downloaded from GitHub Actions
 2. Installed on real Windows
-3. All open paths verified
+3. All open paths verified:
+   - [ ] File → Open PDF
+   - [ ] Toolbar Open
+   - [ ] Ctrl+O
+   - [ ] Empty-state Open
+   - [ ] Drag-and-drop
+   - [ ] Double-click .pdf (routes to existing window)
 4. Icon confirmed in title bar, taskbar, Start Menu, and EXE
+5. Multiple PDFs from Explorer open as separate tabs in existing window
+6. Multiple PDFs from inside app (File → Open) open as separate tabs
+7. Ctrl+T opens a new file dialog
+8. Uninstaller works from Start Menu and Apps & Features
 
 ### Files Changed
 
-- `main.py` — Icon path expansion, status bar diagnostics, version bump
+- `main.py` — Icon path expansion, QFileDialog DontUseNativeDialog fix, single-instance IPC (QLocalServer/QLocalSocket), status bar diagnostics, multi-file arg handling, version bump
 - `.github/workflows/release.yml` — Added `--add-data "assets;assets"`
-- `.github/workflows/build-windows.yml` — Added `--add-data "assets;assets"`
+- `.github/workflows/build-windows.yml` — Added `--add-data "assets;assets"`, workflow_dispatch trigger, Inno Setup installer build, test artifact naming
 - `CHANGELOG.md` — This entry
 
 ## v1.0.5 — Windows Distribution + Open Flow Fix — 2026-06-10

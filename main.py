@@ -13,7 +13,7 @@ from pathlib import Path
 import fitz
 from PySide6.QtCore import QByteArray, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
 from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap
-from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
+from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -55,6 +55,7 @@ GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
 MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
+IPC_SERVER_NAME = "PDFReaderBySparsh-IPC"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
@@ -607,11 +608,16 @@ class PdfReaderWindow(QMainWindow):
     ANNOT_UNDERLINE = (0.075, 0.533, 0.867)    # blue
     ANNOT_STRIKEOUT = (0.953, 0.318, 0.302)    # red
 
-    def __init__(self):
+    def __init__(self, ipc_server: QLocalServer | None = None):
         _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
         self.resize(1000, 800)
+
+        # ---- IPC server for single-instance tab routing ----
+        self._ipc_server = ipc_server
+        if ipc_server is not None:
+            ipc_server.newConnection.connect(self._on_ipc_connection)
 
         # ---- Continuous scroll ----
         self._continuous_mode = True  # default to continuous
@@ -1353,14 +1359,23 @@ class PdfReaderWindow(QMainWindow):
         """Primary open entry point — all open paths converge here."""
         self._log_update(f"open_pdf called with file_name={file_name}")
         self.statusBar().showMessage("Opening file...", 2000)
+        QApplication.processEvents()
         if file_name is None:
             start_dir = self.settings.value("lastFolder", str(Path.home()))
-            file_name, _ = QFileDialog.getOpenFileName(
-                self,
-                "Open PDF",
-                start_dir,
-                "PDF Files (*.pdf)",
-            )
+            try:
+                # Use explicit QFileDialog instance with DontUseNativeDialog
+                # in frozen builds — native dialog can fail silently on Windows
+                dlg = QFileDialog(self, "Open PDF", start_dir, "PDF Files (*.pdf)")
+                dlg.setOptions(QFileDialog.DontUseNativeDialog)
+                if dlg.exec() == QDialog.Accepted:
+                    selected = dlg.selectedFiles()
+                    file_name = selected[0] if selected else None
+                else:
+                    file_name = None
+            except Exception as exc:
+                self._log_update(f"open_pdf: QFileDialog exception: {exc}")
+                self.statusBar().showMessage(f"Open failed: {exc}", 5000)
+                return
         if not file_name:
             self._log_update("open_pdf: no file selected / dialog cancelled")
             self.statusBar().showMessage("Open cancelled", 3000)
@@ -2624,6 +2639,28 @@ class PdfReaderWindow(QMainWindow):
         event.ignore()
 
     # ------------------------------------------------------------------
+    # IPC — Single-instance tab routing
+    # ------------------------------------------------------------------
+
+    def _on_ipc_connection(self):
+        """Receive file paths from a second instance and open in new tabs."""
+        conn = self._ipc_server.nextPendingConnection()
+        if conn is None:
+            return
+        try:
+            conn.waitForReadyRead(3000)
+            data = bytes(conn.readAll()).decode("utf-8")
+            paths = json.loads(data)
+            for path in paths:
+                if isinstance(path, str) and path.lower().endswith(".pdf"):
+                    self.open_pdf(path)
+        except Exception as exc:
+            self._log_update(f"ipc_handler: {exc}")
+        finally:
+            conn.disconnectFromServer()
+            conn.deleteLater()
+
+    # ------------------------------------------------------------------
     # Auto-update system
     # ------------------------------------------------------------------
 
@@ -3739,21 +3776,53 @@ class _CompareDialog(QDialog):
 # Entry Point
 # ---------------------------------------------------------------------------
 
+def _try_send_to_existing_instance(file_paths: list[str]) -> bool:
+    """Send file paths to a running instance via QLocalSocket. Returns True if sent."""
+    if not file_paths:
+        return False
+    socket = QLocalSocket()
+    socket.connectToServer(IPC_SERVER_NAME)
+    if not socket.waitForConnected(2000):
+        socket.deleteLater()
+        return False
+    try:
+        payload = json.dumps([p for p in file_paths if p.lower().endswith(".pdf")])
+        socket.write(payload.encode("utf-8"))
+        socket.waitForBytesWritten(2000)
+        return True
+    except Exception:
+        return False
+    finally:
+        socket.disconnectFromServer()
+        socket.deleteLater()
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(PdfReaderWindow.APP_NAME)
     app.setOrganizationName("Sparsh")
+
+    # ---- Single-instance IPC: route file opens to existing window ----
+    pdf_paths = [a for a in sys.argv[1:] if Path(a).suffix.lower() == ".pdf"]
+    if pdf_paths and _try_send_to_existing_instance(pdf_paths):
+        # Paths routed to existing instance — exit this one
+        sys.exit(0)
+
+    ipc_server = QLocalServer()
+    # Clean up any stale server name from a previous crash
+    ipc_server.removeServer(IPC_SERVER_NAME)
+    ipc_server.listen(IPC_SERVER_NAME)
 
     # Set app-level icon before window creation for taskbar/Wayland
     icon_path = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 
-    window = PdfReaderWindow()
+    window = PdfReaderWindow(ipc_server=ipc_server)
     window.show()
-    if len(sys.argv) > 1:
-        initial_path = sys.argv[1]
-        QTimer.singleShot(0, lambda: window.open_pdf(initial_path))
+    # Open command-line PDFs in tabs
+    for path in pdf_paths:
+        QTimer.singleShot(0, lambda p=path: window.open_pdf(p))
     sys.exit(app.exec())
 
 
