@@ -1430,6 +1430,10 @@ class PdfReaderWindow(QMainWindow):
           2. Tkinter native dialog
           3. Manual path input via QInputDialog
         """
+        if isinstance(file_name, bool):
+            # QAction.triggered(bool) and QPushButton.clicked(bool) pass a
+            # checked-state argument. This slot treats that as "no path".
+            file_name = None
         self._log_update(f"open_pdf called with file_name={file_name}")
         if file_name is not None:
             # Direct path — no dialog needed

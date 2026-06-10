@@ -172,3 +172,18 @@ class TestShortcutConsistency:
         import main as m
         src = Path(m.__file__).read_text()
         assert '"Ctrl+0"' in src or 'Ctrl+0' in src
+
+
+# ---------------------------------------------------------------------------
+# Open action signal handling
+# ---------------------------------------------------------------------------
+
+
+class TestOpenActionSignalHandling:
+    def test_open_pdf_normalizes_qt_boolean_signal_argument(self):
+        """Qt clicked/triggered signals pass False; open_pdf must still show picker."""
+        import main as m
+
+        src = Path(m.__file__).read_text()
+        assert "if isinstance(file_name, bool):" in src
+        assert "file_name = None" in src
