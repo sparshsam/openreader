@@ -1,5 +1,48 @@
 # Changelog
 
+## v1.0.3 — Windows Installer Admin + Uninstall Polish — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.3-dev`.
+- **Branch:** `windows-installer-admin-polish-v1.0.3`
+
+### Installer Admin & UAC
+- Confirmed `PrivilegesRequired=admin` ensures UAC prompt on launch.
+- Added `CloseApplications` filter to auto-detect and prompt to close running PDFReader before install, preventing file-lock issues.
+- Added `DisableDirPage=auto` to allow path changes but default to `C:\Program Files\PDFReader by Sparsh`.
+- Added `AlwaysShowDirOnReadyPage=yes` so the install path is visible on the final confirmation page.
+- Installer now kills the running process cleanly before overwriting files.
+
+### Install Folder Behavior
+- Default install path: `{autopf}\PDFReader by Sparsh` → `C:\Program Files\PDFReader by Sparsh`.
+- All app files placed under that folder only.
+- No update scripts or temp files written into install folder (v1.0.2+ updater uses `%TEMP%\PDFReader-Updates\`).
+- Installer output artifacts documented.
+
+### Uninstaller Polish
+- Added `UninstallDisplayName` and `UninstallDisplaySize` for proper Add/Remove Programs entry.
+- Uninstall removes:
+  - All installed app files (Files section delete after install)
+  - Start Menu shortcut and desktop shortcut (Icons section)
+  - `.pdf` file association registry keys (`uninsdeletevalue`, `uninsdeletekey`)
+  - App Paths registry key (`uninsdeletekey`)
+- Uninstall preserves:
+  - User documents and PDFs
+  - User settings (QSettings stored in `HKCU\Software\Sparsh\PDFReader by Sparsh` — preserved across install/uninstall)
+  - User library index (SQLite database)
+- Added `UninstallFilesDir` for clean uninstaller file management.
+
+### Documentation
+- **SUPPORT.md:** Added Windows installer section with admin/UAC explanation, install path details, and what uninstall does/does not remove.
+- **README:** Added Windows Installer notes section linking to SUPPORT.md for detailed behavior.
+- Updated v1.0.3 references in SUPPORT.md recovery section.
+
+### Validation
+- Full test suite: 32 passed, 31 skipped (expected).
+- Updater regression checks: All 16 passed.
+- Compile check: clean.
+- ZIP asset names unchanged — canonical names preserved.
+- No code changes to the updater or app logic; installer-only polish.
+
 ## v1.0.2 — Windows Updater Permission Hotfix — 2026-06-10
 
 - **Version:** Bumped `__version__` to `1.0.2-dev`.
