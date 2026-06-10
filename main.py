@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QScrollBar,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
     QStatusBar,
@@ -45,6 +46,7 @@ from PySide6.QtWidgets import (
     QTextBrowser,
     QTextEdit,
     QToolBar,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -192,10 +194,14 @@ QScrollArea {
     background-color: #e0e0e0;
     border: none;
 }
+#TabStrip {
+    background-color: #e0e0e0;
+    border-bottom: 1px solid #d0d0d0;
+}
 QTabBar::tab {
     background-color: #e0e0e0;
     color: #666666;
-    padding: 6px 18px;
+    padding: 6px 8px 6px 18px;
     border: none;
     border-right: 1px solid #d0d0d0;
     min-height: 24px;
@@ -209,18 +215,33 @@ QTabBar::tab:hover:!selected {
     background-color: #d8d8d8;
     color: #1a1a1a;
 }
-QTabBar::close-button {
-    image: none;
+QToolButton#NewTabButton {
     background-color: transparent;
-    border: none;
-    padding: 2px;
-    margin: 2px;
     color: #666666;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+QToolButton#NewTabButton {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 2px 8px 2px 4px;
+}
+QToolButton#NewTabButton:hover {
+    background-color: #d0d0d0;
+    border-color: #b8b8b8;
+    color: #1a1a1a;
+}
+QTabBar::close-button {
+    image: url(__TAB_CLOSE_ICON__);
+    subcontrol-position: right;
+    width: 14px;
+    height: 14px;
+    margin: 0px 6px 0px 4px;
+    border-radius: 3px;
 }
 QTabBar::close-button:hover {
     background-color: #e74c3c;
-    border-radius: 3px;
-    color: #ffffff;
+    border-color: #d84335;
 }
 QMenuBar {
     background-color: #e8e8e8;
@@ -384,10 +405,14 @@ QScrollArea {
     background-color: #1a1b26;
     border: none;
 }
+#TabStrip {
+    background-color: #13141f;
+    border-bottom: 1px solid #292e42;
+}
 QTabBar::tab {
     background-color: #13141f;
     color: #565f89;
-    padding: 6px 18px;
+    padding: 6px 8px 6px 18px;
     border: none;
     border-right: 1px solid #292e42;
     min-height: 24px;
@@ -401,18 +426,33 @@ QTabBar::tab:hover:!selected {
     background-color: #292e42;
     color: #c0caf5;
 }
-QTabBar::close-button {
-    image: none;
+QToolButton#NewTabButton {
     background-color: transparent;
-    border: none;
-    padding: 2px;
-    margin: 2px;
-    color: #565f89;
+    color: #8b93b5;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+QToolButton#NewTabButton {
+    font-size: 18px;
+    font-weight: 500;
+    margin: 2px 8px 2px 4px;
+}
+QToolButton#NewTabButton:hover {
+    background-color: #292e42;
+    border-color: #3b4261;
+    color: #c0caf5;
+}
+QTabBar::close-button {
+    image: url(__TAB_CLOSE_ICON__);
+    subcontrol-position: right;
+    width: 14px;
+    height: 14px;
+    margin: 0px 6px 0px 4px;
+    border-radius: 3px;
 }
 QTabBar::close-button:hover {
     background-color: #f7768e;
-    border-radius: 3px;
-    color: #1a1b26;
+    border-color: #f7768e;
 }
 QMenuBar {
     background-color: #13141f;
@@ -712,7 +752,13 @@ class PdfReaderWindow(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Tab bar
+        # Tab strip
+        tab_strip = QWidget()
+        tab_strip.setObjectName("TabStrip")
+        tab_strip_layout = QHBoxLayout(tab_strip)
+        tab_strip_layout.setContentsMargins(0, 0, 0, 0)
+        tab_strip_layout.setSpacing(0)
+
         self.tab_bar = QTabBar()
         self.tab_bar.setTabsClosable(True)
         self.tab_bar.setMovable(True)
@@ -720,10 +766,26 @@ class PdfReaderWindow(QMainWindow):
         self.tab_bar.setDocumentMode(True)
         self.tab_bar.setDrawBase(False)
         self.tab_bar.setUsesScrollButtons(True)
+        self.tab_bar.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         self.tab_bar.tabBarDoubleClicked.connect(self._on_tab_double_click)
         self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
         self.tab_bar.currentChanged.connect(self._on_tab_switch)
-        root.addWidget(self.tab_bar)
+        tab_strip_layout.addWidget(self.tab_bar)
+
+        self.new_tab_button = QToolButton()
+        self.new_tab_button.setText("+")
+        self.new_tab_button.setObjectName("NewTabButton")
+        self.new_tab_button.setFixedSize(30, 28)
+        self.new_tab_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.new_tab_button.setAutoRaise(True)
+        self.new_tab_button.setCursor(Qt.PointingHandCursor)
+        self.new_tab_button.setToolTip("Open another PDF")
+        self.new_tab_button.setAccessibleName("Open another PDF")
+        self.new_tab_button.clicked.connect(self.open_pdf)
+        tab_strip_layout.addWidget(self.new_tab_button)
+        tab_strip_layout.addStretch(1)
+
+        root.addWidget(tab_strip)
 
         # Controls bar
         controls_widget = QWidget()
@@ -1122,10 +1184,23 @@ class PdfReaderWindow(QMainWindow):
         self._apply_theme()
 
     def _apply_theme(self):
-        if self._dark_mode:
-            self.setStyleSheet(DARK_STYLESHEET)
-        else:
-            self.setStyleSheet(LIGHT_STYLESHEET)
+        stylesheet = DARK_STYLESHEET if self._dark_mode else LIGHT_STYLESHEET
+        stylesheet = stylesheet.replace("__TAB_CLOSE_ICON__", self._asset_path("tab_close.svg"))
+        self.setStyleSheet(stylesheet)
+
+    @staticmethod
+    def _asset_path(name: str) -> str:
+        candidates = []
+        if getattr(sys, "frozen", False):
+            candidates.append(Path(sys.executable).parent / "assets" / name)
+            candidates.append(Path(sys.executable).parent / "_internal" / "assets" / name)
+        candidates.append(Path(__file__).parent / "assets" / name)
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            candidates.append(Path(sys._MEIPASS) / "assets" / name)
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate.as_posix()
+        return name
 
     # ------------------------------------------------------------------
     # Recent Files
@@ -1289,12 +1364,23 @@ class PdfReaderWindow(QMainWindow):
             return
         tab = self.tabs[tab_id]
         was_current = tab_id == self.current_tab_id
+        if was_current:
+            self._save_current_state()
+        fallback_id = None
+        if was_current:
+            remaining_ids = [candidate_id for candidate_id in self.tabs.keys() if candidate_id != tab_id]
+            if remaining_ids:
+                fallback_id = remaining_ids[-1]
         if tab.document is not None:
             tab.document.close()
-        for i in range(self.tab_bar.count()):
-            if self.tab_bar.tabData(i) == tab_id:
-                self.tab_bar.removeTab(i)
-                break
+        self.tab_bar.blockSignals(True)
+        try:
+            for i in range(self.tab_bar.count()):
+                if self.tab_bar.tabData(i) == tab_id:
+                    self.tab_bar.removeTab(i)
+                    break
+        finally:
+            self.tab_bar.blockSignals(False)
         del self.tabs[tab_id]
 
         if not self.tabs:
@@ -1318,9 +1404,26 @@ class PdfReaderWindow(QMainWindow):
             self._update_controls()
             return
 
-        if was_current and self.current_tab_id is not None and self.current_tab_id not in self.tabs:
-            fallback_id = next(iter(self.tabs.keys()))
+        if was_current and fallback_id in self.tabs:
+            self.tab_bar.blockSignals(True)
+            try:
+                for i in range(self.tab_bar.count()):
+                    if self.tab_bar.tabData(i) == fallback_id:
+                        self.tab_bar.setCurrentIndex(i)
+                        break
+            finally:
+                self.tab_bar.blockSignals(False)
             self._restore_state(fallback_id)
+            fallback_tab = self.tabs[fallback_id]
+            if fallback_tab.path and Path(fallback_tab.path).exists():
+                try:
+                    if fallback_tab.document is not None:
+                        fallback_tab.document.close()
+                    fallback_tab.document = self._safe_open_pdf(fallback_tab.path)
+                    self.document = fallback_tab.document
+                    self.current_path = fallback_tab.path
+                except Exception:
+                    pass
             self._restore_current_tab_controls()
             self.clear_text_selection(render=False)
             self.render_page()

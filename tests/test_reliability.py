@@ -187,3 +187,21 @@ class TestOpenActionSignalHandling:
         src = Path(m.__file__).read_text()
         assert "if isinstance(file_name, bool):" in src
         assert "file_name = None" in src
+
+    def test_new_tab_button_opens_pdf_flow(self):
+        """The plus button should use the same picker flow as other open actions."""
+        import main as m
+
+        src = Path(m.__file__).read_text()
+        assert 'setObjectName("NewTabButton")' in src
+        assert 'setToolTip("Open another PDF")' in src
+        assert "new_tab_button.clicked.connect(self.open_pdf)" in src
+
+    def test_tabs_use_explicit_close_button(self):
+        """Tabs should expose a readable close affordance instead of a hidden style glyph."""
+        import main as m
+
+        src = Path(m.__file__).read_text()
+        assert 'setTabsClosable(True)' in src
+        assert "QTabBar::close-button" in src
+        assert "QTabBar::close-button {\n    image: none;" not in src
