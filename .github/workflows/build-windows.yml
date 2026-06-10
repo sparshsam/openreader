@@ -40,7 +40,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
 
       - name: Package as ZIP
         run: |

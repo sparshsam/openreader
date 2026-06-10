@@ -1,5 +1,73 @@
 # Changelog
 
+## v1.0.6 — Windows Installation + Open Flow Verification — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.6-dev`.
+- **Branch:** `windows-installed-app-verification-v1.0.6`
+
+### Root Cause — Why v1.0.5 Fixes Did Not Appear
+
+The **release workflow** (`release.yml` and `build-windows.yml`) ran PyInstaller **without** `--add-data "assets;assets"`. While the `.spec` file had `datas=[('assets', 'assets')]`, the CI build bypassed the spec file entirely:
+
+```yaml
+pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+```
+
+The icon file was used to **stamp the EXE** at build time (visible in the file's icon metadata), but the `assets/` folder was **never copied** into the dist directory. Since `_set_app_icon()` checked `sys.executable.parent / "assets" / ...`, which didn't exist in the frozen build, it fell back to a generic `SP_FileIcon`. The taskbar, title bar, and Start Menu all showed a default generic icon.
+
+### Icon Fix — Critical
+
+- **Workflows fixed:** Both `release.yml` and `build-windows.yml` now pass `--add-data "assets;assets"` to PyInstaller, ensuring the `assets/` directory (with `.ico`) is bundled in the frozen build.
+- **`_set_app_icon` expanded** with exhaustive fallback paths:
+  - Standard onedir layout: `{exe_dir}/assets/pdfreader_by_sparsh.ico`
+  - `_internal/assets/` fallback for some PyInstaller configs
+  - Source build: `{__file__}/assets/`
+  - `sys._MEIPASS` (legacy PyInstaller attribute — guarded with `hasattr`)
+  - Recursive `rglob` search of the install directory as last resort
+- **`QApplication.setWindowIcon()`** now called alongside `self.setWindowIcon()` so the **taskbar** and **Alt+Tab** icon pick up the custom icon.
+- **`main()` entry point** also sets `app.setWindowIcon()` from the source `assets/` path before window creation — provides taskbar icon even in dev mode.
+
+### Open Flow Diagnostics
+
+- **Visual status bar feedback** added to `open_pdf()`:
+  - `"Opening file..."` on method entry
+  - `"Open cancelled"` if dialog is dismissed
+  - `"Opening {filename}..."` after file selection
+  - `QApplication.processEvents()` call after status message so it visually updates before loading begins
+- Dialog cancellation now logged as `"open_pdf: no file selected / dialog cancelled"` with a status bar message.
+- All open paths still converge on the one `open_pdf()` method.
+
+### Build System Fix
+
+| Workflow | Before | After |
+|----------|--------|-------|
+| `release.yml` | `pyinstaller main.py` (no `--add-data`) | `pyinstaller --add-data "assets;assets" main.py` |
+| `build-windows.yml` | `pyinstaller main.py` (no `--add-data`) | `pyinstaller --add-data "assets;assets" main.py` |
+
+### Uninstaller & Start Menu
+
+- **Confirmed** `setup.iss` already creates:
+  - `{group}\PDFReader by Sparsh` → Start Menu shortcut
+  - `{group}\Uninstall PDFReader by Sparsh` → Start Menu uninstall shortcut
+  - `UninstallDisplayIcon={app}\PDFReader by Sparsh.exe` → correct icon in Apps & Features
+  - `unins000.exe` is placed in `{app}` (standard Inno Setup behavior)
+- No changes needed — uninstaller infrastructure was already correct, just invisible due to the icon issue.
+
+### Validation Status
+
+This release is **held back** from tagging. v1.0.6 will not be tagged until:
+1. A `Setup.exe` is manually downloaded from GitHub Actions
+2. Installed on real Windows
+3. All open paths verified
+4. Icon confirmed in title bar, taskbar, Start Menu, and EXE
+
+### Files Changed
+
+- `main.py` — Icon path expansion, status bar diagnostics, version bump
+- `.github/workflows/release.yml` — Added `--add-data "assets;assets"`
+- `.github/workflows/build-windows.yml` — Added `--add-data "assets;assets"`
+- `CHANGELOG.md` — This entry
+
 ## v1.0.5 — Windows Distribution + Open Flow Fix — 2026-06-10
 
 - **Version:** Bumped `__version__` to `1.0.5-dev`.

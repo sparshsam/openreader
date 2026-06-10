@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.0.5-dev"
+__version__ = "1.0.6-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
@@ -1352,6 +1352,7 @@ class PdfReaderWindow(QMainWindow):
     def open_pdf(self, file_name: str | None = None):
         """Primary open entry point — all open paths converge here."""
         self._log_update(f"open_pdf called with file_name={file_name}")
+        self.statusBar().showMessage("Opening file...", 2000)
         if file_name is None:
             start_dir = self.settings.value("lastFolder", str(Path.home()))
             file_name, _ = QFileDialog.getOpenFileName(
@@ -1361,10 +1362,13 @@ class PdfReaderWindow(QMainWindow):
                 "PDF Files (*.pdf)",
             )
         if not file_name:
-            self._log_update("open_pdf: no file selected")
+            self._log_update("open_pdf: no file selected / dialog cancelled")
+            self.statusBar().showMessage("Open cancelled", 3000)
             return
         file_path = str(Path(file_name).resolve())
         self._log_update(f"open_pdf: resolved path={file_path}")
+        self.statusBar().showMessage(f"Opening {Path(file_path).name}...", 3000)
+        QApplication.processEvents()
         tab_data = TabData(name=Path(file_path).name)
         self._create_tab(tab_data)
         self.load_pdf(file_path)
@@ -2528,30 +2532,50 @@ class PdfReaderWindow(QMainWindow):
         dlg.exec()
 
     def _set_app_icon(self):
-        """Set window icon from bundled .ico file with fallback logging."""
+        """Set window icon from bundled .ico file with exhaustive fallback logging."""
         icon_paths = []
-        # Frozen (PyInstaller) build: icon next to the EXE in assets/
-        if getattr(sys, "frozen", False):
-            frozen_asset = Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico"
-            icon_paths.append(frozen_asset)
-        # Dev/source build: icon in repo root assets/
-        src_asset = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
-        icon_paths.append(src_asset)
-        # Also check _internal/assets/ for some frozen layouts
-        if getattr(sys, "frozen", False):
-            internal_asset = Path(sys.executable).parent / "_internal" / "assets" / "pdfreader_by_sparsh.ico"
-            icon_paths.append(internal_asset)
 
+        # 1. Frozen (PyInstaller) standard onedir layout: assets/ next to EXE
+        if getattr(sys, "frozen", False):
+            icon_paths.append(Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico")
+            # 2. _internal/assets/ layout (some PyInstaller configs)
+            icon_paths.append(Path(sys.executable).parent / "_internal" / "assets" / "pdfreader_by_sparsh.ico")
+
+        # 3. Dev/source build: icon in repo root assets/
+        icon_paths.append(Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico")
+
+        # 4. Frozen with MEIPASS (legacy PyInstaller attribute)
+        if getattr(sys, "frozen", False) and hasattr(sys, '_MEIPASS'):
+            icon_paths.append(Path(sys._MEIPASS) / "assets" / "pdfreader_by_sparsh.ico")
+
+        # Try each path
         for p in icon_paths:
             if p and p.exists():
-                self.setWindowIcon(QIcon(str(p)))
+                qicon = QIcon(str(p))
+                self.setWindowIcon(qicon)
+                # Also set on the application so taskbar picks it up
+                QApplication.setWindowIcon(qicon)
                 self._log_update(f"icon_set={p}")
                 return
+
+        # All bundled paths failed — search the install directory recursively
+        if getattr(sys, "frozen", False):
+            exe_dir = Path(sys.executable).parent
+            try:
+                for ico in exe_dir.rglob("pdfreader_by_sparsh.ico"):
+                    qicon = QIcon(str(ico))
+                    self.setWindowIcon(qicon)
+                    QApplication.setWindowIcon(qicon)
+                    self._log_update(f"icon_set_recursive={ico}")
+                    return
+            except Exception:
+                pass
 
         # Log failure and fall back to style icon
         self._log_update("icon_not_found: checked paths=" + ";".join(str(p) for p in icon_paths if p))
         icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
         self.setWindowIcon(icon)
+        QApplication.setWindowIcon(icon)
 
     def check_for_updates_silent(self):
         """Silent update check — no user-visible feedback unless update is found."""
@@ -3719,6 +3743,12 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName(PdfReaderWindow.APP_NAME)
     app.setOrganizationName("Sparsh")
+
+    # Set app-level icon before window creation for taskbar/Wayland
+    icon_path = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
     window = PdfReaderWindow()
     window.show()
     if len(sys.argv) > 1:
