@@ -1,11 +1,16 @@
 name: Build Windows EXE
 
 on:
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: "Version string override (e.g. '1.0.6-test')"
+        required: false
+        default: ""
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   build:
@@ -23,14 +28,25 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Inject version from git tag
+      - name: Inject version
         shell: bash
         run: |
-          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+          # Version priority:
+          # 1. Manual input from workflow_dispatch
+          # 2. Git tag (tagged push)
+          # 3. Branch name (non-main branches = test build)
+          # 4. Fallback
+
+          if [[ -n "${{ github.event.inputs.version_override }}" ]]; then
+            VERSION="${{ github.event.inputs.version_override }}"
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
+          elif [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            VERSION="${GITHUB_REF_NAME}-test"
           else
             VERSION="0.0.0-dev"
           fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           python scripts/inject_version.py "$VERSION"
 
       - name: Install dependencies
@@ -42,12 +58,66 @@ jobs:
         run: |
           pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
 
+      - name: Determine artifact suffix
+        shell: bash
+        run: |
+          # Use -test suffix for all non-release builds
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref_type }}" == "tag" ]]; then
+            echo "ARTIFACT_SUFFIX=" >> "$GITHUB_ENV"
+          else
+            echo "ARTIFACT_SUFFIX=-test" >> "$GITHUB_ENV"
+          fi
+
       - name: Package as ZIP
         run: |
-          Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
+          Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows${{ env.ARTIFACT_SUFFIX }}.zip"
 
-      - name: Upload executable artifact
+      - name: Build Inno Setup installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "$env:VERSION"
+          $suffix = "$env:ARTIFACT_SUFFIX"
+
+          Write-Host "=== Installing Inno Setup ==="
+          choco install innosetup --no-progress --limit-output -y 2>&1
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 1641 -and $LASTEXITCODE -ne 3010) {
+            throw "Chocolatey install failed with exit code $LASTEXITCODE"
+          }
+          refreshenv
+
+          Write-Host "=== Locating ISCC.exe ==="
+          $iscc = (Get-Command "iscc.exe" -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) {
+            $paths = @(
+              "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+              "${env:ProgramFiles}\Inno Setup 6\ISCC.exe",
+              "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe"
+            )
+            foreach ($p in $paths) { if (Test-Path $p) { $iscc = $p; break } }
+          }
+          if (-not $iscc) { throw "ISCC.exe not found" }
+          Write-Host "Using ISCC: $iscc"
+
+          Write-Host "=== Building installer via ISCC ==="
+          $srcDir = (Get-Item "dist\PDFReader by Sparsh").FullName
+          Write-Host "Source dir: $srcDir"
+          & $iscc /Q "/DAppVersion=$version" "/DAppSourceDir=$srcDir" installer/setup.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
+
+          $expected = "PDFReader-by-Sparsh-$version-Setup.exe"
+          if (Test-Path $expected) {
+            $outputName = "PDFReader-by-Sparsh-Setup$suffix.exe"
+            Copy-Item $expected $outputName
+            Write-Host "=== SUCCESS: $outputName ==="
+          } else {
+            throw "Setup.exe not found at $expected"
+          }
+
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: PDFReader-by-Sparsh-Windows
-          path: PDFReader-by-Sparsh-Windows.zip
+          name: build-windows
+          path: |
+            PDFReader-by-Sparsh-Windows${{ env.ARTIFACT_SUFFIX }}.zip
+            PDFReader-by-Sparsh-Setup${{ env.ARTIFACT_SUFFIX }}.exe
