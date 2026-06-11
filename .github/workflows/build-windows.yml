@@ -42,7 +42,8 @@ jobs:
           elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           elif [[ "${GITHUB_REF_NAME}" != "main" ]]; then
-            VERSION="${GITHUB_REF_NAME}-test"
+            BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
+            VERSION="${BRANCH//\//-}-test"
           else
             VERSION="0.0.0-dev"
           fi
