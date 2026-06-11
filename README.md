@@ -50,7 +50,7 @@ The app is intentionally local-first: PDFs are opened, rendered, searched, merge
 Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest).
 
 | Platform | Recommended Download | Alternative | Notes |
-|---|---|---|---|---|
+|---|---|---|---|
 | Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | Use Setup.exe for normal installation (requires admin — see [Windows installer notes](SUPPORT.md#windows-installer)). ZIP remains for updater/portable/manual use. |
 | macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
 | macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
@@ -321,7 +321,7 @@ This project is one piece of that broader picture. The immediate goal is a genui
 
 ```text
 .
-| .github/                 # CI, security checks, Dependabot
+├── .github/                 # CI, security checks, Dependabot
 ├── assets/                  # App icon and README screenshots
 ├── docs/                    # Platform notes and known limitations
 ├── installer/               # Inno Setup installer script
@@ -344,12 +344,18 @@ Contributions are welcome for non-commercial use cases. Please read [CONTRIBUTIN
 
 ---
 
-*Last updated: July 2026*
+*Last updated: June 2026*
 
 ## Tech Stack
 
 | Layer | Choice |
 |-------|--------|
-| Language | Python |
-| Platform | Cross-platform (Windows, macOS) |
-| UI | Desktop native |
+| Language | Python 3.11+ |
+| UI Framework | PySide6 (Qt 6) |
+| PDF Rendering | PyMuPDF (MuPDF) |
+| Search | SQLite FTS5 (keyword), TF-IDF (semantic) |
+| OCR | PyMuPDF / Tesseract integration |
+| Packaging | PyInstaller |
+| Installer (Windows) | Inno Setup |
+| CI/CD | GitHub Actions |
+| Security scanning | Bandit, pip-audit |
