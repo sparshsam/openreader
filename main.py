@@ -1547,7 +1547,7 @@ class PdfReaderWindow(QMainWindow):
                     fallback_tab.document = self._safe_open_pdf(fallback_tab.path)
                     self.document = fallback_tab.document
                     self.current_path = fallback_tab.path
-                except Exception:
+                except Exception:  # nosec B110 — fallback: skip failed tab, continue restoring others
                     pass
             self._restore_current_tab_controls()
             self.clear_text_selection(render=False)
@@ -2877,7 +2877,7 @@ class PdfReaderWindow(QMainWindow):
                     QApplication.setWindowIcon(qicon)
                     self._log_update(f"icon_set_recursive={ico}")
                     return
-            except Exception:
+            except Exception:  # nosec B110 — last-resort icon search; real fallback follows
                 pass
 
         # Log failure and fall back to style icon
