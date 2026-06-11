@@ -43,7 +43,7 @@ PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with 
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.0.0** declares this project a stable desktop utility with production-grade release discipline, verified distribution flows, and documented limitations.
+**v1.0.6** is the current stable release — production-quality with a verified Windows installer, automatic updates, tabbed PDFs, and safer document handling. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
@@ -257,6 +257,11 @@ These features are shipped in the latest release.
 - **Windows installer** — Inno Setup installer with `.pdf` file association and Start Menu entry
 - **OCR setup docs** — per-platform Tesseract installation guide above
 - **macOS auto-update** — PID-based process wait, retry logic, Gatekeeper quarantine clearance
+
+### ❄️ v1.0.6 — Current Stable (Frozen)
+
+v1.0.6 is the current production release. It will receive **only critical bug fixes**.
+Non-critical improvements, visual polish, and new features move to [v1.1.0+](docs/v1.1.0-plan.md).
 
 ### Near-Term
 Items in active or planned development.

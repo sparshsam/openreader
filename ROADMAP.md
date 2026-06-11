@@ -2,6 +2,13 @@
 
 > Stable, local-first desktop PDF utility.
 
+## ❄️ v1.0.6 — Current Stable (Frozen)
+
+v1.0.6 is the current stable release. It will receive **only critical bug fixes**.
+Non-critical improvements, visual polish, and new features move to v1.1.0+.
+
+See the [v1.1.0 Plan](docs/v1.1.0-plan.md) for upcoming scope.
+
 ## ✓ v1.0.0 — Shipped
 
 - [x] PDF reading and navigation (single-page, zoom, fit-width)
