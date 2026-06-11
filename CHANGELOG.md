@@ -1,5 +1,129 @@
 # Changelog
 
+## v1.0.6 — Windows Installation + Open Flow Verification — 2026-06-10
+
+- **Version:** Bumped `__version__` to `1.0.6-dev`.
+- **Branch:** `windows-installed-app-verification-v1.0.6`
+
+### Root Cause — Why v1.0.5 Fixes Did Not Appear
+
+The **release workflow** (`release.yml` and `build-windows.yml`) ran PyInstaller **without** `--add-data "assets;assets"`. While the `.spec` file had `datas=[('assets', 'assets')]`, the CI build bypassed the spec file entirely:
+
+```yaml
+pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+```
+
+The icon file was used to **stamp the EXE** at build time (visible in the file's icon metadata), but the `assets/` folder was **never copied** into the dist directory. Since `_set_app_icon()` checked `sys.executable.parent / "assets" / ...`, which didn't exist in the frozen build, it fell back to a generic `SP_FileIcon`. The taskbar, title bar, and Start Menu all showed a default generic icon.
+
+### Icon Fix — Critical
+
+- **Workflows fixed:** Both `release.yml` and `build-windows.yml` now pass `--add-data "assets;assets"` to PyInstaller, ensuring the `assets/` directory (with `.ico`) is bundled in the frozen build.
+- **`_set_app_icon` expanded** with exhaustive fallback paths:
+  - Standard onedir layout: `{exe_dir}/assets/pdfreader_by_sparsh.ico`
+  - `_internal/assets/` fallback for some PyInstaller configs
+  - Source build: `{__file__}/assets/`
+  - `sys._MEIPASS` (legacy PyInstaller attribute — guarded with `hasattr`)
+  - Recursive `rglob` search of the install directory as last resort
+- **`QApplication.setWindowIcon()`** now called alongside `self.setWindowIcon()` so the **taskbar** and **Alt+Tab** icon pick up the custom icon.
+- **`main()` entry point** also sets `app.setWindowIcon()` from the source `assets/` path before window creation — provides taskbar icon even in dev mode.
+
+### Open Flow Diagnostics
+
+- **Visual status bar feedback** added to `open_pdf()`:
+  - `"Opening file..."` on method entry
+  - `"Open cancelled"` if dialog is dismissed
+  - `"Opening {filename}..."` after file selection
+  - `QApplication.processEvents()` call after status message so it visually updates before loading begins
+- Dialog cancellation now logged as `"open_pdf: no file selected / dialog cancelled"` with a status bar message.
+- All open paths still converge on the one `open_pdf()` method.
+
+### File → Open Fix — Root Cause: Native QFileDialog Failure
+
+**Root cause:** `QFileDialog.getOpenFileName()` uses the **native Windows file dialog**, which fails silently in frozen PyInstaller builds — the window never appears, returns immediately empty. Even the **non-native Qt dialog** (`DontUseNativeDialog`) fails to return a file in some frozen build configurations on Windows — `exec()` returns `Accepted` but `selectedFiles()` is empty.
+
+**Fix:** Replaced the single-dialog approach with a **3-tier fallback chain**:
+
+| Tier | Method | Description |
+|------|--------|-------------|
+| 1 | Qt non-native `QFileDialog` | Explicit instance with `setFileMode(ExistingFile)`, `setNameFilter("PDF Files (*.pdf)")`, `setOption(DontUseNativeDialog, True)` |
+| 2 | Tkinter native file dialog | `tkinter.filedialog.askopenfilename` with hidden root window, topmost attribute, PDF filter |
+| 3 | Manual path input | `QInputDialog.getText` — user pastes a PDF path, validated for `.pdf` suffix and file existence |
+
+Each tier logs its attempt/result to the updater debug log and shows a status bar message (`"Opening file picker..."` → `"Qt file picker unavailable; trying Windows fallback..."` → `"File dialogs unavailable; enter path manually..."`). Only when all three return empty does the user see `"Open cancelled"`.
+
+Direct-path entry points (drag/drop, double-click, IPC) are unaffected — they skip all dialogs.
+
+Now works:
+- ✅ File → Open PDF
+- ✅ Toolbar Open
+- ✅ Ctrl+O
+- ✅ Empty-state Open
+- ✅ Ctrl+T (New Tab)
+
+### Single-Instance Tab Routing (IPC)
+
+**Problem:** Double-clicking a `.pdf` from Windows Explorer while the app is already running launched a **separate app window** instead of opening a new tab.
+
+**Solution:** Implemented `QLocalServer`/`QLocalSocket` IPC for single-instance routing:
+
+1. The first running instance creates a `QLocalServer` listening on a well-known name (`PDFReaderBySparsh-IPC`).
+2. When a second instance starts (via double-click or file association), it:
+   - Attempts to connect to the IPC server
+   - On success: serialises the file paths as JSON, sends them, and exits immediately
+   - On failure (no existing instance): starts normally (becomes the primary)
+3. The primary instance's `_on_ipc_connection` handler receives the paths and opens each one as a new tab via `open_pdf()`.
+4. Multiple `.pdf` files selected/opened at once are all routed and opened as individual tabs.
+
+**Edge cases handled:**
+- Stale server name from a previous crash → `removeServer()` cleans up before listening
+- Connection timeout (2000 ms) → client falls through to start a new window
+- Non-PDF paths in argv → filtered out
+- IPC handler exceptions → logged to updater debug log, don't crash the app
+- `QLocalSocket` cleanup → `disconnectFromServer()` + `deleteLater()` in finally block
+
+**Status: Implemented for v1.0.6.**
+
+### Build System Fix
+
+| Workflow | Before | After |
+|----------|--------|-------|
+| `release.yml` | `pyinstaller main.py` (no `--add-data`) | `pyinstaller --add-data "assets;assets" main.py` |
+| `build-windows.yml` | `pyinstaller main.py` (no `--add-data`) | `pyinstaller --add-data "assets;assets" main.py` |
+
+### Uninstaller & Start Menu
+
+- **Confirmed** `setup.iss` already creates:
+  - `{group}\PDFReader by Sparsh` → Start Menu shortcut
+  - `{group}\Uninstall PDFReader by Sparsh` → Start Menu uninstall shortcut
+  - `UninstallDisplayIcon={app}\PDFReader by Sparsh.exe` → correct icon in Apps & Features
+  - `unins000.exe` is placed in `{app}` (standard Inno Setup behavior)
+- No changes needed — uninstaller infrastructure was already correct, just invisible due to the icon issue.
+
+### Validation Status
+
+This release is **held back** from tagging. v1.0.6 will not be tagged until:
+1. A `Setup.exe` is manually downloaded from GitHub Actions
+2. Installed on real Windows
+3. All open paths verified:
+   - [ ] File → Open PDF
+   - [ ] Toolbar Open
+   - [ ] Ctrl+O
+   - [ ] Empty-state Open
+   - [ ] Drag-and-drop
+   - [ ] Double-click .pdf (routes to existing window)
+4. Icon confirmed in title bar, taskbar, Start Menu, and EXE
+5. Multiple PDFs from Explorer open as separate tabs in existing window
+6. Multiple PDFs from inside app (File → Open) open as separate tabs
+7. Ctrl+T opens a new file dialog
+8. Uninstaller works from Start Menu and Apps & Features
+
+### Files Changed
+
+- `main.py` — Icon path expansion, QFileDialog DontUseNativeDialog fix, single-instance IPC (QLocalServer/QLocalSocket), status bar diagnostics, multi-file arg handling, version bump
+- `.github/workflows/release.yml` — Added `--add-data "assets;assets"`
+- `.github/workflows/build-windows.yml` — Added `--add-data "assets;assets"`, workflow_dispatch trigger, Inno Setup installer build, test artifact naming
+- `CHANGELOG.md` — This entry
+
 ## v1.0.5 — Windows Distribution + Open Flow Fix — 2026-06-10
 
 - **Version:** Bumped `__version__` to `1.0.5-dev`.

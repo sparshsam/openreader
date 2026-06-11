@@ -11,9 +11,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap
-from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
+from PySide6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QScrollBar,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
     QStatusBar,
@@ -45,16 +46,18 @@ from PySide6.QtWidgets import (
     QTextBrowser,
     QTextEdit,
     QToolBar,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
 
-__version__ = "1.0.5-dev"
+__version__ = "1.0.6-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
 MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
+IPC_SERVER_NAME = "PDFReaderBySparsh-IPC"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
@@ -191,10 +194,14 @@ QScrollArea {
     background-color: #e0e0e0;
     border: none;
 }
+#TabStrip {
+    background-color: #e0e0e0;
+    border-bottom: 1px solid #d0d0d0;
+}
 QTabBar::tab {
     background-color: #e0e0e0;
     color: #666666;
-    padding: 6px 18px;
+    padding: 6px 16px 6px 18px;
     border: none;
     border-right: 1px solid #d0d0d0;
     min-height: 24px;
@@ -208,17 +215,37 @@ QTabBar::tab:hover:!selected {
     background-color: #d8d8d8;
     color: #1a1a1a;
 }
-QTabBar::close-button {
-    image: none;
+QToolButton#NewTabButton {
+    background-color: transparent;
+    color: #666666;
+    border: 1px solid transparent;
+    border-radius: 3px;
+}
+QToolButton#NewTabButton {
+    font-size: 16px;
+    font-weight: 400;
+    margin: 0px 8px 0px 4px;
+}
+QToolButton#NewTabButton:hover {
+    background-color: #d6d6d6;
+    border-color: transparent;
+    color: #1a1a1a;
+}
+QToolButton#TabCloseButton {
     background-color: transparent;
     border: none;
-    padding: 2px;
-    margin: 2px;
-    color: #666666;
+    border-radius: 4px;
+    color: #6b7280;
+    font-size: 17px;
+    font-weight: 400;
+    padding: 0px;
 }
-QTabBar::close-button:hover {
-    background-color: #e74c3c;
-    border-radius: 3px;
+QToolButton#TabCloseButton:hover {
+    background-color: #e05252;
+    color: #ffffff;
+}
+QToolButton#TabCloseButton:pressed {
+    background-color: #c83f3f;
     color: #ffffff;
 }
 QMenuBar {
@@ -383,10 +410,14 @@ QScrollArea {
     background-color: #1a1b26;
     border: none;
 }
+#TabStrip {
+    background-color: #13141f;
+    border-bottom: 1px solid #292e42;
+}
 QTabBar::tab {
     background-color: #13141f;
     color: #565f89;
-    padding: 6px 18px;
+    padding: 6px 16px 6px 18px;
     border: none;
     border-right: 1px solid #292e42;
     min-height: 24px;
@@ -400,18 +431,38 @@ QTabBar::tab:hover:!selected {
     background-color: #292e42;
     color: #c0caf5;
 }
-QTabBar::close-button {
-    image: none;
+QToolButton#NewTabButton {
+    background-color: transparent;
+    color: #8b93b5;
+    border: 1px solid transparent;
+    border-radius: 3px;
+}
+QToolButton#NewTabButton {
+    font-size: 16px;
+    font-weight: 400;
+    margin: 0px 8px 0px 4px;
+}
+QToolButton#NewTabButton:hover {
+    background-color: #292e42;
+    border-color: transparent;
+    color: #c0caf5;
+}
+QToolButton#TabCloseButton {
     background-color: transparent;
     border: none;
-    padding: 2px;
-    margin: 2px;
-    color: #565f89;
+    border-radius: 4px;
+    color: #7d86a9;
+    font-size: 17px;
+    font-weight: 400;
+    padding: 0px;
 }
-QTabBar::close-button:hover {
-    background-color: #f7768e;
-    border-radius: 3px;
-    color: #1a1b26;
+QToolButton#TabCloseButton:hover {
+    background-color: #e05252;
+    color: #ffffff;
+}
+QToolButton#TabCloseButton:pressed {
+    background-color: #c83f3f;
+    color: #ffffff;
 }
 QMenuBar {
     background-color: #13141f;
@@ -606,12 +657,41 @@ class PdfReaderWindow(QMainWindow):
     ANNOT_HIGHLIGHT = (1.0, 0.882, 0.235)      # yellow
     ANNOT_UNDERLINE = (0.075, 0.533, 0.867)    # blue
     ANNOT_STRIKEOUT = (0.953, 0.318, 0.302)    # red
+    ABOUT_SHORTCUTS = (
+        ("Open PDF", "Ctrl+O"),
+        ("Save", "Ctrl+S"),
+        ("Find", "Ctrl+F"),
+        ("Copy", "Ctrl+C"),
+        ("Prev / Next Page", "Page Up / Page Down"),
+        ("Zoom In / Out", "Ctrl+= / Ctrl+-"),
+        ("Fit Width", "Ctrl+0"),
+        ("Close Tab", "Ctrl+W"),
+        ("New Tab", "Ctrl+T"),
+    )
+    REGISTERED_SHORTCUTS = (
+        ("open_pdf", "Ctrl+O"),
+        ("save", "Ctrl+S"),
+        ("find", "Ctrl+F"),
+        ("copy", "Ctrl+C"),
+        ("previous_page", "Page Up"),
+        ("next_page", "Page Down"),
+        ("zoom_in", "Ctrl+="),
+        ("zoom_out", "Ctrl+-"),
+        ("fit_width", "Ctrl+0"),
+        ("close_tab", "Ctrl+W"),
+        ("new_tab", "Ctrl+T"),
+    )
 
-    def __init__(self):
+    def __init__(self, ipc_server: QLocalServer | None = None):
         _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
         self.resize(1000, 800)
+
+        # ---- IPC server for single-instance tab routing ----
+        self._ipc_server = ipc_server
+        if ipc_server is not None:
+            ipc_server.newConnection.connect(self._on_ipc_connection)
 
         # ---- Continuous scroll ----
         self._continuous_mode = True  # default to continuous
@@ -678,8 +758,10 @@ class PdfReaderWindow(QMainWindow):
         self._build_ui()
         self._build_actions()
         self._build_menus()
+        self._build_shortcuts()
         self._apply_theme()
         self._update_controls()
+        QApplication.instance().installEventFilter(self)
 
         # Defer non-critical init to after window is shown
         QTimer.singleShot(0, self._update_recent_menu)
@@ -706,18 +788,39 @@ class PdfReaderWindow(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Tab bar
+        # Tab strip
+        tab_strip = QWidget()
+        tab_strip.setObjectName("TabStrip")
+        tab_strip_layout = QHBoxLayout(tab_strip)
+        tab_strip_layout.setContentsMargins(0, 0, 0, 0)
+        tab_strip_layout.setSpacing(0)
+
         self.tab_bar = QTabBar()
-        self.tab_bar.setTabsClosable(True)
+        self.tab_bar.setTabsClosable(False)
         self.tab_bar.setMovable(True)
         self.tab_bar.setExpanding(False)
         self.tab_bar.setDocumentMode(True)
         self.tab_bar.setDrawBase(False)
         self.tab_bar.setUsesScrollButtons(True)
+        self.tab_bar.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         self.tab_bar.tabBarDoubleClicked.connect(self._on_tab_double_click)
-        self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
         self.tab_bar.currentChanged.connect(self._on_tab_switch)
-        root.addWidget(self.tab_bar)
+        tab_strip_layout.addWidget(self.tab_bar)
+
+        self.new_tab_button = QToolButton()
+        self.new_tab_button.setText("+")
+        self.new_tab_button.setObjectName("NewTabButton")
+        self.new_tab_button.setFixedSize(28, 28)
+        self.new_tab_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+        self.new_tab_button.setAutoRaise(True)
+        self.new_tab_button.setCursor(Qt.PointingHandCursor)
+        self.new_tab_button.setToolTip("Open another PDF")
+        self.new_tab_button.setAccessibleName("Open another PDF")
+        self.new_tab_button.clicked.connect(self.open_pdf)
+        tab_strip_layout.addWidget(self.new_tab_button)
+        tab_strip_layout.addStretch(1)
+
+        root.addWidget(tab_strip)
 
         # Controls bar
         controls_widget = QWidget()
@@ -887,56 +990,135 @@ class PdfReaderWindow(QMainWindow):
         style = self.style()
 
         open_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton), "Open", self)
-        open_action.setShortcut(QKeySequence.Open)
         open_action.triggered.connect(self.open_pdf)
         toolbar.addAction(open_action)
 
         toolbar.addSeparator()
         save_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton), "Save", self)
-        save_action.setShortcut(QKeySequence.Save)
         save_action.triggered.connect(self._save_document)
         toolbar.addAction(save_action)
 
         toolbar.addSeparator()
         prev_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "Previous Page", self)
-        prev_action.setShortcut(QKeySequence(Qt.Key_PageUp))
         prev_action.triggered.connect(self.previous_page)
         toolbar.addAction(prev_action)
 
         next_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "Next Page", self)
-        next_action.setShortcut(QKeySequence(Qt.Key_PageDown))
         next_action.triggered.connect(self.next_page)
         toolbar.addAction(next_action)
 
         toolbar.addSeparator()
         zoom_in_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp), "Zoom In", self)
-        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
         zoom_in_action.triggered.connect(self.zoom_in)
         toolbar.addAction(zoom_in_action)
 
         zoom_out_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown), "Zoom Out", self)
-        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
         zoom_out_action.triggered.connect(self.zoom_out)
         toolbar.addAction(zoom_out_action)
 
         toolbar.addSeparator()
         find_action = QAction("Find", self)
-        find_action.setShortcut(QKeySequence.Find)
         find_action.triggered.connect(self.focus_search)
-        self.addAction(find_action)
         toolbar.addAction(find_action)
 
-        # Close Tab
-        close_tab_action = QAction("Close Tab", self)
-        close_tab_action.setShortcut(QKeySequence("Ctrl+W"))
-        close_tab_action.triggered.connect(self._close_current_tab)
-        self.addAction(close_tab_action)
+    @staticmethod
+    def _menu_label(label: str, shortcut: str) -> str:
+        return f"{label}\t{shortcut}"
 
-        # New Tab
-        new_tab_action = QAction("New Tab", self)
-        new_tab_action.setShortcut(QKeySequence("Ctrl+T"))
-        new_tab_action.triggered.connect(self.open_pdf)
-        self.addAction(new_tab_action)
+    def _build_shortcuts(self):
+        self._app_shortcuts: list[QShortcut] = []
+        shortcut_handlers = {
+            "open_pdf": self.open_pdf,
+            "save": self._save_document,
+            "find": self.focus_search,
+            "copy": self._copy_shortcut,
+            "previous_page": self.previous_page,
+            "next_page": self.next_page,
+            "zoom_in": self.zoom_in,
+            "zoom_out": self.zoom_out,
+            "fit_width": self._fit_width_shortcut,
+            "close_tab": self._close_current_tab,
+            "new_tab": self.open_pdf,
+        }
+        for shortcut_id, sequence in self.REGISTERED_SHORTCUTS:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.setContext(Qt.ApplicationShortcut)
+            shortcut.activated.connect(shortcut_handlers[shortcut_id])
+            self._app_shortcuts.append(shortcut)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and self.isActiveWindow():
+            if self._handle_shortcut_key_event(event):
+                return True
+        return super().eventFilter(obj, event)
+
+    def _handle_shortcut_key_event(self, event) -> bool:
+        modifiers = event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier | Qt.AltModifier | Qt.MetaModifier)
+        key = event.key()
+        if modifiers == Qt.NoModifier:
+            if key == Qt.Key_PageUp:
+                self.previous_page()
+                return True
+            if key == Qt.Key_PageDown:
+                self.next_page()
+                return True
+            return False
+        if modifiers != Qt.ControlModifier:
+            return False
+
+        ctrl_handlers = {
+            Qt.Key_O: self.open_pdf,
+            Qt.Key_T: self.open_pdf,
+            Qt.Key_W: self._close_current_tab,
+            Qt.Key_F: self.focus_search,
+            Qt.Key_S: self._save_document,
+            Qt.Key_Equal: self.zoom_in,
+            Qt.Key_Plus: self.zoom_in,
+            Qt.Key_Minus: self.zoom_out,
+            Qt.Key_0: self._fit_width_shortcut,
+        }
+        if key == Qt.Key_C:
+            focus = QApplication.focusWidget()
+            if isinstance(focus, QLineEdit) and focus.hasSelectedText():
+                return False
+            if isinstance(focus, QTextEdit) and focus.textCursor().hasSelection():
+                return False
+            self._copy_shortcut()
+            return True
+        handler = ctrl_handlers.get(key)
+        if handler is None:
+            return False
+        handler()
+        return True
+
+    def _copy_shortcut(self):
+        focus = QApplication.focusWidget()
+        if isinstance(focus, QLineEdit) and focus.hasSelectedText():
+            focus.copy()
+            return
+        if isinstance(focus, QTextEdit) and focus.textCursor().hasSelection():
+            focus.copy()
+            return
+        self.copy_selected_text()
+
+    def _fit_width_shortcut(self):
+        if self.document is None:
+            return
+        self._on_fit_toggled(True)
+
+    def _show_empty_state(self):
+        if self.scroll_area.widget() is not self.empty_state_widget:
+            self.scroll_area.takeWidget()
+            self.scroll_area.setWidget(self.empty_state_widget)
+            self.scroll_area.setWidgetResizable(True)
+
+    @classmethod
+    def _about_shortcuts_html(cls) -> str:
+        rows = "\n".join(
+            f"<tr><td><b>{label}</b></td><td style='padding-left:16px;color:#888;'>{shortcut}</td></tr>"
+            for label, shortcut in cls.ABOUT_SHORTCUTS
+        )
+        return f"<table style='font-size:12px; line-height:1.8; margin: 0 auto;'>{rows}</table>"
 
     def _build_menus(self):
         """File / Edit / View / Tools / Help menu bar."""
@@ -945,8 +1127,7 @@ class PdfReaderWindow(QMainWindow):
         # ── File ──
         file_menu = menubar.addMenu("File")
 
-        file_open = QAction("Open PDF", self)
-        file_open.setShortcut(QKeySequence.Open)
+        file_open = QAction(self._menu_label("Open PDF", "Ctrl+O"), self)
         file_open.triggered.connect(self.open_pdf)
         file_menu.addAction(file_open)
 
@@ -957,19 +1138,16 @@ class PdfReaderWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        close_tab = QAction("Close Tab", self)
-        close_tab.setShortcut(QKeySequence("Ctrl+W"))
+        close_tab = QAction(self._menu_label("Close Tab", "Ctrl+W"), self)
         close_tab.triggered.connect(self._close_current_tab)
         file_menu.addAction(close_tab)
 
         close_all = QAction("Close All Tabs", self)
-        close_all.setShortcut(QKeySequence("Ctrl+Shift+W"))
         close_all.triggered.connect(self._close_all_tabs)
         file_menu.addAction(close_all)
 
         file_menu.addSeparator()
-        file_save = QAction("Save PDF", self)
-        file_save.setShortcut(QKeySequence.Save)
+        file_save = QAction(self._menu_label("Save PDF", "Ctrl+S"), self)
         file_save.triggered.connect(self._save_document)
         file_menu.addAction(file_save)
 
@@ -983,16 +1161,14 @@ class PdfReaderWindow(QMainWindow):
         # ── Edit ──
         edit_menu = menubar.addMenu("Edit")
 
-        copy_action = QAction("Copy Selected Text", self)
-        copy_action.setShortcut(QKeySequence.Copy)
+        copy_action = QAction(self._menu_label("Copy Selected Text", "Ctrl+C"), self)
         copy_action.triggered.connect(self.copy_selected_text)
         edit_menu.addAction(copy_action)
         self.copy_action = copy_action
 
         edit_menu.addSeparator()
 
-        find_menu_action = QAction("Find", self)
-        find_menu_action.setShortcut(QKeySequence.Find)
+        find_menu_action = QAction(self._menu_label("Find", "Ctrl+F"), self)
         find_menu_action.triggered.connect(self.focus_search)
         edit_menu.addAction(find_menu_action)
 
@@ -1017,17 +1193,15 @@ class PdfReaderWindow(QMainWindow):
         self._sync_theme_menu_checks()
         view_menu.addSeparator()
 
-        zoom_in_action = QAction("Zoom In", self)
-        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
+        zoom_in_action = QAction(self._menu_label("Zoom In", "Ctrl+="), self)
         zoom_in_action.triggered.connect(self.zoom_in)
         view_menu.addAction(zoom_in_action)
 
-        zoom_out_action = QAction("Zoom Out", self)
-        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
+        zoom_out_action = QAction(self._menu_label("Zoom Out", "Ctrl+-"), self)
         zoom_out_action.triggered.connect(self.zoom_out)
         view_menu.addAction(zoom_out_action)
 
-        fit_action = QAction("Fit Width", self, checkable=True)
+        fit_action = QAction(self._menu_label("Fit Width", "Ctrl+0"), self, checkable=True)
         fit_action.setChecked(True)
         fit_action.triggered.connect(self._on_fit_toggled)
         view_menu.addAction(fit_action)
@@ -1116,10 +1290,22 @@ class PdfReaderWindow(QMainWindow):
         self._apply_theme()
 
     def _apply_theme(self):
-        if self._dark_mode:
-            self.setStyleSheet(DARK_STYLESHEET)
-        else:
-            self.setStyleSheet(LIGHT_STYLESHEET)
+        stylesheet = DARK_STYLESHEET if self._dark_mode else LIGHT_STYLESHEET
+        self.setStyleSheet(stylesheet)
+
+    @staticmethod
+    def _asset_path(name: str) -> str:
+        candidates = []
+        if getattr(sys, "frozen", False):
+            candidates.append(Path(sys.executable).parent / "assets" / name)
+            candidates.append(Path(sys.executable).parent / "_internal" / "assets" / name)
+        candidates.append(Path(__file__).parent / "assets" / name)
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            candidates.append(Path(sys._MEIPASS) / "assets" / name)
+        for candidate in candidates:
+            if candidate.exists():
+                return candidate.as_posix()
+        return name
 
     # ------------------------------------------------------------------
     # Recent Files
@@ -1262,33 +1448,63 @@ class PdfReaderWindow(QMainWindow):
             self.search_count_label.setText("0")
 
     def _create_tab(self, tab_data: TabData) -> int:
+        self._save_current_state()
         tab_id = id(tab_data)
         self.tabs[tab_id] = tab_data
-        idx = self.tab_bar.addTab(tab_data.name)
-        self.tab_bar.setTabData(idx, tab_id)
-        self.tab_bar.setCurrentIndex(idx)
+        self.tab_bar.blockSignals(True)
+        try:
+            idx = self.tab_bar.addTab(tab_data.name)
+            self.tab_bar.setTabData(idx, tab_id)
+            self.tab_bar.setTabButton(idx, QTabBar.ButtonPosition.RightSide, self._create_tab_close_button(tab_id, tab_data.name))
+            self.tab_bar.setCurrentIndex(idx)
+        finally:
+            self.tab_bar.blockSignals(False)
+        self.current_tab_id = tab_id
         return tab_id
 
-    def _on_tab_close_requested(self, index: int):
-        tab_id = self.tab_bar.tabData(index)
-        if tab_id is not None:
-            self._close_tab(tab_id)
+    def _create_tab_close_button(self, tab_id: int, tab_name: str) -> QToolButton:
+        close_button = QToolButton(self.tab_bar)
+        close_button.setText("×")
+        close_button.setObjectName("TabCloseButton")
+        close_button.setFixedSize(20, 20)
+        close_button.setAutoRaise(True)
+        close_button.setCursor(Qt.PointingHandCursor)
+        close_button.setToolTip(f"Close {tab_name}")
+        close_button.setAccessibleName(f"Close {tab_name}")
+        close_button.clicked.connect(lambda _checked=False, tid=tab_id: self._close_tab(tid))
+        return close_button
 
     def _close_current_tab(self):
-        if self.current_tab_id is not None:
-            self._close_tab(self.current_tab_id)
+        tab_id = self.current_tab_id
+        if tab_id is None or tab_id not in self.tabs:
+            index = self.tab_bar.currentIndex()
+            if index >= 0:
+                tab_id = self.tab_bar.tabData(index)
+        if tab_id is not None:
+            self._close_tab(tab_id)
 
     def _close_tab(self, tab_id: int):
         if tab_id not in self.tabs:
             return
         tab = self.tabs[tab_id]
         was_current = tab_id == self.current_tab_id
+        if was_current:
+            self._save_current_state()
+        fallback_id = None
+        if was_current:
+            remaining_ids = [candidate_id for candidate_id in self.tabs.keys() if candidate_id != tab_id]
+            if remaining_ids:
+                fallback_id = remaining_ids[-1]
         if tab.document is not None:
             tab.document.close()
-        for i in range(self.tab_bar.count()):
-            if self.tab_bar.tabData(i) == tab_id:
-                self.tab_bar.removeTab(i)
-                break
+        self.tab_bar.blockSignals(True)
+        try:
+            for i in range(self.tab_bar.count()):
+                if self.tab_bar.tabData(i) == tab_id:
+                    self.tab_bar.removeTab(i)
+                    break
+        finally:
+            self.tab_bar.blockSignals(False)
         del self.tabs[tab_id]
 
         if not self.tabs:
@@ -1306,15 +1522,33 @@ class PdfReaderWindow(QMainWindow):
             self.ocr_text_pages = OrderedDict()
             self.ocr_warning_shown = False
             self.setWindowTitle(self.APP_NAME)
+            self._show_empty_state()
             self.page_label.setText("Open a PDF to begin")
             self.page_label.setPixmap(QPixmap())
             self.page_label.adjustSize()
             self._update_controls()
             return
 
-        if was_current and self.current_tab_id is not None and self.current_tab_id not in self.tabs:
-            fallback_id = next(iter(self.tabs.keys()))
+        if was_current and fallback_id in self.tabs:
+            self.tab_bar.blockSignals(True)
+            try:
+                for i in range(self.tab_bar.count()):
+                    if self.tab_bar.tabData(i) == fallback_id:
+                        self.tab_bar.setCurrentIndex(i)
+                        break
+            finally:
+                self.tab_bar.blockSignals(False)
             self._restore_state(fallback_id)
+            fallback_tab = self.tabs[fallback_id]
+            if fallback_tab.path and Path(fallback_tab.path).exists():
+                try:
+                    if fallback_tab.document is not None:
+                        fallback_tab.document.close()
+                    fallback_tab.document = self._safe_open_pdf(fallback_tab.path)
+                    self.document = fallback_tab.document
+                    self.current_path = fallback_tab.path
+                except Exception:
+                    pass
             self._restore_current_tab_controls()
             self.clear_text_selection(render=False)
             self.render_page()
@@ -1340,6 +1574,7 @@ class PdfReaderWindow(QMainWindow):
         self.ocr_text_pages = OrderedDict()
         self.ocr_warning_shown = False
         self.setWindowTitle(self.APP_NAME)
+        self._show_empty_state()
         self.page_label.setText("Open a PDF to begin")
         self.page_label.setPixmap(QPixmap())
         self.page_label.adjustSize()
@@ -1349,22 +1584,113 @@ class PdfReaderWindow(QMainWindow):
     # PDF File Operations
     # ------------------------------------------------------------------
 
-    def open_pdf(self, file_name: str | None = None):
-        """Primary open entry point — all open paths converge here."""
-        self._log_update(f"open_pdf called with file_name={file_name}")
-        if file_name is None:
-            start_dir = self.settings.value("lastFolder", str(Path.home()))
-            file_name, _ = QFileDialog.getOpenFileName(
-                self,
-                "Open PDF",
-                start_dir,
-                "PDF Files (*.pdf)",
+    def _pick_file_qt_dialog(self, start_dir: str) -> str | None:
+        """Tier 1: Non-native Qt file dialog."""
+        self.statusBar().showMessage("Opening file picker...", 2000)
+        QApplication.processEvents()
+        try:
+            dlg = QFileDialog(self, "Open PDF", start_dir)
+            dlg.setFileMode(QFileDialog.ExistingFile)
+            dlg.setNameFilter("PDF Files (*.pdf)")
+            dlg.setOption(QFileDialog.DontUseNativeDialog, True)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                selected = dlg.selectedFiles()
+                if selected:
+                    return selected[0]
+            self._log_update("qt_dialog: no file selected (cancelled or empty)")
+        except Exception as exc:
+            self._log_update(f"qt_dialog: exception={exc}")
+        return None
+
+    def _pick_file_tkinter(self) -> str | None:
+        """Tier 2: Tkinter native file dialog (Windows-safe fallback)."""
+        self.statusBar().showMessage("Qt file picker unavailable; trying Windows fallback...", 3000)
+        QApplication.processEvents()
+        self._log_update("tkinter_fallback: attempting")
+        try:
+            import tkinter as tk
+            from tkinter import filedialog
+            root = tk.Tk()
+            root.withdraw()
+            root.attributes("-topmost", True)
+            result = filedialog.askopenfilename(
+                title="Open PDF",
+                filetypes=[("PDF Files", "*.pdf")],
             )
-        if not file_name:
-            self._log_update("open_pdf: no file selected")
+            root.destroy()
+            if result:
+                self._log_update(f"tkinter_fallback: selected={result}")
+                return result
+            self._log_update("tkinter_fallback: cancelled")
+        except ImportError:
+            self._log_update("tkinter_fallback: tkinter not available")
+        except Exception as exc:
+            self._log_update(f"tkinter_fallback: exception={exc}")
+        return None
+
+    def _pick_file_manual_input(self) -> str | None:
+        """Tier 3: Manual path input dialog."""
+        self.statusBar().showMessage("File dialogs unavailable; enter path manually...", 3000)
+        QApplication.processEvents()
+        self._log_update("manual_input: attempting")
+        try:
+            path, ok = QInputDialog.getText(
+                self, "Open PDF", "Enter PDF file path:",
+            )
+            if ok and path:
+                path = path.strip().strip("\"'")
+                p = Path(path).expanduser()
+                if p.suffix.lower() == ".pdf" and p.exists():
+                    self._log_update(f"manual_input: path={p}")
+                    return str(p)
+                self._log_update(f"manual_input: invalid path={path}")
+                self.statusBar().showMessage(f"Invalid PDF path: {path}", 5000)
+            else:
+                self._log_update("manual_input: cancelled")
+        except Exception as exc:
+            self._log_update(f"manual_input: exception={exc}")
+        return None
+
+    def open_pdf(self, file_name: str | None = None):
+        """Primary open entry point — all open paths converge here.
+
+        When file_name is not provided, tries a 3-tier fallback chain:
+          1. Qt non-native QFileDialog
+          2. Tkinter native dialog
+          3. Manual path input via QInputDialog
+        """
+        if isinstance(file_name, bool):
+            # QAction.triggered(bool) and QPushButton.clicked(bool) pass a
+            # checked-state argument. This slot treats that as "no path".
+            file_name = None
+        self._log_update(f"open_pdf called with file_name={file_name}")
+        if file_name is not None:
+            # Direct path — no dialog needed
+            file_path = str(Path(file_name).resolve())
+            self._log_update(f"open_pdf: direct path={file_path}")
+            self.statusBar().showMessage(f"Opening {Path(file_path).name}...", 3000)
+            QApplication.processEvents()
+            tab_data = TabData(name=Path(file_path).name)
+            self._create_tab(tab_data)
+            self.load_pdf(file_path)
             return
+
+        # No path — try the fallback dialog chain
+        start_dir = self.settings.value("lastFolder", str(Path.home()))
+        file_name = self._pick_file_qt_dialog(start_dir)
+        if not file_name:
+            file_name = self._pick_file_tkinter()
+        if not file_name:
+            file_name = self._pick_file_manual_input()
+        if not file_name:
+            self._log_update("open_pdf: all pickers returned no file")
+            self.statusBar().showMessage("Open cancelled", 3000)
+            return
+
         file_path = str(Path(file_name).resolve())
         self._log_update(f"open_pdf: resolved path={file_path}")
+        self.statusBar().showMessage(f"Opening {Path(file_path).name}...", 3000)
+        QApplication.processEvents()
         tab_data = TabData(name=Path(file_path).name)
         self._create_tab(tab_data)
         self.load_pdf(file_path)
@@ -2465,20 +2791,7 @@ class PdfReaderWindow(QMainWindow):
         shortcuts_title.setAlignment(Qt.AlignCenter)
         layout.addWidget(shortcuts_title)
 
-        shortcuts_html = """
-        <table style='font-size:12px; line-height:1.8; margin: 0 auto;'>
-        <tr><td><b>Open PDF</b></td><td style='padding-left:16px;color:#888;'>Ctrl+O</td></tr>
-        <tr><td><b>Save</b></td><td style='padding-left:16px;color:#888;'>Ctrl+S</td></tr>
-        <tr><td><b>Find</b></td><td style='padding-left:16px;color:#888;'>Ctrl+F</td></tr>
-        <tr><td><b>Copy</b></td><td style='padding-left:16px;color:#888;'>Ctrl+C</td></tr>
-        <tr><td><b>Prev / Next Page</b></td><td style='padding-left:16px;color:#888;'>Page Up / Page Down</td></tr>
-        <tr><td><b>Zoom In / Out</b></td><td style='padding-left:16px;color:#888;'>Ctrl+= / Ctrl+-</td></tr>
-        <tr><td><b>Fit Width</b></td><td style='padding-left:16px;color:#888;'>Ctrl+0</td></tr>
-        <tr><td><b>Close Tab</b></td><td style='padding-left:16px;color:#888;'>Ctrl+W</td></tr>
-        <tr><td><b>New Tab</b></td><td style='padding-left:16px;color:#888;'>Ctrl+T</td></tr>
-        </table>
-        """
-        shortcuts = QLabel(shortcuts_html)
+        shortcuts = QLabel(self._about_shortcuts_html())
         shortcuts.setAlignment(Qt.AlignCenter)
         layout.addWidget(shortcuts)
 
@@ -2528,30 +2841,50 @@ class PdfReaderWindow(QMainWindow):
         dlg.exec()
 
     def _set_app_icon(self):
-        """Set window icon from bundled .ico file with fallback logging."""
+        """Set window icon from bundled .ico file with exhaustive fallback logging."""
         icon_paths = []
-        # Frozen (PyInstaller) build: icon next to the EXE in assets/
-        if getattr(sys, "frozen", False):
-            frozen_asset = Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico"
-            icon_paths.append(frozen_asset)
-        # Dev/source build: icon in repo root assets/
-        src_asset = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
-        icon_paths.append(src_asset)
-        # Also check _internal/assets/ for some frozen layouts
-        if getattr(sys, "frozen", False):
-            internal_asset = Path(sys.executable).parent / "_internal" / "assets" / "pdfreader_by_sparsh.ico"
-            icon_paths.append(internal_asset)
 
+        # 1. Frozen (PyInstaller) standard onedir layout: assets/ next to EXE
+        if getattr(sys, "frozen", False):
+            icon_paths.append(Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico")
+            # 2. _internal/assets/ layout (some PyInstaller configs)
+            icon_paths.append(Path(sys.executable).parent / "_internal" / "assets" / "pdfreader_by_sparsh.ico")
+
+        # 3. Dev/source build: icon in repo root assets/
+        icon_paths.append(Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico")
+
+        # 4. Frozen with MEIPASS (legacy PyInstaller attribute)
+        if getattr(sys, "frozen", False) and hasattr(sys, '_MEIPASS'):
+            icon_paths.append(Path(sys._MEIPASS) / "assets" / "pdfreader_by_sparsh.ico")
+
+        # Try each path
         for p in icon_paths:
             if p and p.exists():
-                self.setWindowIcon(QIcon(str(p)))
+                qicon = QIcon(str(p))
+                self.setWindowIcon(qicon)
+                # Also set on the application so taskbar picks it up
+                QApplication.setWindowIcon(qicon)
                 self._log_update(f"icon_set={p}")
                 return
+
+        # All bundled paths failed — search the install directory recursively
+        if getattr(sys, "frozen", False):
+            exe_dir = Path(sys.executable).parent
+            try:
+                for ico in exe_dir.rglob("pdfreader_by_sparsh.ico"):
+                    qicon = QIcon(str(ico))
+                    self.setWindowIcon(qicon)
+                    QApplication.setWindowIcon(qicon)
+                    self._log_update(f"icon_set_recursive={ico}")
+                    return
+            except Exception:
+                pass
 
         # Log failure and fall back to style icon
         self._log_update("icon_not_found: checked paths=" + ";".join(str(p) for p in icon_paths if p))
         icon = self.style().standardIcon(QStyle.StandardPixmap.SP_FileIcon)
         self.setWindowIcon(icon)
+        QApplication.setWindowIcon(icon)
 
     def check_for_updates_silent(self):
         """Silent update check — no user-visible feedback unless update is found."""
@@ -2598,6 +2931,28 @@ class PdfReaderWindow(QMainWindow):
                 event.acceptProposedAction()
                 return
         event.ignore()
+
+    # ------------------------------------------------------------------
+    # IPC — Single-instance tab routing
+    # ------------------------------------------------------------------
+
+    def _on_ipc_connection(self):
+        """Receive file paths from a second instance and open in new tabs."""
+        conn = self._ipc_server.nextPendingConnection()
+        if conn is None:
+            return
+        try:
+            conn.waitForReadyRead(3000)
+            data = bytes(conn.readAll()).decode("utf-8")
+            paths = json.loads(data)
+            for path in paths:
+                if isinstance(path, str) and path.lower().endswith(".pdf"):
+                    self.open_pdf(path)
+        except Exception as exc:
+            self._log_update(f"ipc_handler: {exc}")
+        finally:
+            conn.disconnectFromServer()
+            conn.deleteLater()
 
     # ------------------------------------------------------------------
     # Auto-update system
@@ -3715,15 +4070,53 @@ class _CompareDialog(QDialog):
 # Entry Point
 # ---------------------------------------------------------------------------
 
+def _try_send_to_existing_instance(file_paths: list[str]) -> bool:
+    """Send file paths to a running instance via QLocalSocket. Returns True if sent."""
+    if not file_paths:
+        return False
+    socket = QLocalSocket()
+    socket.connectToServer(IPC_SERVER_NAME)
+    if not socket.waitForConnected(2000):
+        socket.deleteLater()
+        return False
+    try:
+        payload = json.dumps([p for p in file_paths if p.lower().endswith(".pdf")])
+        socket.write(payload.encode("utf-8"))
+        socket.waitForBytesWritten(2000)
+        return True
+    except Exception:
+        return False
+    finally:
+        socket.disconnectFromServer()
+        socket.deleteLater()
+
+
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(PdfReaderWindow.APP_NAME)
     app.setOrganizationName("Sparsh")
-    window = PdfReaderWindow()
+
+    # ---- Single-instance IPC: route file opens to existing window ----
+    pdf_paths = [a for a in sys.argv[1:] if Path(a).suffix.lower() == ".pdf"]
+    if pdf_paths and _try_send_to_existing_instance(pdf_paths):
+        # Paths routed to existing instance — exit this one
+        sys.exit(0)
+
+    ipc_server = QLocalServer()
+    # Clean up any stale server name from a previous crash
+    ipc_server.removeServer(IPC_SERVER_NAME)
+    ipc_server.listen(IPC_SERVER_NAME)
+
+    # Set app-level icon before window creation for taskbar/Wayland
+    icon_path = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
+    if icon_path.exists():
+        app.setWindowIcon(QIcon(str(icon_path)))
+
+    window = PdfReaderWindow(ipc_server=ipc_server)
     window.show()
-    if len(sys.argv) > 1:
-        initial_path = sys.argv[1]
-        QTimer.singleShot(0, lambda: window.open_pdf(initial_path))
+    # Open command-line PDFs in tabs
+    for path in pdf_paths:
+        QTimer.singleShot(0, lambda p=path: window.open_pdf(p))
     sys.exit(app.exec())
 
 
