@@ -11,8 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap
+from PySide6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
@@ -657,6 +657,30 @@ class PdfReaderWindow(QMainWindow):
     ANNOT_HIGHLIGHT = (1.0, 0.882, 0.235)      # yellow
     ANNOT_UNDERLINE = (0.075, 0.533, 0.867)    # blue
     ANNOT_STRIKEOUT = (0.953, 0.318, 0.302)    # red
+    ABOUT_SHORTCUTS = (
+        ("Open PDF", "Ctrl+O"),
+        ("Save", "Ctrl+S"),
+        ("Find", "Ctrl+F"),
+        ("Copy", "Ctrl+C"),
+        ("Prev / Next Page", "Page Up / Page Down"),
+        ("Zoom In / Out", "Ctrl+= / Ctrl+-"),
+        ("Fit Width", "Ctrl+0"),
+        ("Close Tab", "Ctrl+W"),
+        ("New Tab", "Ctrl+T"),
+    )
+    REGISTERED_SHORTCUTS = (
+        ("open_pdf", "Ctrl+O"),
+        ("save", "Ctrl+S"),
+        ("find", "Ctrl+F"),
+        ("copy", "Ctrl+C"),
+        ("previous_page", "Page Up"),
+        ("next_page", "Page Down"),
+        ("zoom_in", "Ctrl+="),
+        ("zoom_out", "Ctrl+-"),
+        ("fit_width", "Ctrl+0"),
+        ("close_tab", "Ctrl+W"),
+        ("new_tab", "Ctrl+T"),
+    )
 
     def __init__(self, ipc_server: QLocalServer | None = None):
         _perf_start_t = _perf_start()
@@ -734,8 +758,10 @@ class PdfReaderWindow(QMainWindow):
         self._build_ui()
         self._build_actions()
         self._build_menus()
+        self._build_shortcuts()
         self._apply_theme()
         self._update_controls()
+        QApplication.instance().installEventFilter(self)
 
         # Defer non-critical init to after window is shown
         QTimer.singleShot(0, self._update_recent_menu)
@@ -964,56 +990,135 @@ class PdfReaderWindow(QMainWindow):
         style = self.style()
 
         open_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton), "Open", self)
-        open_action.setShortcut(QKeySequence.Open)
         open_action.triggered.connect(self.open_pdf)
         toolbar.addAction(open_action)
 
         toolbar.addSeparator()
         save_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton), "Save", self)
-        save_action.setShortcut(QKeySequence.Save)
         save_action.triggered.connect(self._save_document)
         toolbar.addAction(save_action)
 
         toolbar.addSeparator()
         prev_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "Previous Page", self)
-        prev_action.setShortcut(QKeySequence(Qt.Key_PageUp))
         prev_action.triggered.connect(self.previous_page)
         toolbar.addAction(prev_action)
 
         next_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "Next Page", self)
-        next_action.setShortcut(QKeySequence(Qt.Key_PageDown))
         next_action.triggered.connect(self.next_page)
         toolbar.addAction(next_action)
 
         toolbar.addSeparator()
         zoom_in_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp), "Zoom In", self)
-        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
         zoom_in_action.triggered.connect(self.zoom_in)
         toolbar.addAction(zoom_in_action)
 
         zoom_out_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown), "Zoom Out", self)
-        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
         zoom_out_action.triggered.connect(self.zoom_out)
         toolbar.addAction(zoom_out_action)
 
         toolbar.addSeparator()
         find_action = QAction("Find", self)
-        find_action.setShortcut(QKeySequence.Find)
         find_action.triggered.connect(self.focus_search)
-        self.addAction(find_action)
         toolbar.addAction(find_action)
 
-        # Close Tab
-        close_tab_action = QAction("Close Tab", self)
-        close_tab_action.setShortcut(QKeySequence("Ctrl+W"))
-        close_tab_action.triggered.connect(self._close_current_tab)
-        self.addAction(close_tab_action)
+    @staticmethod
+    def _menu_label(label: str, shortcut: str) -> str:
+        return f"{label}\t{shortcut}"
 
-        # New Tab
-        new_tab_action = QAction("New Tab", self)
-        new_tab_action.setShortcut(QKeySequence("Ctrl+T"))
-        new_tab_action.triggered.connect(self.open_pdf)
-        self.addAction(new_tab_action)
+    def _build_shortcuts(self):
+        self._app_shortcuts: list[QShortcut] = []
+        shortcut_handlers = {
+            "open_pdf": self.open_pdf,
+            "save": self._save_document,
+            "find": self.focus_search,
+            "copy": self._copy_shortcut,
+            "previous_page": self.previous_page,
+            "next_page": self.next_page,
+            "zoom_in": self.zoom_in,
+            "zoom_out": self.zoom_out,
+            "fit_width": self._fit_width_shortcut,
+            "close_tab": self._close_current_tab,
+            "new_tab": self.open_pdf,
+        }
+        for shortcut_id, sequence in self.REGISTERED_SHORTCUTS:
+            shortcut = QShortcut(QKeySequence(sequence), self)
+            shortcut.setContext(Qt.ApplicationShortcut)
+            shortcut.activated.connect(shortcut_handlers[shortcut_id])
+            self._app_shortcuts.append(shortcut)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QEvent.KeyPress and self.isActiveWindow():
+            if self._handle_shortcut_key_event(event):
+                return True
+        return super().eventFilter(obj, event)
+
+    def _handle_shortcut_key_event(self, event) -> bool:
+        modifiers = event.modifiers() & (Qt.ControlModifier | Qt.ShiftModifier | Qt.AltModifier | Qt.MetaModifier)
+        key = event.key()
+        if modifiers == Qt.NoModifier:
+            if key == Qt.Key_PageUp:
+                self.previous_page()
+                return True
+            if key == Qt.Key_PageDown:
+                self.next_page()
+                return True
+            return False
+        if modifiers != Qt.ControlModifier:
+            return False
+
+        ctrl_handlers = {
+            Qt.Key_O: self.open_pdf,
+            Qt.Key_T: self.open_pdf,
+            Qt.Key_W: self._close_current_tab,
+            Qt.Key_F: self.focus_search,
+            Qt.Key_S: self._save_document,
+            Qt.Key_Equal: self.zoom_in,
+            Qt.Key_Plus: self.zoom_in,
+            Qt.Key_Minus: self.zoom_out,
+            Qt.Key_0: self._fit_width_shortcut,
+        }
+        if key == Qt.Key_C:
+            focus = QApplication.focusWidget()
+            if isinstance(focus, QLineEdit) and focus.hasSelectedText():
+                return False
+            if isinstance(focus, QTextEdit) and focus.textCursor().hasSelection():
+                return False
+            self._copy_shortcut()
+            return True
+        handler = ctrl_handlers.get(key)
+        if handler is None:
+            return False
+        handler()
+        return True
+
+    def _copy_shortcut(self):
+        focus = QApplication.focusWidget()
+        if isinstance(focus, QLineEdit) and focus.hasSelectedText():
+            focus.copy()
+            return
+        if isinstance(focus, QTextEdit) and focus.textCursor().hasSelection():
+            focus.copy()
+            return
+        self.copy_selected_text()
+
+    def _fit_width_shortcut(self):
+        if self.document is None:
+            return
+        self._on_fit_toggled(True)
+
+    def _show_empty_state(self):
+        if self.scroll_area.widget() is not self.empty_state_widget:
+            self.scroll_area.takeWidget()
+            self.scroll_area.setWidget(self.empty_state_widget)
+            self.scroll_area.setWidgetResizable(True)
+
+    @classmethod
+    def _about_shortcuts_html(cls) -> str:
+        rows = "\n".join(
+            f"<tr><td><b>{label}</b></td><td style='padding-left:16px;color:#888;'>{shortcut}</td></tr>"
+            for label, shortcut in cls.ABOUT_SHORTCUTS
+        )
+        return f"<table style='font-size:12px; line-height:1.8; margin: 0 auto;'>{rows}</table>"
 
     def _build_menus(self):
         """File / Edit / View / Tools / Help menu bar."""
@@ -1022,8 +1127,7 @@ class PdfReaderWindow(QMainWindow):
         # ── File ──
         file_menu = menubar.addMenu("File")
 
-        file_open = QAction("Open PDF", self)
-        file_open.setShortcut(QKeySequence.Open)
+        file_open = QAction(self._menu_label("Open PDF", "Ctrl+O"), self)
         file_open.triggered.connect(self.open_pdf)
         file_menu.addAction(file_open)
 
@@ -1034,19 +1138,16 @@ class PdfReaderWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        close_tab = QAction("Close Tab", self)
-        close_tab.setShortcut(QKeySequence("Ctrl+W"))
+        close_tab = QAction(self._menu_label("Close Tab", "Ctrl+W"), self)
         close_tab.triggered.connect(self._close_current_tab)
         file_menu.addAction(close_tab)
 
         close_all = QAction("Close All Tabs", self)
-        close_all.setShortcut(QKeySequence("Ctrl+Shift+W"))
         close_all.triggered.connect(self._close_all_tabs)
         file_menu.addAction(close_all)
 
         file_menu.addSeparator()
-        file_save = QAction("Save PDF", self)
-        file_save.setShortcut(QKeySequence.Save)
+        file_save = QAction(self._menu_label("Save PDF", "Ctrl+S"), self)
         file_save.triggered.connect(self._save_document)
         file_menu.addAction(file_save)
 
@@ -1060,16 +1161,14 @@ class PdfReaderWindow(QMainWindow):
         # ── Edit ──
         edit_menu = menubar.addMenu("Edit")
 
-        copy_action = QAction("Copy Selected Text", self)
-        copy_action.setShortcut(QKeySequence.Copy)
+        copy_action = QAction(self._menu_label("Copy Selected Text", "Ctrl+C"), self)
         copy_action.triggered.connect(self.copy_selected_text)
         edit_menu.addAction(copy_action)
         self.copy_action = copy_action
 
         edit_menu.addSeparator()
 
-        find_menu_action = QAction("Find", self)
-        find_menu_action.setShortcut(QKeySequence.Find)
+        find_menu_action = QAction(self._menu_label("Find", "Ctrl+F"), self)
         find_menu_action.triggered.connect(self.focus_search)
         edit_menu.addAction(find_menu_action)
 
@@ -1094,17 +1193,15 @@ class PdfReaderWindow(QMainWindow):
         self._sync_theme_menu_checks()
         view_menu.addSeparator()
 
-        zoom_in_action = QAction("Zoom In", self)
-        zoom_in_action.setShortcuts([QKeySequence.ZoomIn, QKeySequence("Ctrl+=")])
+        zoom_in_action = QAction(self._menu_label("Zoom In", "Ctrl+="), self)
         zoom_in_action.triggered.connect(self.zoom_in)
         view_menu.addAction(zoom_in_action)
 
-        zoom_out_action = QAction("Zoom Out", self)
-        zoom_out_action.setShortcut(QKeySequence.ZoomOut)
+        zoom_out_action = QAction(self._menu_label("Zoom Out", "Ctrl+-"), self)
         zoom_out_action.triggered.connect(self.zoom_out)
         view_menu.addAction(zoom_out_action)
 
-        fit_action = QAction("Fit Width", self, checkable=True)
+        fit_action = QAction(self._menu_label("Fit Width", "Ctrl+0"), self, checkable=True)
         fit_action.setChecked(True)
         fit_action.triggered.connect(self._on_fit_toggled)
         view_menu.addAction(fit_action)
@@ -1351,12 +1448,18 @@ class PdfReaderWindow(QMainWindow):
             self.search_count_label.setText("0")
 
     def _create_tab(self, tab_data: TabData) -> int:
+        self._save_current_state()
         tab_id = id(tab_data)
         self.tabs[tab_id] = tab_data
-        idx = self.tab_bar.addTab(tab_data.name)
-        self.tab_bar.setTabData(idx, tab_id)
-        self.tab_bar.setTabButton(idx, QTabBar.ButtonPosition.RightSide, self._create_tab_close_button(tab_id, tab_data.name))
-        self.tab_bar.setCurrentIndex(idx)
+        self.tab_bar.blockSignals(True)
+        try:
+            idx = self.tab_bar.addTab(tab_data.name)
+            self.tab_bar.setTabData(idx, tab_id)
+            self.tab_bar.setTabButton(idx, QTabBar.ButtonPosition.RightSide, self._create_tab_close_button(tab_id, tab_data.name))
+            self.tab_bar.setCurrentIndex(idx)
+        finally:
+            self.tab_bar.blockSignals(False)
+        self.current_tab_id = tab_id
         return tab_id
 
     def _create_tab_close_button(self, tab_id: int, tab_name: str) -> QToolButton:
@@ -1372,8 +1475,13 @@ class PdfReaderWindow(QMainWindow):
         return close_button
 
     def _close_current_tab(self):
-        if self.current_tab_id is not None:
-            self._close_tab(self.current_tab_id)
+        tab_id = self.current_tab_id
+        if tab_id is None or tab_id not in self.tabs:
+            index = self.tab_bar.currentIndex()
+            if index >= 0:
+                tab_id = self.tab_bar.tabData(index)
+        if tab_id is not None:
+            self._close_tab(tab_id)
 
     def _close_tab(self, tab_id: int):
         if tab_id not in self.tabs:
@@ -1414,6 +1522,7 @@ class PdfReaderWindow(QMainWindow):
             self.ocr_text_pages = OrderedDict()
             self.ocr_warning_shown = False
             self.setWindowTitle(self.APP_NAME)
+            self._show_empty_state()
             self.page_label.setText("Open a PDF to begin")
             self.page_label.setPixmap(QPixmap())
             self.page_label.adjustSize()
@@ -1465,6 +1574,7 @@ class PdfReaderWindow(QMainWindow):
         self.ocr_text_pages = OrderedDict()
         self.ocr_warning_shown = False
         self.setWindowTitle(self.APP_NAME)
+        self._show_empty_state()
         self.page_label.setText("Open a PDF to begin")
         self.page_label.setPixmap(QPixmap())
         self.page_label.adjustSize()
@@ -2681,20 +2791,7 @@ class PdfReaderWindow(QMainWindow):
         shortcuts_title.setAlignment(Qt.AlignCenter)
         layout.addWidget(shortcuts_title)
 
-        shortcuts_html = """
-        <table style='font-size:12px; line-height:1.8; margin: 0 auto;'>
-        <tr><td><b>Open PDF</b></td><td style='padding-left:16px;color:#888;'>Ctrl+O</td></tr>
-        <tr><td><b>Save</b></td><td style='padding-left:16px;color:#888;'>Ctrl+S</td></tr>
-        <tr><td><b>Find</b></td><td style='padding-left:16px;color:#888;'>Ctrl+F</td></tr>
-        <tr><td><b>Copy</b></td><td style='padding-left:16px;color:#888;'>Ctrl+C</td></tr>
-        <tr><td><b>Prev / Next Page</b></td><td style='padding-left:16px;color:#888;'>Page Up / Page Down</td></tr>
-        <tr><td><b>Zoom In / Out</b></td><td style='padding-left:16px;color:#888;'>Ctrl+= / Ctrl+-</td></tr>
-        <tr><td><b>Fit Width</b></td><td style='padding-left:16px;color:#888;'>Ctrl+0</td></tr>
-        <tr><td><b>Close Tab</b></td><td style='padding-left:16px;color:#888;'>Ctrl+W</td></tr>
-        <tr><td><b>New Tab</b></td><td style='padding-left:16px;color:#888;'>Ctrl+T</td></tr>
-        </table>
-        """
-        shortcuts = QLabel(shortcuts_html)
+        shortcuts = QLabel(self._about_shortcuts_html())
         shortcuts.setAlignment(Qt.AlignCenter)
         layout.addWidget(shortcuts)
 
