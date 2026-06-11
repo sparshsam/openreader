@@ -201,7 +201,7 @@ QScrollArea {
 QTabBar::tab {
     background-color: #e0e0e0;
     color: #666666;
-    padding: 6px 8px 6px 18px;
+    padding: 6px 16px 6px 18px;
     border: none;
     border-right: 1px solid #d0d0d0;
     min-height: 24px;
@@ -219,29 +219,34 @@ QToolButton#NewTabButton {
     background-color: transparent;
     color: #666666;
     border: 1px solid transparent;
-    border-radius: 4px;
-}
-QToolButton#NewTabButton {
-    font-size: 18px;
-    font-weight: 500;
-    margin: 2px 8px 2px 4px;
-}
-QToolButton#NewTabButton:hover {
-    background-color: #d0d0d0;
-    border-color: #b8b8b8;
-    color: #1a1a1a;
-}
-QTabBar::close-button {
-    image: url(__TAB_CLOSE_ICON__);
-    subcontrol-position: right;
-    width: 14px;
-    height: 14px;
-    margin: 0px 6px 0px 4px;
     border-radius: 3px;
 }
-QTabBar::close-button:hover {
-    background-color: #e74c3c;
-    border-color: #d84335;
+QToolButton#NewTabButton {
+    font-size: 16px;
+    font-weight: 400;
+    margin: 0px 8px 0px 4px;
+}
+QToolButton#NewTabButton:hover {
+    background-color: #d6d6d6;
+    border-color: transparent;
+    color: #1a1a1a;
+}
+QToolButton#TabCloseButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #6b7280;
+    font-size: 17px;
+    font-weight: 400;
+    padding: 0px;
+}
+QToolButton#TabCloseButton:hover {
+    background-color: #e05252;
+    color: #ffffff;
+}
+QToolButton#TabCloseButton:pressed {
+    background-color: #c83f3f;
+    color: #ffffff;
 }
 QMenuBar {
     background-color: #e8e8e8;
@@ -412,7 +417,7 @@ QScrollArea {
 QTabBar::tab {
     background-color: #13141f;
     color: #565f89;
-    padding: 6px 8px 6px 18px;
+    padding: 6px 16px 6px 18px;
     border: none;
     border-right: 1px solid #292e42;
     min-height: 24px;
@@ -430,29 +435,34 @@ QToolButton#NewTabButton {
     background-color: transparent;
     color: #8b93b5;
     border: 1px solid transparent;
-    border-radius: 4px;
+    border-radius: 3px;
 }
 QToolButton#NewTabButton {
-    font-size: 18px;
-    font-weight: 500;
-    margin: 2px 8px 2px 4px;
+    font-size: 16px;
+    font-weight: 400;
+    margin: 0px 8px 0px 4px;
 }
 QToolButton#NewTabButton:hover {
     background-color: #292e42;
-    border-color: #3b4261;
+    border-color: transparent;
     color: #c0caf5;
 }
-QTabBar::close-button {
-    image: url(__TAB_CLOSE_ICON__);
-    subcontrol-position: right;
-    width: 14px;
-    height: 14px;
-    margin: 0px 6px 0px 4px;
-    border-radius: 3px;
+QToolButton#TabCloseButton {
+    background-color: transparent;
+    border: none;
+    border-radius: 4px;
+    color: #7d86a9;
+    font-size: 17px;
+    font-weight: 400;
+    padding: 0px;
 }
-QTabBar::close-button:hover {
-    background-color: #f7768e;
-    border-color: #f7768e;
+QToolButton#TabCloseButton:hover {
+    background-color: #e05252;
+    color: #ffffff;
+}
+QToolButton#TabCloseButton:pressed {
+    background-color: #c83f3f;
+    color: #ffffff;
 }
 QMenuBar {
     background-color: #13141f;
@@ -760,7 +770,7 @@ class PdfReaderWindow(QMainWindow):
         tab_strip_layout.setSpacing(0)
 
         self.tab_bar = QTabBar()
-        self.tab_bar.setTabsClosable(True)
+        self.tab_bar.setTabsClosable(False)
         self.tab_bar.setMovable(True)
         self.tab_bar.setExpanding(False)
         self.tab_bar.setDocumentMode(True)
@@ -768,14 +778,13 @@ class PdfReaderWindow(QMainWindow):
         self.tab_bar.setUsesScrollButtons(True)
         self.tab_bar.setSizePolicy(QSizePolicy.Maximum, QSizePolicy.Fixed)
         self.tab_bar.tabBarDoubleClicked.connect(self._on_tab_double_click)
-        self.tab_bar.tabCloseRequested.connect(self._on_tab_close_requested)
         self.tab_bar.currentChanged.connect(self._on_tab_switch)
         tab_strip_layout.addWidget(self.tab_bar)
 
         self.new_tab_button = QToolButton()
         self.new_tab_button.setText("+")
         self.new_tab_button.setObjectName("NewTabButton")
-        self.new_tab_button.setFixedSize(30, 28)
+        self.new_tab_button.setFixedSize(28, 28)
         self.new_tab_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.new_tab_button.setAutoRaise(True)
         self.new_tab_button.setCursor(Qt.PointingHandCursor)
@@ -1185,7 +1194,6 @@ class PdfReaderWindow(QMainWindow):
 
     def _apply_theme(self):
         stylesheet = DARK_STYLESHEET if self._dark_mode else LIGHT_STYLESHEET
-        stylesheet = stylesheet.replace("__TAB_CLOSE_ICON__", self._asset_path("tab_close.svg"))
         self.setStyleSheet(stylesheet)
 
     @staticmethod
@@ -1347,13 +1355,21 @@ class PdfReaderWindow(QMainWindow):
         self.tabs[tab_id] = tab_data
         idx = self.tab_bar.addTab(tab_data.name)
         self.tab_bar.setTabData(idx, tab_id)
+        self.tab_bar.setTabButton(idx, QTabBar.ButtonPosition.RightSide, self._create_tab_close_button(tab_id, tab_data.name))
         self.tab_bar.setCurrentIndex(idx)
         return tab_id
 
-    def _on_tab_close_requested(self, index: int):
-        tab_id = self.tab_bar.tabData(index)
-        if tab_id is not None:
-            self._close_tab(tab_id)
+    def _create_tab_close_button(self, tab_id: int, tab_name: str) -> QToolButton:
+        close_button = QToolButton(self.tab_bar)
+        close_button.setText("×")
+        close_button.setObjectName("TabCloseButton")
+        close_button.setFixedSize(20, 20)
+        close_button.setAutoRaise(True)
+        close_button.setCursor(Qt.PointingHandCursor)
+        close_button.setToolTip(f"Close {tab_name}")
+        close_button.setAccessibleName(f"Close {tab_name}")
+        close_button.clicked.connect(lambda _checked=False, tid=tab_id: self._close_tab(tid))
+        return close_button
 
     def _close_current_tab(self):
         if self.current_tab_id is not None:

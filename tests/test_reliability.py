@@ -202,6 +202,8 @@ class TestOpenActionSignalHandling:
         import main as m
 
         src = Path(m.__file__).read_text()
-        assert 'setTabsClosable(True)' in src
-        assert "QTabBar::close-button" in src
-        assert "QTabBar::close-button {\n    image: none;" not in src
+        assert 'setTabsClosable(False)' in src
+        assert 'setObjectName("TabCloseButton")' in src
+        assert 'close_button.setText("×")' in src
+        assert "QToolButton#TabCloseButton:hover" in src
+        assert "QTabBar::close-button" not in src
