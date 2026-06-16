@@ -2716,7 +2716,7 @@ class PdfReaderWindow(QMainWindow):
             try:
                 Path(output_path).unlink(missing_ok=True)
             except Exception:
-                pass
+                pass  # nosec B110 — best-effort cleanup
             saved_pct = round((1 - output_size / source_size) * 100, 1) if source_size > 0 else 0
             detail = (
                 f"Original: {source_size:,} bytes\n"
