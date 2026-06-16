@@ -64,21 +64,23 @@ Packaged builds check the latest GitHub Release for updates. Source builds are i
 | Category | Capabilities |
 |---|---|
 | Reading | Open PDFs, one-page view, previous/next navigation, page jump, fit-width, zoom in/out |
-| Multi-tab | Open several documents in a single window with movable, closeable tabs. Ctrl+T, Ctrl+W |
-| Session restore | Remembers open PDFs and page positions across restarts. Auto or manual restore |
-| Search (keyword) | Full-document text search, match count, next/previous result navigation |
+| Multi-tab | Open several documents in a single window with movable, closeable tabs. Ctrl+T new tab, Ctrl+W close tab, Ctrl+Shift+W close all |
+| Session restore | Remembers open PDFs and page positions across restarts. Auto or manual restore (File menu toggle) |
+| Search (keyword) | Full-document text search, match count, next/previous result navigation (PageUp/PageDown). Ctrl+F to focus |
 | Search (semantic) | TF-IDF cosine similarity search across indexed library. Toggle "Semantic" in search bar |
-| Library search | SQLite FTS5 full-text index over entire folders. Cross-document search ranked by BM25 |
-| PDF comparison | Side-by-side diff with color-coded changes (red delete, green insert) |
+| Library search | SQLite FTS5 full-text index over entire folders. Cross-document search ranked by BM25. Ctrl+Shift+F shortcut |
+| PDF comparison | Side-by-side diff with color-coded changes (red delete, green insert) and diff summary |
 | Copying | Drag-select text from the visible page and copy with `Ctrl+C` or the Copy button |
 | OCR fallback | Attempts OCR-assisted selection on scanned/image-based pages when Tesseract OCR data is available |
 | Annotations | Highlight, underline, and strikethrough selected text; sticky notes on any page. Saved as native PDF annotations |
+| Annotation management | Show/hide annotations toggle (View menu). Delete all annotations on current page or entire document (Tools menu) |
+| Save PDF | Explicit File → Save (Ctrl+S) to persist annotation edits immediately |
 | PDF tools | Merge PDFs, split every page, extract page ranges like `1-3,5`, save compressed copies |
 | Desktop integration | Windows installer with `.pdf` file association, Start Menu, and desktop shortcut |
-| Dark mode | System-aware dark theme (Catppuccin Mocha) with Auto/Light/Dark toggle |
+| Dark mode | System-aware dark theme (Catppuccin Mocha) with Auto/Light/Dark toggle via View → Theme |
 | Recent files | Quick access to the last 10 opened PDFs via File → Open Recent |
 | Auto-update | Packaged builds check GitHub Releases and update from canonical release ZIP assets |
-| Release engineering | Tag-driven GitHub Release publishing, PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer, self-update mechanism |
+| Release engineering | Tag-driven GitHub Release publishing, PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer, self-update mechanism with diagnostic logging |
 
 ## Screenshots
 
@@ -237,16 +239,23 @@ sudo pacman -S tesseract tesseract-data-eng
 
 ## Roadmap
 
-### ✓ v0.3.0 — Completed
-These features are shipped in the latest release.
+### ✓ v0.3.x — Completed (latest: v0.3.6)
 
+**v0.3.0** shipped the major feature set:
 - **Workspace and session restoration** — remembers which PDFs were open and what page you were on. Auto-restore on launch (toggle in File menu).
 - **Full-library indexed search** — SQLite FTS5-based full-text index over entire folders of PDFs. Manage folders via Library dialog, search across all documents instantly.
-- **PDF version comparison** — side-by-side diff view with color-coded changes (red deletions, green insertions). Compares page by page.
+- **PDF version comparison** — side-by-side diff view with color-coded changes (red deletions, green insertions). Compares page by page with diff summary.
 - **Offline semantic search** — TF-IDF cosine similarity search (no ML dependencies). Toggle "Semantic" checkbox in the search bar for meaning-based matching across your indexed library.
 - **Compare button** in toolbar and **Tools → Compare PDFs** menu entry.
 - **Library button** in toolbar and **View → Library Search** menu entry with Ctrl+Shift+F shortcut.
 - **Semantic search toggle** (checkbox) integrated into the main search bar.
+
+**v0.3.1–v0.3.6** focused on release engineering, installer, and updater reliability:
+- Tag-driven GitHub Release publishing workflow with canonical updater asset names
+- Windows auto-update fix (lost metadata, save-as-`update_None` resolved)
+- Enhanced update error handling with HTTP status-specific messages and debug logging
+- Inno Setup installer with dynamic version injection, icon, and proper file association
+- CI hardening with compile checks, regression tests, security audit, and asset validation
 
 ### ✓ v0.2.0 — Completed
 
@@ -353,9 +362,10 @@ Contributions are welcome for non-commercial use cases. Please read [CONTRIBUTIN
 | Language | Python 3.11+ |
 | UI Framework | PySide6 (Qt 6) |
 | PDF Rendering | PyMuPDF (MuPDF) |
-| Search | SQLite FTS5 (keyword), TF-IDF (semantic) |
+| Search | SQLite FTS5 (keyword), TF-IDF / scikit-learn (semantic) |
 | OCR | PyMuPDF / Tesseract integration |
-| Packaging | PyInstaller |
+| Packaging | PyInstaller (onedir) |
 | Installer (Windows) | Inno Setup |
-| CI/CD | GitHub Actions |
+| CI/CD | GitHub Actions (Windows + macOS) |
 | Security scanning | Bandit, pip-audit |
+| Platform | Windows (primary), macOS (Apple Silicon + Intel) |
