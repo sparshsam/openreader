@@ -666,7 +666,7 @@ class PdfReaderWindow(QMainWindow):
         ("Zoom In / Out", "Ctrl+= / Ctrl+-"),
         ("Fit Width", "Ctrl+0"),
         ("Close Tab", "Ctrl+W"),
-        ("New Tab", "Ctrl+T"),
+        ("New Tab (blank)", "Ctrl+T"),
     )
     REGISTERED_SHORTCUTS = (
         ("open_pdf", "Ctrl+O"),
@@ -742,11 +742,16 @@ class PdfReaderWindow(QMainWindow):
 
         # ---- Workspace session ----
         self._auto_restore = self.settings.value("autoRestore", True, bool)
+        self._session_dont_ask = self.settings.value("sessionDontAsk", False, bool)
         self._session_data: list[dict] | None = None
+        self._open_in_progress = False
+        self._update_post_launch_checked = False
 
         # ---- Update system ----
         self._update_nam = QNetworkAccessManager(self)
         self._update_nam.finished.connect(self._on_update_check_reply)
+
+        self._log_update(f"app_launch: version={__version__}")
         self._download_nam = QNetworkAccessManager(self)
         self._download_nam.finished.connect(self._on_download_finished)
         self._update_progress = None
@@ -770,7 +775,10 @@ class PdfReaderWindow(QMainWindow):
         if self._auto_update_check:
             QTimer.singleShot(3000, self.check_for_updates_silent)
 
-        # Listen for system theme changes
+        # Post-update version verification
+        QTimer.singleShot(5000, self._check_post_update)
+
+        _perf_end(_perf_start_t, "PdfReaderWindow.__init__")
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
 
         # Restore workspace if available
@@ -814,9 +822,9 @@ class PdfReaderWindow(QMainWindow):
         self.new_tab_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
         self.new_tab_button.setAutoRaise(True)
         self.new_tab_button.setCursor(Qt.PointingHandCursor)
-        self.new_tab_button.setToolTip("Open another PDF")
-        self.new_tab_button.setAccessibleName("Open another PDF")
-        self.new_tab_button.clicked.connect(self.open_pdf)
+        self.new_tab_button.setToolTip("New Tab (Ctrl+T)")
+        self.new_tab_button.setAccessibleName("New blank tab")
+        self.new_tab_button.clicked.connect(self.new_tab)
         tab_strip_layout.addWidget(self.new_tab_button)
         tab_strip_layout.addStretch(1)
 
@@ -1038,7 +1046,7 @@ class PdfReaderWindow(QMainWindow):
             "zoom_out": self.zoom_out,
             "fit_width": self._fit_width_shortcut,
             "close_tab": self._close_current_tab,
-            "new_tab": self.open_pdf,
+            "new_tab": self.new_tab,
         }
         for shortcut_id, sequence in self.REGISTERED_SHORTCUTS:
             shortcut = QShortcut(QKeySequence(sequence), self)
@@ -1068,7 +1076,7 @@ class PdfReaderWindow(QMainWindow):
 
         ctrl_handlers = {
             Qt.Key_O: self.open_pdf,
-            Qt.Key_T: self.open_pdf,
+            Qt.Key_T: self.new_tab,
             Qt.Key_W: self._close_current_tab,
             Qt.Key_F: self.focus_search,
             Qt.Key_S: self._save_document,
@@ -1411,7 +1419,7 @@ class PdfReaderWindow(QMainWindow):
         self.current_tab_id = tab_id
 
     def _on_tab_double_click(self, index: int):
-        self.open_pdf()
+        self.new_tab()
 
     def _on_tab_switch(self, index: int):
         if index < 0 or index >= self.tab_bar.count():
@@ -1473,6 +1481,16 @@ class PdfReaderWindow(QMainWindow):
         close_button.setAccessibleName(f"Close {tab_name}")
         close_button.clicked.connect(lambda _checked=False, tid=tab_id: self._close_tab(tid))
         return close_button
+
+    def new_tab(self):
+        """Create a new blank tab without opening a file dialog."""
+        next_num = self.tab_bar.count() + 1
+        tab_data = TabData(name=f"Tab {next_num}")
+        self._create_tab(tab_data)
+        self._show_empty_state()
+        self._update_controls()
+        self.statusBar().showMessage(f"Opened new tab (Tab {next_num})", 2000)
+        self._log_update(f"new_tab: created Tab {next_num}")
 
     def _close_current_tab(self):
         tab_id = self.current_tab_id
@@ -1654,15 +1672,16 @@ class PdfReaderWindow(QMainWindow):
     def open_pdf(self, file_name: str | None = None):
         """Primary open entry point — all open paths converge here.
 
-        When file_name is not provided, tries a 3-tier fallback chain:
-          1. Qt non-native QFileDialog
-          2. Tkinter native dialog
-          3. Manual path input via QInputDialog
+        When file_name is not provided, shows a single file picker dialog.
+        Guarded against re-entrant calls (double signals, rapid clicks).
         """
         if isinstance(file_name, bool):
             # QAction.triggered(bool) and QPushButton.clicked(bool) pass a
             # checked-state argument. This slot treats that as "no path".
             file_name = None
+        if self._open_in_progress:
+            self._log_update("open_pdf: re-entrant call blocked (picker already shown)")
+            return
         self._log_update(f"open_pdf called with file_name={file_name}")
         if file_name is not None:
             # Direct path — no dialog needed
@@ -1675,15 +1694,15 @@ class PdfReaderWindow(QMainWindow):
             self.load_pdf(file_path)
             return
 
-        # No path — try the fallback dialog chain
+        # No path — show a single file picker dialog (no cascading fallbacks)
         start_dir = self.settings.value("lastFolder", str(Path.home()))
-        file_name = self._pick_file_qt_dialog(start_dir)
+        self._open_in_progress = True
+        try:
+            file_name = self._pick_file_qt_dialog(start_dir)
+        finally:
+            self._open_in_progress = False
         if not file_name:
-            file_name = self._pick_file_tkinter()
-        if not file_name:
-            file_name = self._pick_file_manual_input()
-        if not file_name:
-            self._log_update("open_pdf: all pickers returned no file")
+            self._log_update("open_pdf: no file selected (cancelled)")
             self.statusBar().showMessage("Open cancelled", 3000)
             return
 
@@ -2692,6 +2711,23 @@ class PdfReaderWindow(QMainWindow):
             self._show_error("Compression Failed", "Could not compress this PDF.", exc)
             return
 
+        if output_size >= source_size:
+            # Compression not beneficial — remove the output and notify
+            try:
+                Path(output_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+            saved_pct = round((1 - output_size / source_size) * 100, 1) if source_size > 0 else 0
+            detail = (
+                f"Original: {source_size:,} bytes\n"
+                f"Compressed: {output_size:,} bytes ({saved_pct:+.1f}%)\n\n"
+                "Compression was not beneficial — output is larger than or equal to the original.\n"
+                "No file was saved."
+            )
+            QMessageBox.information(self, "Compression Not Beneficial", detail)
+            self.statusBar().showMessage("Compression not beneficial — no file saved", 5000)
+            return
+
         saved = source_size - output_size
         if source_size > 0:
             percent = saved / source_size * 100
@@ -2986,6 +3022,23 @@ class PdfReaderWindow(QMainWindow):
                 f.write(f"{message}\n")
         except OSError:
             pass
+
+    def _check_post_update(self):
+        """Verify post-update state and log diagnostics."""
+        try:
+            updater_dir = self.__class__._updater_temp_dir()
+            markers = list(updater_dir.glob("_updated_from_*.txt"))
+            if markers:
+                self._log_update(f"post_update: {markers[0].read_text().strip()}")
+                self._log_update(f"post_update: current_version={__version__}")
+                self.statusBar().showMessage(
+                    f"Updated to v{__version__}", 5000
+                )
+                # Clean up marker files
+                for m in markers:
+                    m.unlink(missing_ok=True)
+        except Exception:
+            pass  # nosec B110 — best-effort diagnostic
 
     @staticmethod
     def _select_update_apply_method(system, asset_name, dest):
@@ -3338,6 +3391,17 @@ class PdfReaderWindow(QMainWindow):
         finally:
             reply.deleteLater()
 
+        # Write a post-update marker so the new version can verify it launched
+        try:
+            marker = temp_dir / f"_updated_from_{latest_tag}.txt"
+            marker.write_text(
+                f"Updated from {__version__} to {latest_tag}\n"
+                f"Timestamp: {__import__('datetime').datetime.now()}\n"
+            )
+            self._log_update(f"post_update_marker={marker}")
+        except Exception:
+            pass  # nosec — best-effort diagnostic marker
+
         self._apply_update(dest, latest_tag, asset_name)
 
     def _apply_update(self, dest: Path, latest_tag: str, asset_name: str):
@@ -3584,19 +3648,43 @@ class PdfReaderWindow(QMainWindow):
     def _restore_session(self, force=False):
         if not self._auto_restore and not force:
             return
+        # If "Don't ask again" is set, use the stored preference silently
+        if self._session_dont_ask:
+            if self._auto_restore:
+                self._log_update("session_restore: silent auto-restore (don't ask checked)")
+                self._do_restore_session()
+            else:
+                self._log_update("session_restore: skipped (auto-restore disabled, don't ask checked)")
+            return
         session = self.settings.value("session", [])
         if not session:
             return
         if not force:
-            reply = QMessageBox.question(
-                self, "Restore Session",
+            # Custom dialog with "Don't ask again" checkbox
+            from PySide6.QtWidgets import QCheckBox
+            msg = QMessageBox(self)
+            msg.setWindowTitle("Restore Session")
+            msg.setText(
                 "You had documents open when you last closed PDFReader.\n"
-                "Would you like to restore them?",
-                QMessageBox.Yes | QMessageBox.No,
-                QMessageBox.Yes,
+                "Would you like to restore them?"
             )
+            msg.setIcon(QMessageBox.Question)
+            cb = QCheckBox("Don't ask again")
+            msg.setCheckBox(cb)
+            msg.setStandardButtons(QMessageBox.Yes | QMessageBox.No)
+            msg.setDefaultButton(QMessageBox.Yes)
+            reply = msg.exec()
+            if cb.isChecked():
+                self._session_dont_ask = True
+                self.settings.setValue("sessionDontAsk", True)
+                self._log_update("session_restore: don't ask again checked")
             if reply != QMessageBox.Yes:
                 return
+        self._do_restore_session()
+
+    def _do_restore_session(self):
+        """Restore saved session without prompting."""
+        session = self.settings.value("session", [])
         for entry in session:
             path = entry.get("path", "")
             page = entry.get("page", 0)

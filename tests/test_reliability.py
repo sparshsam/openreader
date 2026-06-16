@@ -187,14 +187,14 @@ class TestOpenActionSignalHandling:
         assert "if isinstance(file_name, bool):" in src
         assert "file_name = None" in src
 
-    def test_new_tab_button_opens_pdf_flow(self):
-        """The plus button should use the same picker flow as other open actions."""
+    def test_new_tab_button_opens_new_tab(self):
+        """The plus button should create a blank tab without file dialog."""
         import main as m
 
         src = Path(m.__file__).read_text()
         assert 'setObjectName("NewTabButton")' in src
-        assert 'setToolTip("Open another PDF")' in src
-        assert "new_tab_button.clicked.connect(self.open_pdf)" in src
+        assert 'setToolTip("New Tab (Ctrl+T)")' in src
+        assert "new_tab_button.clicked.connect(self.new_tab)" in src
 
     def test_tabs_use_explicit_close_button(self):
         """Tabs should expose a readable close affordance instead of a hidden style glyph."""
@@ -216,3 +216,58 @@ class TestOpenActionSignalHandling:
         assert "self.current_tab_id = tab_id" in src
         assert "tab_id = self.tab_bar.tabData(index)" in src
         assert "def _show_empty_state" in src
+
+    def test_open_pdf_blocks_re_entrant_calls(self):
+        """Re-entrant calls to open_pdf should be blocked when picker is shown."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "self._open_in_progress" in src
+        assert "'open_pdf: re-entrant call blocked (picker already shown)'" in src or "\"open_pdf: re-entrant call blocked (picker already shown)\"" in src
+
+    def test_new_tab_does_not_call_open_pdf(self):
+        """Ctrl+T / + button should create a blank tab, not open a file dialog."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "def new_tab(self):" in src
+        assert "'New Tab (blank)'" in src or "\"New Tab (blank)\"" in src
+        assert "Qt.Key_T: self.new_tab" in src
+        assert "new_tab_button.clicked.connect(self.new_tab)" in src
+
+    def test_session_dont_ask_persisted(self):
+        """'Don't ask again' setting should be stored in QSettings."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "sessionDontAsk" in src
+        assert "Don't ask again" in src
+        assert "self._session_dont_ask" in src
+
+    def test_compress_size_guard_detects_worse_compression(self):
+        """Compression should reject output if larger than or equal to original."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "if output_size >= source_size:" in src
+        assert "Compression was not beneficial" in src
+        assert "unlink(missing_ok=True)" in src
+
+    def test_post_update_version_verification(self):
+        """Post-update marker file should be created and verified on launch."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "def _check_post_update(self):" in src
+        assert "_updated_from_" in src
+        assert "markers[0].read_text().strip()" in src
+
+    def test_unsigned_publisher_doc_added(self):
+        """README should document the unsigned 'Unknown Publisher' status."""
+        readme = (Path(ROOT) / "README.md").read_text()
+        assert 'Unknown Publisher' in readme
+        assert 'code-signing' in readme
+
+    def test_open_pdf_cancelled_message_is_clean(self):
+        """Cancel should show exactly one clean message, not cascading fallback messages."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "no file selected (cancelled)" in src
+        # Verify old cascading fallback messages are removed
+        assert "_pick_file_tkinter()" not in src.split("open_pdf: no file selected")[0].rsplit("def open_pdf")[-1]
+
