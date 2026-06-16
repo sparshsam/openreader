@@ -44,3 +44,14 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 - README should describe shipped behavior only.
 - Do not overclaim auto-update. It works for packaged builds only when canonical release assets are attached to the latest GitHub Release.
 - Keep Mac signing/Gatekeeper caveats visible until releases are signed and notarized.
+
+## MCP Server (AI Agent Integration)
+
+The repository ships `pdfreader_lib/mcp_server.py` — an MCP server exposing all PDF operations as tools for AI agents.
+
+**Maintenance rules:**
+- `pdfreader_lib/mcp_server.py` must stay in sync with the feature set in `main.py`.
+- When adding a new PDF operation to the GUI, add a matching MCP tool in `mcp_server.py`.
+- Do not introduce network behavior beyond the existing GitHub release check and MCP transport.
+- The MCP server is optional — it does not affect the desktop GUI or packaged builds.
+- Keep the `requirements-mcp.txt` dependency list minimal (only `mcp` SDK is required for stdio mode).
