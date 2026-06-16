@@ -57,6 +57,8 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
+**About the "Unknown Publisher" warning:** The installer currently displays "Unknown Publisher" because the build is unsigned. The AppPublisher metadata (`Sparsh`) and version info are embedded in the executable by PyInstaller and Inno Setup, but Windows code signing is a separate step that requires an EV certificate. The installer is safe — SmartScreen shows this warning purely because there is no code-signing signature, not because of any detected issue. A code-signing certificate purchase and integration is tracked as a future improvement.
+
 Packaged builds check the latest GitHub Release for updates. Source builds are intended to be updated with `git pull` and rebuilt locally.
 
 ## Features
