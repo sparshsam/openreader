@@ -1,6 +1,20 @@
 # Changelog
 
-## v1.0.6 — Windows Installation + Open Flow Verification — 2026-06-10
+## v1.1.0 — AI Agent Integration (MCP Server) — 2026-06-16
+
+- **Version:** Bumped `__version__` to `1.1.0-dev`.
+- **MCP server** (`pdfreader_lib/mcp_server.py`) — new Model Context Protocol server exposing 14 PDF operations as tools for AI agents:
+  - **Reading:** `extract_text`, `get_page_text`, `get_metadata`, `get_page_count`
+  - **Search:** `search_pdf` (single doc), `search_library` (FTS5 BM25), `search_semantic` (TF-IDF)
+  - **Compare:** `compare_pdfs` (page-by-page structured diff with summary)
+  - **Transform:** `merge_pdfs`, `split_pdf`, `extract_pages`, `compress_pdf`
+  - **Index:** `index_folder`, `list_indexed_docs`
+- **MCP transports:** stdio (default, for agent CLIs) and SSE (optional, for HTTP gateways)
+- **`requirements-mcp.txt`** — optional dependency pin (`mcp>=1.0.0`)
+- **README:** New "AI Agent Integration" section with setup, agent configuration, and tool reference. Features table expanded with missing capabilities (annotation management, Save PDF, keyboard shortcuts, diff summary). Tech stack expanded from 3 to 10 rows with actual versions.
+- **AGENTS.md:** Maintenance rules for the MCP server.
+- **Roadmap:** v1.1.0 marked as current. v1.1.0-plan.md updated to note MCP server shipped; visual polish items deferred to v1.2.0.
+- All operations are local. No cloud dependencies, no code changes to the existing GUI.
 
 - **Version:** Bumped `__version__` to `1.0.6-dev`.
 - **Branch:** `windows-installed-app-verification-v1.0.6`
