@@ -1,6 +1,15 @@
 # Changelog
 
-## v1.1.0 — AI Agent Integration (MCP Server) — 2026-06-16
+## v1.1.1 — Stability and UX Hardening — 2026-06-16
+
+- **Version:** Bumped `__version__` to `1.1.1-dev`.
+- **Open file centralized** — single file picker dialog with `_open_in_progress` guard blocking re-entrant calls. Removed cascading 3-tier fallback (Qt→Tkinter→Manual). Clean cancel message.
+- **New Tab creates blank tab** — `new_tab()` method replaces `open_pdf()` for Ctrl+T, + button, and double-click. Creates blank tab with empty-state page — no file dialog.
+- **Session restore "Don't ask again"** — custom QMessageBox with checkbox. Choice persisted in QSettings (`sessionDontAsk`). Silent auto-restore or skip.
+- **Compress size guard** — if compressed output ≥ original, deletes the output and shows "Compression not beneficial" message. No larger file saved.
+- **Updater post-launch verification** — marker file written before apply. `_check_post_update()` reads it on next launch, logs diagnostics, shows "Updated to vX.Y.Z" in status bar. Per-launch `app_launch` log entry.
+- **Windows installer publisher docs** — README now explains "Unknown Publisher" warning and that code-signing requires an EV certificate.
+- **9 new regression tests** — 28 total, all passing. Covers: re-entrant open guard, blank tab, session checkbox, compress guard, post-update verification, unsigned publisher docs, clean cancel message.
 
 - **Version:** Bumped `__version__` to `1.1.0-dev`.
 - **MCP server** (`pdfreader_lib/mcp_server.py`) — new Model Context Protocol server exposing 14 PDF operations as tools for AI agents:
