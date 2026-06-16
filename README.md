@@ -43,7 +43,7 @@ PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with 
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.0.6** is the current stable release — production-quality with a verified Windows installer, automatic updates, tabbed PDFs, and safer document handling. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.1.0** is the current stable release — adds an MCP server for AI agent integration, 14 programmatic PDF tools (extract, search, compare, merge, split, compress, index), and a full README features refresh. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 

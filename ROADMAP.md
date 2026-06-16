@@ -1,13 +1,12 @@
 # PDFReader by Sparsh — Roadmap
 
-> Stable, local-first desktop PDF utility.
+> Stable, local-first desktop PDF utility with AI agent integration.
 
-## ❄️ v1.0.6 — Current Stable (Frozen)
+## ❄️ v1.1.0 — Current Stable (Frozen)
 
-v1.0.6 is the current stable release. It will receive **only critical bug fixes**.
-Non-critical improvements, visual polish, and new features move to v1.1.0+.
+v1.1.0 ships the MCP server for AI agent integration (14 programmatic PDF tools), along with a full README features refresh. It will receive **only critical bug fixes**.
 
-See the [v1.1.0 Plan](docs/v1.1.0-plan.md) for upcoming scope.
+See the [v1.2.0 Plan](docs/v1.2.0-plan.md) for upcoming scope.
 
 ## ✓ v1.0.0 — Shipped
 
@@ -32,12 +31,21 @@ See the [v1.1.0 Plan](docs/v1.1.0-plan.md) for upcoming scope.
 - [x] Backup-before-write crash safety
 - [x] Known limitations documented
 
+## ✓ v1.1.0 — Shipped
+
+- [x] MCP server for AI agent PDF integration (14 tools: extract, search, compare, merge, split, compress, index)
+- [x] README features table synced with code
+- [x] README tech stack expanded
+- [x] AGENTS.md maintenance rules for MCP server
+
 ## Future
 
 Items under consideration — not committed or scheduled.
 
+- [ ] Premium visual polish (tab styling, recent-files start screen, sidebar thumbnails)
+- [ ] macOS DMG packaging
+- [ ] Signed Windows binaries
 - [ ] Local AI summarization (Ollama / llama.cpp)
-- [ ] Code signing (Windows + macOS)
 - [ ] Cross-platform Linux support
 - [ ] Plugin system for community tools
 - [ ] PDF timeline / version history
