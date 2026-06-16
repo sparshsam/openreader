@@ -5,7 +5,7 @@
 <h1 align="center">PDFReader by Sparsh</h1>
 
 <p align="center">
-  A local-first, non-commercial desktop PDF reader for Windows and macOS source builds.
+  A local-first desktop PDF reader for Windows.
   <br>
   Read, search, copy, merge, split, extract, and compress PDFs without uploading documents anywhere.
 </p>
@@ -43,17 +43,16 @@ PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with 
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.1.1** is the current stable release — adds UX hardening, single-file picker, blank tabs, session "Don't ask again", compress size guard, updater post-launch verification, and 9 new regression tests. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.1.1** is the current stable release for Windows. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
 Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest).
 
 | Platform | Recommended Download | Alternative | Notes |
-|---|---|---|---|
-| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | Use Setup.exe for normal installation (requires admin — see [Windows installer notes](SUPPORT.md#windows-installer)). ZIP remains for updater/portable/manual use. |
-| macOS Apple Silicon | `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
-| macOS Intel | `PDFReader-by-Sparsh-macOS-Intel.zip` | — | Unsigned app bundle. Gatekeeper may require manual approval. |
+|---|---|---|---|---|
+| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | **Stable and tested.** Use Setup.exe for normal installation (requires admin — see [Windows installer notes](SUPPORT.md#windows-installer)). ZIP remains for updater/portable/manual use. |
+| macOS | — | — | **Not currently stable.** macOS builds are published for source-build testing only. The app may exhibit UI issues, missing features, or crashes. Run from source for the best macOS experience (see [Build From Source](#build-from-source)). |
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
@@ -127,9 +126,8 @@ Earlier published versions may have been released under MIT. The current license
 
 | Use case | Requirements |
 |---|---|
-| Run Windows release | Windows. Python is not required. |
-| Run macOS release | macOS. Apple Silicon or Intel build must match your Mac. |
-| Develop/build locally | Python 3.11 or newer |
+| Run Windows release | Windows 10 or newer. Python is not required. |
+| Develop/build locally | Python 3.11 or newer. Windows recommended; macOS source builds may work but are not tested. |
 
 ## Build From Source
 
@@ -161,26 +159,26 @@ dist\PDFReader by Sparsh\
 
 ### macOS
 
-The Windows `.exe` cannot run on macOS. PyInstaller bundles native binaries for the operating system it runs on, so Mac users need a macOS build.
+The Windows `.exe` cannot run on macOS. PyInstaller bundles native binaries for the operating system it runs on.
+
+**macOS packaged builds are not stable.** The app is developed and tested primarily on Windows. To run on macOS, build from source — this gives you the latest code without the packaging layer:
 
 ```bash
 git clone https://github.com/sparshsam/pdfreader-by-sparsh.git
 cd pdfreader-by-sparsh
-chmod +x scripts/build_macos.sh
-./scripts/build_macos.sh
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python main.py
 ```
 
-Output:
-
-```text
-dist/PDFReader by Sparsh.app
-```
-
-See [docs/macos.md](docs/macos.md) for macOS setup, Finder "Open With" notes, icon generation, OCR notes, and signing/notarization caveats.
+See [docs/macos.md](docs/macos.md) for macOS setup, Finder "Open With" notes, icon generation, and OCR notes.
 
 ## Releases and Auto-Update
 
 Release assets are the canonical distribution path. GitHub Actions artifacts are CI outputs and are not visible to the in-app updater.
+
+**macOS release assets** (Apple Silicon and Intel ZIPs) are published alongside Windows but **are not stable** — Windows is the tested platform. Mac users should build from source (see [Build From Source](#build-from-source)).
 
 The updater checks:
 
@@ -269,10 +267,21 @@ sudo pacman -S tesseract tesseract-data-eng
 - **OCR setup docs** — per-platform Tesseract installation guide above
 - **macOS auto-update** — PID-based process wait, retry logic, Gatekeeper quarantine clearance
 
-### ❄️ v1.0.6 — Current Stable (Frozen)
+### ✓ v1.1.0 — AI Agent Integration (Shipped)
 
-v1.0.6 is the current production release. It will receive **only critical bug fixes**.
-Non-critical improvements, visual polish, and new features move to [v1.1.0+](docs/v1.1.0-plan.md).
+- [x] MCP server for AI agent PDF integration (14 tools)
+- [x] README features table synced with code
+- [x] README tech stack expanded
+
+### ✓ v1.1.1 — Stability and UX Hardening (Current Stable — Windows)
+
+- [x] Open file — single picker, no cascading fallbacks, re-entrant guard
+- [x] New Tab — creates blank tab without file dialog
+- [x] Session restore — "Don't ask again" checkbox with persistent preference
+- [x] Compress — size guard rejects output larger than original
+- [x] Updater — post-launch version verification with status bar confirmation
+- [x] Windows publisher docs — "Unknown Publisher" explained
+- [x] 9 new regression tests (28 total, all passing)
 
 ### Near-Term
 Items in active or planned development.
@@ -448,4 +457,4 @@ All operations are local. No data is uploaded anywhere.
 | Installer (Windows) | Inno Setup |
 | CI/CD | GitHub Actions (Windows + macOS) |
 | Security scanning | Bandit, pip-audit |
-| Platform | Windows (primary), macOS (Apple Silicon + Intel) |
+| Platform | Windows (primary — stable), macOS (source-build only — not stable) |
