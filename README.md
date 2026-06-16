@@ -338,7 +338,9 @@ This project is one piece of that broader picture. The immediate goal is a genui
 ├── tests/                   # Regression test suite
 ├── tools/                   # Developer utilities and CI test helpers
 ├── main.py                  # Main PySide6 application
+├── pdfreader_lib/           # Core library (search, comparison, MCP server)
 ├── requirements.txt         # Pinned runtime/build dependencies
+├── requirements-mcp.txt     # MCP server dependencies (optional)
 ├── PDFReader by Sparsh.spec # PyInstaller spec
 ├── .bandit                  # Bandit security scanner configuration
 ├── CHANGELOG.md
@@ -350,6 +352,82 @@ This project is one piece of that broader picture. The immediate goal is a genui
 ## Contributing
 
 Contributions are welcome for non-commercial use cases. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) before opening issues or pull requests.
+
+## AI Agent Integration (MCP Server)
+
+PDFReader by Sparsh ships with a built-in [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI agents interact with PDFs programmatically. Agents can read, search, compare, merge, split, compress, and index PDFs — all locally, no cloud involved.
+
+### Available Tools (14)
+
+| Tool | Purpose |
+|------|---------|
+| `extract_text` | Extract all text from a PDF, per-page |
+| `get_page_text` | Extract text from a single page |
+| `get_metadata` | Get PDF metadata (title, author, pages, size) |
+| `get_page_count` | Get the number of pages |
+| `search_pdf` | Search for text within a single PDF |
+| `compare_pdfs` | Compare two PDFs page-by-page with diff |
+| `merge_pdfs` | Merge multiple PDFs into one |
+| `split_pdf` | Split into individual page files |
+| `extract_pages` | Extract specific pages by range (e.g. `1-3,5,7-9`) |
+| `compress_pdf` | Create a compressed copy |
+| `index_folder` | Build SQLite FTS5 full-text index for a folder |
+| `search_library` | Search across all indexed PDFs (BM25 ranked) |
+| `search_semantic` | TF-IDF meaning-based search across indexed PDFs |
+| `list_indexed_docs` | List all documents in the search index |
+
+### Setup
+
+```bash
+# Install the MCP SDK
+pip install -r requirements-mcp.txt
+
+# For SSE/HTTP transport (optional):
+# pip install starlette uvicorn
+```
+
+### Agent Configuration
+
+**Claude Code, Hermes Agent, or any MCP-compatible agent:**
+
+Add to your agent's MCP server configuration:
+
+```json
+{
+  "mcpServers": {
+    "pdfreader-by-sparsh": {
+      "command": "python",
+      "args": ["-m", "pdfreader_lib.mcp_server"]
+    }
+  }
+}
+```
+
+### Usage
+
+The server runs over stdio by default (standard for AI agents):
+
+```bash
+python -m pdfreader_lib.mcp_server
+```
+
+For HTTP/SSE transport (gateway mode):
+
+```bash
+python -m pdfreader_lib.mcp_server --transport sse --port 8312
+```
+
+### What Agents Can Do
+
+- **Extract text** from PDFs for analysis or summarization
+- **Search** across a folder of PDFs using full-text or semantic search
+- **Compare** document versions and get structured diffs
+- **Merge** multiple PDFs into one document
+- **Split** PDFs by page or extract specific page ranges
+- **Compress** PDFs to reduce file size
+- **Index** entire folders for cross-document search
+
+All operations are local. No data is uploaded anywhere.
 
 ---
 

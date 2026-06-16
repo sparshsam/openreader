@@ -1,0 +1,8 @@
+# MCP server dependencies (optional — only needed for AI agent integration)
+# Install with: pip install -r requirements-mcp.txt
+# Or for SSE/HTTP transport: pip install -r 'requirements-mcp.txt[sse]'
+
+mcp>=1.0.0
+
+# SSE transport extras (optional):
+# pip install starlette uvicorn
