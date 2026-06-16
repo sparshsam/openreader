@@ -3400,7 +3400,7 @@ class PdfReaderWindow(QMainWindow):
             )
             self._log_update(f"post_update_marker={marker}")
         except Exception:
-            pass  # nosec — best-effort diagnostic marker
+            pass  # nosec B110 — best-effort diagnostic marker
 
         self._apply_update(dest, latest_tag, asset_name)
 
