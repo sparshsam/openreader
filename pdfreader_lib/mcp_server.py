@@ -1,5 +1,5 @@
 """
-MCP server for PDFReader by Sparsh.
+MCP server for OpenReader.
 
 Provides AI agents with programmatic access to PDF operations —
 extract text, search, compare, merge, split, compress, index folders,
@@ -808,7 +808,7 @@ async def serve_sse(host: str = "0.0.0.0", port: int = 8312) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="PDFReader by Sparsh — MCP Server",
+        description="OpenReader — MCP Server",
     )
     parser.add_argument(
         "--transport",

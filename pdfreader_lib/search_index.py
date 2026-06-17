@@ -1,5 +1,5 @@
 """
-PDFReader by Sparsh — Library Search Index
+OpenReader — Library Search Index
 
 SQLite FTS5 for full-text search across a folder of PDFs.
 TF-IDF cosine similarity for offline semantic-like search.

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ═══════════════════════════════════════════════════════════════
+  APP INSTALLER CONFIGURATION — FROZEN IDENTITY
+  ═══════════════════════════════════════════════════════════════
+  Identity Name:  SparshSam.OpenReader
+  Publisher:      CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0
+  Package Family: SparshSam.OpenReader_yh0byntbzd2qw
+
+  PERMANENT UPDATE URI (must never change after public release):
+  https://downloads.openreader.app/stable/OpenReader.appinstaller
+  ═══════════════════════════════════════════════════════════════
+-->
+<AppInstaller
+  xmlns="http://schemas.microsoft.com/appx/appinstaller/2021"
+  Version="1.0.0.0">
+
+  <MainPackage
+    Name="SparshSam.OpenReader"
+    Publisher="CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0"
+    Version="1.2.0.0"
+    ProcessorArchitecture="x64"
+    Uri="https://downloads.openreader.app/stable/OpenReader.msix" />
+
+  <UpdateSettings>
+    <OnLaunch
+      HoursBetweenUpdateChecks="0" />
+    <AutomaticBackgroundTask />
+    <ForceUpdateFromAnyVersion>false</ForceUpdateFromAnyVersion>
+  </UpdateSettings>
+
+</AppInstaller>

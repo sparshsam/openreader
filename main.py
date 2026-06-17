@@ -2,10 +2,8 @@ import json
 import os
 import platform
 import re
-import subprocess  # nosec B404 — needed for self-update mechanism
 import sys
 import tempfile
-import zipfile
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -52,14 +50,9 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.1.11-dev"
+__version__ = "1.2.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
-WINDOWS_INSTALLER_ASSET = "PDFReader-by-Sparsh-Setup.exe"
-WINDOWS_PORTABLE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
-WINDOWS_UPDATE_ASSET = WINDOWS_INSTALLER_ASSET
-MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
-MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
-IPC_SERVER_NAME = "PDFReaderBySparsh-IPC"
+IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
@@ -639,7 +632,7 @@ class PdfPageLabel(QLabel):
 # ---------------------------------------------------------------------------
 
 class PdfReaderWindow(QMainWindow):
-    APP_NAME = "PDFReader by Sparsh"
+    APP_NAME = "OpenReader"
     MAX_PDF_SIZE_BYTES = 500 * 1024 * 1024
     MAX_PAGE_DIMENSION_POINTS = 14400
     MAX_RENDER_PIXELS = 80_000_000
@@ -707,7 +700,7 @@ class PdfReaderWindow(QMainWindow):
         # Enable drag-and-drop
         self.setAcceptDrops(True)
 
-        self.settings = QSettings("Sparsh", "PDFReader by Sparsh")
+        self.settings = QSettings("Sparsh Sam", "OpenReader")
 
         # ---- Render debounce timer ----
         self._render_timer = QTimer(self)
@@ -747,19 +740,12 @@ class PdfReaderWindow(QMainWindow):
         self._session_dont_ask = self.settings.value("sessionDontAsk", False, bool)
         self._session_data: list[dict] | None = None
         self._open_in_progress = False
-        self._update_post_launch_checked = False
 
         # ---- Update system ----
         self._update_nam = QNetworkAccessManager(self)
         self._update_nam.finished.connect(self._on_update_check_reply)
 
         self._log_update(f"app_launch: version={__version__}")
-        self._download_nam = QNetworkAccessManager(self)
-        self._download_nam.finished.connect(self._on_download_finished)
-        self._update_progress = None
-        self._update_latest_tag = None
-        self._update_asset_name = None
-        self._update_download_path = None
         self._auto_update_check = self.settings.value(SETTINGS_AUTO_UPDATE_KEY, True, bool)
 
         self._build_ui()
@@ -776,9 +762,6 @@ class PdfReaderWindow(QMainWindow):
         # Auto-update check on launch
         if self._auto_update_check:
             QTimer.singleShot(3000, self.check_for_updates_silent)
-
-        # Post-update version verification
-        QTimer.singleShot(5000, self._check_post_update)
 
         _perf_end(_perf_start_t, "PdfReaderWindow.__init__")
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
@@ -2926,13 +2909,11 @@ class PdfReaderWindow(QMainWindow):
 
     def check_for_updates_silent(self):
         """Silent update check — no user-visible feedback unless update is found."""
-        if self._update_progress is not None:
-            return
         self._update_nam_silent = QNetworkAccessManager(self)
         self._update_nam_silent.finished.connect(self._on_silent_update_reply)
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
         request = QNetworkRequest(url)
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setHeader(QNetworkRequest.UserAgentHeader, "OpenReader/1.0")
         request.setTransferTimeout(15000)
         self._update_nam_silent.get(request)
 
@@ -2946,8 +2927,6 @@ class PdfReaderWindow(QMainWindow):
         reply.deleteLater()
         if result["outcome"] == "update_available":
             self.statusBar().showMessage(result["message"], 10000)
-            # Show the interactive update prompt
-            self.check_for_updates()
 
     # ------------------------------------------------------------------
     # Drag and drop support
@@ -3025,94 +3004,6 @@ class PdfReaderWindow(QMainWindow):
         except OSError:
             pass
 
-    def _check_post_update(self):
-        """Verify post-update state and log diagnostics."""
-        try:
-            updater_dir = self.__class__._updater_temp_dir()
-            markers = list(updater_dir.glob("_updated_from_*.txt"))
-            if markers:
-                marker = markers[0]
-                content = marker.read_text().strip()
-                self._log_update(f"post_update: {content}")
-                self._log_update(f"post_update: current_version={__version__}")
-                self.statusBar().showMessage(
-                    f"Updated to v{__version__}", 5000
-                )
-                # Check if marker is stale (>5 min old) — update may have failed
-                import time as _time
-                marker_age = _time.time() - marker.stat().st_mtime
-                if marker_age > 300:
-                    self._log_update("post_update: stale marker found — previous update may have failed")
-                    log_path = self._updater_log_path()
-                    if log_path.exists():
-                        log_content = log_path.read_text(encoding="utf-8", errors="replace")[-2000:]
-                        if "UPDATE FAILED" in log_content or "failure" in log_content.lower():
-                            self._show_update_failed_diagnostic(log_content)
-                # Clean up marker files
-                for m in markers:
-                    m.unlink(missing_ok=True)
-            else:
-                # Check for stale extract directories (update was attempted but didn't complete)
-                extract_dirs = list(updater_dir.glob("extracted_*"))
-                if extract_dirs:
-                    import time as _time
-                    for d in extract_dirs:
-                        age = _time.time() - d.stat().st_mtime
-                        if age > 300:  # older than 5 minutes = stale
-                            self._log_update(f"post_update: stale extract dir found: {d.name}")
-        except Exception:
-            pass  # nosec B110 — best-effort diagnostic
-
-    def _show_update_failed_diagnostic(self, log_content: str):
-        """Show a diagnostic dialog when a previous update appears to have failed."""
-        msg = QMessageBox(self)
-        msg.setWindowTitle("Update May Have Failed")
-        msg.setText(
-            "<h3>Previous Update Did Not Complete</h3>"
-            "<p>A previous update attempt appears to have failed. "
-            "The app is still running the old version.</p>"
-            "<hr>"
-            "<p><b>Common causes:</b><br>"
-            "• The update needs Administrator permission (UAC prompt was declined)<br>"
-            "• The app was installed in a protected folder like Program Files<br>"
-            "• The update file was blocked by antivirus or Windows Defender</p>"
-            "<hr>"
-            "<p><b>Try this:</b><br>"
-            "1. Download the latest Setup.exe from the GitHub releases page<br>"
-            "2. Run the installer as Administrator<br>"
-            "3. Or run PDFReader as Administrator and check for updates again</p>"
-        )
-        msg.setStandardButtons(QMessageBox.Ok)
-        msg.setDetailedText(
-            f"Updater log ({self._updater_log_path()}):\n\n{log_content}"
-        )
-        msg.exec()
-
-    @staticmethod
-    def _select_update_apply_method(system, asset_name, dest):
-        suffix = Path(dest).suffix.lower()
-        if system == "Windows" and asset_name == WINDOWS_INSTALLER_ASSET and suffix == ".exe":
-            return "windows_installer", ""
-        if system == "Windows" and asset_name == WINDOWS_PORTABLE_ASSET and suffix == ".zip":
-            return "windows_zip", ""
-        if system == "Darwin" and suffix == ".zip":
-            return "macos_zip", ""
-        diagnostic = (
-            "Unsupported update package.\n\n"
-            f"System: {system}\n"
-            f"Asset: {asset_name or '<missing>'}\n"
-            f"Path: {dest}\n"
-            f"Suffix: {suffix or '<missing>'}"
-        )
-        return None, diagnostic
-
-    @staticmethod
-    def _validate_download_metadata(asset_name, latest_tag):
-        if not asset_name:
-            return "Download metadata missing. The updater could not determine the release asset name."
-        if not latest_tag:
-            return "Download metadata missing. The updater could not determine the release tag."
-        return ""
 
     @staticmethod
     def _classify_update_response(
@@ -3210,31 +3101,12 @@ class PdfReaderWindow(QMainWindow):
         result["message"] = f"Update available: {latest_tag}"
         return result
 
-    def _get_platform_asset(self, assets):
-        assets_by_name = {a.get("name", ""): a for a in assets}
-        system = platform.system()
-        if system == "Windows":
-            asset = assets_by_name.get(WINDOWS_INSTALLER_ASSET)
-            if asset:
-                return asset["browser_download_url"], asset["name"]
-        elif system == "Darwin":
-            is_arm = platform.machine() in ("arm64", "aarch64")
-            expected_name = (
-                MACOS_APPLE_SILICON_UPDATE_ASSET if is_arm else MACOS_INTEL_UPDATE_ASSET
-            )
-            asset = assets_by_name.get(expected_name)
-            if asset:
-                return asset["browser_download_url"], asset["name"]
-        return None, None
-
     def check_for_updates(self):
-        if self._update_progress is not None:
-            return
         self.update_action.setEnabled(False)
         self.statusBar().showMessage("Checking for updates...")
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
         request = QNetworkRequest(url)
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setHeader(QNetworkRequest.UserAgentHeader, "OpenReader/1.0")
         request.setTransferTimeout(15000)
         self._update_nam.get(request)
 
@@ -3275,12 +3147,10 @@ class PdfReaderWindow(QMainWindow):
             self.statusBar().showMessage(result["message"], 5000)
             return
 
-        # Update available - existing dialog flow
+        # Update available \u2014 open releases page in browser
         latest_tag = result["latest_tag"]
         data = result["data"]
         current_version = self._parse_version(__version__)
-        assets = data.get("assets", [])
-        asset_url, asset_name = self._get_platform_asset(assets)
 
         release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
         release_notes = (data.get("body") or "")[:500]
@@ -3288,6 +3158,11 @@ class PdfReaderWindow(QMainWindow):
         msg = (
             f"<h3>Update Available</h3>"
             f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> \u2192 <b>{latest_tag}</b></p>"
+            "<hr>"
+            "<p>PDFReader no longer installs updates from within the app.</p>"
+            "<p>Please download the latest version from the GitHub releases page "
+            "and install it using the MSIX App Installer (Windows) or "
+            "the legacy Setup.exe.</p>"
         )
         if release_notes:
             msg += f"<hr><pre style='white-space:pre-wrap'>{release_notes}</pre>"
@@ -3297,8 +3172,7 @@ class PdfReaderWindow(QMainWindow):
         btn.setTextFormat(Qt.RichText)
         btn.setText(msg)
 
-        if asset_url and asset_name:
-            download_button = btn.addButton("Download & Install", QMessageBox.AcceptRole)
+        open_button = btn.addButton("Open Releases Page", QMessageBox.AcceptRole)
         skip_button = btn.addButton("Skip This Version", QMessageBox.RejectRole)
         _ = btn.addButton("Later", QMessageBox.DestructiveRole)
 
@@ -3308,478 +3182,13 @@ class PdfReaderWindow(QMainWindow):
             self.statusBar().showMessage("Update skipped", 3000)
             return
 
-        if asset_url and btn.clickedButton() == download_button:
-            self._start_download(asset_url, asset_name, latest_tag)
-        elif not asset_url:
+        if btn.clickedButton() == open_button:
             import webbrowser
             webbrowser.open(release_url)
             self.statusBar().showMessage(
-                "No installer for your platform. Opening releases page.", 5000
+                "Opening releases page in your browser.", 5000
             )
 
-    def _start_download(self, asset_url, asset_name, latest_tag):
-        system = platform.system()
-        self._log_update(f"current_version={__version__}")
-        self._log_update(f"latest_tag={latest_tag}")
-        self._log_update(f"selected_asset_name={asset_name}")
-        self._log_update(f"asset_url={asset_url}")
-        self._log_update(f"detected_os={system}")
-
-        validation_errors = []
-        if not asset_url:
-            validation_errors.append("missing asset URL")
-        if not asset_name:
-            validation_errors.append("missing asset name")
-        if not latest_tag:
-            validation_errors.append("missing release tag")
-        if system == "Windows" and asset_name not in (WINDOWS_INSTALLER_ASSET, WINDOWS_PORTABLE_ASSET):
-            validation_errors.append(
-                "Windows updater expected "
-                f"{WINDOWS_INSTALLER_ASSET} or {WINDOWS_PORTABLE_ASSET}, "
-                f"got {asset_name or '<missing>'}"
-            )
-        if validation_errors:
-            message = "Cannot start update download:\n\n" + "\n".join(validation_errors)
-            self._log_update(f"failure={message}")
-            QMessageBox.critical(self, "Update Error", message)
-            return
-
-        self._update_latest_tag = latest_tag
-        self._update_asset_name = asset_name
-        self._update_download_path = None
-
-        self._update_progress = QProgressDialog(
-            f"Downloading {asset_name}\u2026", "Cancel", 0, 0, self
-        )
-        self._update_progress.setWindowTitle("Downloading Update")
-        self._update_progress.setWindowModality(Qt.WindowModal)
-        self._update_progress.setMinimumDuration(0)
-        self._update_progress.setValue(0)
-        self._update_progress.canceled.connect(self._cancel_download)
-        self._update_progress.show()
-
-        self.update_action.setEnabled(False)
-        self.statusBar().showMessage(f"Downloading {asset_name}\u2026")
-
-        request = QNetworkRequest(QUrl(asset_url))
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
-        request.setTransferTimeout(300000)
-        reply = self._download_nam.get(request)
-        reply.setProperty("asset_name", asset_name)
-        reply.setProperty("latest_tag", latest_tag)
-        reply.downloadProgress.connect(self._on_download_progress)
-
-    def _on_download_progress(self, received, total):
-        if self._update_progress is None:
-            return
-        if total > 0:
-            self._update_progress.setMaximum(int(total))
-            self._update_progress.setValue(int(received))
-            mb_rec = received / (1024 * 1024)
-            mb_tot = total / (1024 * 1024)
-            self._update_progress.setLabelText(
-                f"Downloading update\u2026 {mb_rec:.1f} / {mb_tot:.1f} MB"
-            )
-        else:
-            self._update_progress.setMaximum(0)
-            self._update_progress.setValue(0)
-
-    def _cancel_download(self):
-        self._download_nam.finished.disconnect(self._on_download_finished)
-        self._download_nam = QNetworkAccessManager(self)
-        self._download_nam.finished.connect(self._on_download_finished)
-        self._update_progress = None
-        self._update_latest_tag = None
-        self._update_asset_name = None
-        self.update_action.setEnabled(True)
-        self.statusBar().showMessage("Download cancelled", 3000)
-
-    def _on_download_finished(self, reply):
-        self.update_action.setEnabled(True)
-        if self._update_progress is not None:
-            # Disconnect canceled signal before close() to prevent false
-            # "Download cancelled" message when the dialog is closed
-            # programmatically after successful download.
-            try:
-                self._update_progress.canceled.disconnect(self._cancel_download)
-            except (TypeError, RuntimeError):
-                pass
-            self._update_progress.close()
-            self._update_progress = None
-
-        asset_name = reply.property("asset_name")
-        latest_tag = reply.property("latest_tag")
-        metadata_error = self._validate_download_metadata(asset_name, latest_tag)
-        if metadata_error:
-            self._log_update("failure=download metadata missing")
-            QMessageBox.critical(
-                self,
-                "Update Error",
-                metadata_error,
-            )
-            reply.deleteLater()
-            return
-
-        if reply.error() != QNetworkReply.NoError:
-            self._log_update(f"failure=download failed: {reply.errorString()}")
-            QMessageBox.critical(
-                self,
-                "Download Failed",
-                f"Could not download the update:\n{reply.errorString()}",
-            )
-            reply.deleteLater()
-            return
-
-        try:
-            temp_dir = self._updater_temp_dir()
-            dest = temp_dir / asset_name
-            self._log_update(f"download_destination={dest}")
-            data = reply.readAll()
-            with open(dest, "wb") as f:
-                f.write(bytes(data))
-            self._update_download_path = dest
-        except Exception as exc:
-            self._log_update(f"failure=could not save download: {exc}")
-            QMessageBox.critical(
-                self,
-                "Download Failed",
-                f"Could not save the downloaded file:\n{exc}",
-            )
-            reply.deleteLater()
-            return
-        finally:
-            reply.deleteLater()
-
-        # Write a post-update marker so the new version can verify it launched
-        try:
-            marker = temp_dir / f"_updated_from_{latest_tag}.txt"
-            marker.write_text(
-                f"Updated from {__version__} to {latest_tag}\n"
-                f"Timestamp: {__import__('datetime').datetime.now()}\n"
-            )
-            self._log_update(f"post_update_marker={marker}")
-        except Exception:
-            pass  # nosec B110 — best-effort diagnostic marker
-
-        self._apply_update(dest, latest_tag, asset_name)
-
-    def _apply_update(self, dest: Path, latest_tag: str, asset_name: str):
-        if dest is None or not dest.exists():
-            self._log_update("failure=update file not found")
-            QMessageBox.critical(self, "Update Error", "Update file not found.")
-            return
-
-        system = platform.system()
-        self._log_update(f"detected_os={system}")
-        method, diagnostic = self._select_update_apply_method(system, asset_name, dest)
-        self._log_update(f"selected_apply_method={method or 'unsupported'}")
-
-        if method == "windows_installer":
-            self._apply_update_windows_installer(dest, latest_tag)
-        elif method == "windows_zip":
-            self._apply_update_windows_zip(dest, latest_tag)
-        elif method == "macos_zip":
-            self._apply_update_macos(dest, latest_tag)
-        else:
-            self._log_update(f"failure={diagnostic}")
-            QMessageBox.critical(self, "Update Error", diagnostic)
-            return
-
-    @staticmethod
-    def _powershell_single_quote(value):
-        return str(value).replace("'", "''")
-
-    def _apply_update_windows_installer(self, dest, tag):
-        """Update Windows installs through Inno Setup instead of in-place ZIP copy."""
-        current_exe = Path(sys.executable)
-        installer = Path(dest)
-        log_path = self._updater_log_path()
-
-        ps_command = (
-            f"$installer = '{self._powershell_single_quote(installer)}'; "
-            f"$exe = '{self._powershell_single_quote(current_exe)}'; "
-            "$args = @('/SP-', '/SILENT', '/SUPPRESSMSGBOXES', "
-            "'/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS', '/NORESTART'); "
-            f"Add-Content -LiteralPath '{self._powershell_single_quote(log_path)}' "
-            f"-Value '[installer] starting {tag}'; "
-            "try { "
-            "$p = Start-Process -FilePath $installer -ArgumentList $args -Verb RunAs -Wait -PassThru; "
-            f"Add-Content -LiteralPath '{self._powershell_single_quote(log_path)}' "
-            "-Value \"[installer] exit_code=$($p.ExitCode)\"; "
-            "if ((Test-Path -LiteralPath $exe) -and ($p.ExitCode -eq 0)) { "
-            "Start-Process -FilePath $exe "
-            "} "
-            "} catch { "
-            f"Add-Content -LiteralPath '{self._powershell_single_quote(log_path)}' "
-            "-Value \"[installer] failed=$($_.Exception.Message)\"; "
-            "exit 1 "
-            "}"
-        )
-
-        try:
-            self._log_update(f"success=launching Windows installer updater: {installer}")
-            subprocess.Popen(  # nosec B603, B607 — Windows self-update
-                [
-                    "powershell.exe",
-                    "-NoProfile",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-Command",
-                    ps_command,
-                ],
-                cwd=str(installer.parent),
-            )
-        except Exception as exc:
-            self._log_update(f"failure=could not launch installer updater: {exc}")
-            QMessageBox.critical(
-                self, "Update Error",
-                "<h3>Update Could Not Start</h3>"
-                "<p>PDFReader was unable to launch the installer.</p>"
-                "<hr>"
-                "<p><b>What happened:</b><br>"
-                f"{exc}</p>"
-                "<p><b>What you can do:</b><br>"
-                "Download the latest Setup.exe manually from the GitHub releases page "
-                "and run it as Administrator.</p>"
-                "<hr>"
-                f"<p style='font-size:11px;color:#888;'>Installer: {installer}</p>",
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Update Starting",
-            "<h3>Update Download Complete</h3>"
-            "<p>PDFReader will now close and run the installer.</p>"
-            "<p>It will reopen automatically after the installer completes.</p>"
-            "<hr>"
-            "<p style='font-size:12px;color:#888;'>"
-            "If you see a UAC (User Account Control) prompt, click <b>Yes</b> "
-            "to allow the update to complete.</p>",
-        )
-        QTimer.singleShot(500, self.close)
-
-    # ------------------------------------------------------------------
-    def _apply_update_windows_zip(self, dest, tag):
-        """Replace the running app via ZIP extract + batch updater (onedir mode).
-
-        The batch script is written to %TEMP%\\PDFReader-Updates\\ (writable)
-        instead of the install directory (which is often protected like
-        C:\\Program Files\\). If the install directory requires admin
-        privileges, the script detects the failure and offers to relaunch
-        with elevation.
-        """
-        current_exe = Path(sys.executable)
-        app_dir = current_exe.parent
-        if not app_dir.exists():
-            self._log_update("failure=could not locate app directory")
-            QMessageBox.critical(self, "Update Error", "Could not locate the app directory.")
-            return
-
-        # Use the writable temp directory for all updater scripts
-        script_dir = self._updater_temp_dir()
-        self._log_update(f"updater_scripts_dir={script_dir}")
-        self._log_update(f"install_dir={app_dir}")
-
-        extract_dir = dest.parent / f"extracted_{tag}"
-        self._log_update(f"extract_directory={extract_dir}")
-        try:
-            if extract_dir.exists():
-                import shutil
-                shutil.rmtree(extract_dir)
-            with zipfile.ZipFile(str(dest), "r") as zf:
-                zf.extractall(str(extract_dir))
-        except Exception as exc:
-            self._log_update(f"failure=could not extract update: {exc}")
-            QMessageBox.critical(
-                self, "Update Error",
-                f"Could not extract the update package.\n\n"
-                f"Technical details: {exc}",
-            )
-            return
-
-        log_path = self._updater_log_path()
-
-        # Clean up any stale batch scripts left in the old location (app_dir)
-        # from v1.0.0/v1.0.1 upgrades
-        try:
-            for old_script in app_dir.glob("_update_*.bat"):
-                old_script.unlink(missing_ok=True)
-                self._log_update(f"cleaned_stale_script={old_script}")
-        except Exception:
-            pass  # nosec — best-effort; old location may be protected
-
-        # Write the batch updater script to the WRITABLE temp directory
-        bat_path = script_dir / f"_update_{tag}.bat"
-        self._log_update(f"batch_script_path={bat_path}")
-
-        # Check if install dir is in a protected location
-        needs_elevation_hint = "Program Files" in str(app_dir) or "Program Files (x86)" in str(app_dir)
-
-        bat_content = (
-            "@echo off\n"
-            "title=PDFReader Updater\n"
-            "setlocal enabledelayedexpansion\n"
-            "set LOG=" + str(log_path) + "\n"
-            'set BATCH_DIR=' + str(script_dir) + '\n'
-            'set INSTALL_DIR=' + str(app_dir) + '\n'
-            'set EXTRACT_DIR=' + str(extract_dir) + '\n'
-            'set CURRENT_EXE=' + str(current_exe) + '\n'
-            'set TAG=' + tag + '\n'  # nosec B608 — batch string, not SQL
-            'echo [%date% %time%] Starting update... >> "%LOG%"\n'
-            'echo [%date% %time%] Script dir: %BATCH_DIR% >> "%LOG%"\n'
-            'echo [%date% %time%] Install dir: %INSTALL_DIR% >> "%LOG%"\n'
-            'echo [%date% %time%] Extract dir: %EXTRACT_DIR% >> "%LOG%"\n'
-            '\n'
-            'echo [%date% %time%] Listing extract dir contents... >> "%LOG%"\n'
-            'dir "%EXTRACT_DIR%" >> "%LOG%" 2>&1\n'
-            'if exist "%EXTRACT_DIR%\\PDFReader by Sparsh.exe" (\n'
-            '    echo [%date% %time%] EXTRACT has PDFReader by Sparsh.exe >> "%LOG%"\n'
-            ') else (\n'
-            '    echo [%date% %time%] EXTRACT missing PDFReader by Sparsh.exe >> "%LOG%"\n'
-            '    dir "%EXTRACT_DIR%" /b >> "%LOG%" 2>&1\n'
-            ')\n'
-            '\n'
-            ':: Check if we need elevation BEFORE trying to copy\n'
-            'net session >nul 2>&1\n'
-            'if %errorlevel% neq 0 (\n'
-            '    echo [%date% %time%] Not running as admin. App is in protected directory, requesting elevation... >> "%LOG%"\n'
-            '    echo. >> "%LOG%"\n'
-            '    echo ================================================================\n'
-            '    echo PDFReader Update - Admin Permission Required\n'
-            '    echo ================================================================\n'
-            '    echo.\n'
-            '    echo PDFReader needs administrator permission to update itself.\n'
-            '    echo The app is installed in a protected location.\n'
-            '    echo.\n'
-            '    echo A UAC prompt will appear. Please click Yes to continue.\n'
-            '    echo.\n'
-            '    :: Use PowerShell to request elevation (more reliable than VBS)\n'
-            '    powershell -Command "Start-Process cmd.exe -ArgumentList \'/c \\\"%BATCH_DIR%\\_update_%TAG%.bat\\\"\' -Verb RunAs -Wait" >>"%LOG%" 2>&1\n'
-            '    echo [%date% %time%] Elevation requested, exiting current instance... >> "%LOG%"\n'
-            '    :: Do NOT delete the batch file — the elevated instance needs it\n'
-            '    exit /b 0\n'
-            ')\n'
-            '\n'
-            'echo [%date% %time%] Running with admin rights. Proceeding with update... >> "%LOG%"\n'
-            '\n'
-            ':wait\n'
-            f'tasklist /FI "PID eq {os.getpid()}" 2>>"%LOG%" | find "{os.getpid()}" >nul\n'
-            'if not errorlevel 1 (\n'
-            '    timeout /t 1 /nobreak >nul\n'
-            '    goto wait\n'
-            ')\n'
-            '\n'
-            'echo [%date% %time%] Process exited, waiting 2s... >> "%LOG%"\n'
-            'timeout /t 2 /nobreak >nul\n'
-            '\n'
-            ':try_update\n'
-            'echo [%date% %time%] Copying _internal folder... >> "%LOG%"\n'
-            'set RETRY=0\n'
-            ':retry_xcopy\n'
-            'xcopy /E /I /Y "%EXTRACT_DIR%\\_internal" "%INSTALL_DIR%\\_internal" >>"%LOG%" 2>&1\n'
-            'if errorlevel 1 (\n'
-            '    set /a RETRY+=1\n'
-            '    if !RETRY! lss 3 (\n'
-            '        timeout /t 1 /nobreak >nul\n'
-            '        goto retry_xcopy\n'
-            '    )\n'
-            '    echo [%date% %time%] ERROR: xcopy failed after 3 retries >> "%LOG%"\n'
-            '    goto fail\n'
-            ')\n'
-            '\n'
-            'echo [%date% %time%] Copying EXE... >> "%LOG%"\n'
-            'set RETRY=0\n'
-            ':retry_copy\n'
-            'copy /Y /V "%EXTRACT_DIR%\\PDFReader by Sparsh.exe" "%CURRENT_EXE%" >>"%LOG%" 2>&1\n'
-            'if errorlevel 1 (\n'
-            '    set /a RETRY+=1\n'
-            '    if !RETRY! lss 3 (\n'
-            '        timeout /t 1 /nobreak >nul\n'
-            '        goto retry_copy\n'
-            '    )\n'
-            '    echo [%date% %time%] ERROR: copy failed after 3 retries >> "%LOG%"\n'
-            '    goto fail\n'
-            ')\n'
-            '\n'
-            'goto update_complete\n'
-            '\n'
-            ':update_complete\n'
-            'echo [%date% %time%] Unblocking EXE... >> "%LOG%"\n'
-            'powershell -Command "Unblock-File -Path \'%CURRENT_EXE%\'" >>"%LOG%" 2>&1\n'
-            '\n'
-            'echo [%date% %time%] Launching new version... >> "%LOG%"\n'
-            'start "" "%CURRENT_EXE%"\n'
-            '\n'
-            'echo [%date% %time%] Update successful, cleaning up... >> "%LOG%"\n'
-            'rmdir /S /Q "%EXTRACT_DIR%" >>"%LOG%" 2>&1\n'
-            'del "%TEMP%\\PDFReader-Updates\\%TAG%.zip" >>"%LOG%" 2>&1\n'
-            'del "%~f0" >nul 2>&1\n'
-            'exit /b 0\n'
-            '\n'
-            ':fail\n'
-            'echo [%date% %time%] UPDATE FAILED >> "%LOG%"\n'
-            'echo. >> "%LOG%"\n'
-            'echo ================================================================ >> "%LOG%"\n'
-            'echo                        UPDATE FAILED                            >> "%LOG%"\n'
-            'echo ================================================================ >> "%LOG%"\n'
-            'echo. >> "%LOG%"\n'
-            'echo PDFReader could not complete the update. >> "%LOG%"\n'
-            'if /i "%INSTALL_DIR%"=="%PROGRAMFILES%\\PDFReader by Sparsh" (\n'
-            '    echo. >> "%LOG%"\n'
-            '    echo The app is installed in a protected system directory. >> "%LOG%"\n'
-            '    echo You may need to run the installer manually as Administrator. >> "%LOG%"\n'
-            '    echo. >> "%LOG%"\n'
-            '    echo Alternatively, download the latest version from: >> "%LOG%"\n'
-            '    echo https://github.com/sparshsam/pdfreader-by-sparsh/releases >> "%LOG%"\n'
-            ') >> "%LOG%"\n'
-            'start "" notepad "%LOG%"\n'
-            'echo. & echo. & echo UPDATE FAILED - see log above for details. & echo. & echo Press any key to exit. & pause >nul\n'
-            'exit /b 1\n'
-        )
-
-        try:
-            with open(bat_path, "w") as f:
-                f.write(bat_content)
-            self._log_update(f"success=launched Windows ZIP updater: {bat_path}")
-            # Show a console window so the user can see the updater progress
-            # and any error messages if the update fails.
-            subprocess.Popen(  # nosec B603, B607 — Windows self-update
-                ["cmd.exe", "/c", str(bat_path)],
-            )
-            self._log_update("success=launched Windows ZIP updater")
-        except Exception as exc:
-            self._log_update(f"failure=could not launch update script: {exc}")
-            QMessageBox.critical(
-                self, "Update Error",
-                "<h3>Update Could Not Start</h3>"
-                "<p>PDFReader was unable to launch the update script.</p>"
-                "<hr>"
-                "<p><b>What happened:</b><br>"
-                f"{exc}</p>"
-                "<p><b>What you can do:</b><br>"
-                "• Download the latest version manually from the GitHub releases page<br>"
-                "• If installed in a protected folder (like Program Files), "
-                "try running PDFReader as Administrator and checking for updates again.</p>"
-                "<hr>"
-                f"<p style='font-size:11px;color:#888;'>Update directory: {script_dir}</p>",
-            )
-            return
-
-        QMessageBox.information(
-            self,
-            "Update Starting",
-            "<h3>Update Download Complete</h3>"
-            "<p>PDFReader will now close and update itself.</p>"
-            "<p>It will reopen automatically in a moment.</p>"
-            "<hr>"
-            "<p style='font-size:12px;color:#888;'>"
-            "If you see a UAC (User Account Control) prompt, click <b>Yes</b> "
-            "to allow the update to complete.</p>",
-        )
-        QTimer.singleShot(500, self.close)
-
-    # ------------------------------------------------------------------
     # Workspace Session Restoration
     # ------------------------------------------------------------------
 
@@ -4320,7 +3729,7 @@ def _try_send_to_existing_instance(file_paths: list[str]) -> bool:
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(PdfReaderWindow.APP_NAME)
-    app.setOrganizationName("Sparsh")
+    app.setOrganizationName("Sparsh Sam")
 
     # ---- Single-instance IPC: route file opens to existing window ----
     pdf_paths = [a for a in sys.argv[1:] if Path(a).suffix.lower() == ".pdf"]

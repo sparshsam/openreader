@@ -1,5 +1,5 @@
 """
-PDFReader by Sparsh — PDF Version Comparison
+OpenReader — PDF Version Comparison
 
 Extract text from two PDFs, align by page, diff with difflib,
 and produce structured diff data for the UI.

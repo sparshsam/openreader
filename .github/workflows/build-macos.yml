@@ -14,9 +14,9 @@ jobs:
       matrix:
         include:
           - runner: macos-15
-            artifact-name: PDFReader-by-Sparsh-macOS-Apple-Silicon
+            artifact-name: OpenReader-macOS-Apple-Silicon
           - runner: macos-15-intel
-            artifact-name: PDFReader-by-Sparsh-macOS-Intel
+            artifact-name: OpenReader-macOS-Intel
 
     runs-on: ${{ matrix.runner }}
 
@@ -50,11 +50,11 @@ jobs:
         run: |
           QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
           iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
-          pyinstaller --windowed --onedir --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+          pyinstaller --windowed --onedir --noupx --name "OpenReader" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
 
       - name: Package app bundle
         run: |
-          ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.artifact-name }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "dist/OpenReader.app" "${{ matrix.artifact-name }}.zip"
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v7

@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for your interest in improving PDFReader by Sparsh.
+Thanks for your interest in improving OpenReader.
 
 This project is source-available for non-commercial use. Contributions are accepted under the same PolyForm Noncommercial License 1.0.0 used by the project.
 
@@ -22,7 +22,7 @@ python main.py
 The executable is created at:
 
 ```text
-dist\PDFReader by Sparsh.exe
+dist\OpenReader.exe
 ```
 
 ## Build on macOS
@@ -35,7 +35,7 @@ chmod +x scripts/build_macos.sh
 The app bundle is created at:
 
 ```text
-dist/PDFReader by Sparsh.app
+dist/OpenReader.app
 ```
 
 ## Pull Requests

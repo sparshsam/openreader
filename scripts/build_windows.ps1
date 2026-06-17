@@ -22,8 +22,8 @@ if (!(Test-Path -LiteralPath ".\.venv")) {
     --noconsole `
     --onedir `
     --noupx `
-    --name "PDFReader by Sparsh" `
+    --name "OpenReader" `
     --icon ".\assets\pdfreader_by_sparsh.ico" `
     main.py
 
-Write-Host "Built dist\PDFReader by Sparsh.exe (version ${version})"
+Write-Host "Built dist\OpenReader.exe (version ${version})"

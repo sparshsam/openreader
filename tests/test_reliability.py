@@ -60,42 +60,9 @@ class TestVersion:
         for seg in segments:
             assert seg.isdigit(), f"Segment {seg} should be numeric"
 
-    def test_update_asset_names_are_canonical(self):
-        import main as m
-        assert m.WINDOWS_INSTALLER_ASSET == "PDFReader-by-Sparsh-Setup.exe"
-        assert m.WINDOWS_PORTABLE_ASSET == "PDFReader-by-Sparsh-Windows.zip"
-        assert m.WINDOWS_UPDATE_ASSET == m.WINDOWS_INSTALLER_ASSET
-        assert m.MACOS_APPLE_SILICON_UPDATE_ASSET == "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
-        assert m.MACOS_INTEL_UPDATE_ASSET == "PDFReader-by-Sparsh-macOS-Intel.zip"
-
     def test_github_repo_is_correct(self):
         import main as m
         assert m.GITHUB_REPO == "sparshsam/pdfreader-by-sparsh"
-
-
-# ---------------------------------------------------------------------------
-# Release asset name consistency
-# ---------------------------------------------------------------------------
-
-
-class TestReleaseAssetConsistency:
-    def test_setup_exe_is_windows_updater_asset(self):
-        """Windows updates should use the installer, not in-place ZIP overwrite."""
-        import main as m
-        setup_name = "PDFReader-by-Sparsh-Setup.exe"
-        assert m.WINDOWS_INSTALLER_ASSET == setup_name
-        assert m.WINDOWS_UPDATE_ASSET == setup_name
-        assert m.WINDOWS_PORTABLE_ASSET == "PDFReader-by-Sparsh-Windows.zip"
-
-    def test_asset_names_are_distinct(self):
-        import main as m
-        names = {
-            m.WINDOWS_INSTALLER_ASSET,
-            m.WINDOWS_PORTABLE_ASSET,
-            m.MACOS_APPLE_SILICON_UPDATE_ASSET,
-            m.MACOS_INTEL_UPDATE_ASSET,
-        }
-        assert len(names) == 4, "Release asset names must be distinct"
 
 
 # ---------------------------------------------------------------------------
@@ -254,14 +221,6 @@ class TestOpenActionSignalHandling:
         assert "if output_size >= source_size:" in src
         assert "Compression was not beneficial" in src
         assert "unlink(missing_ok=True)" in src
-
-    def test_post_update_version_verification(self):
-        """Post-update marker file should be created and verified on launch."""
-        import main as m
-        src = Path(m.__file__).read_text()
-        assert "def _check_post_update(self):" in src
-        assert "_updated_from_" in src
-        assert "markers[0].read_text().strip()" in src
 
     def test_unsigned_publisher_doc_added(self):
         """README should document the unsigned 'Unknown Publisher' status."""

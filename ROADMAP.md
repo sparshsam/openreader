@@ -1,12 +1,25 @@
-# PDFReader by Sparsh — Roadmap
+# OpenReader — Roadmap
 
 > Stable, local-first desktop PDF utility with AI agent integration.
 
-## ❄️ v1.1.0 — Current Stable (Frozen)
+## ❄️ v1.1.x — Previous Stable (Frozen)
 
-v1.1.0 ships the MCP server for AI agent integration (14 programmatic PDF tools), along with a full README features refresh. It will receive **only critical bug fixes**.
+v1.1.x shipped the MCP server for AI agent integration (14 programmatic PDF tools), along with installer-based self-updating. It receives **only critical bug fixes**.
 
-See the [v1.2.0 Plan](docs/v1.2.0-plan.md) for upcoming scope.
+## 🚧 v1.2.0 — MSIX Distribution Reset (In Development)
+
+v1.2.0 migrates Windows distribution from Inno Setup self-updating to MSIX/App Installer.
+In-app self-update (download/run/apply) has been removed. Updates are handled by
+Windows App Installer or performed manually.
+
+- [x] Remove self-update download/apply pipeline from main.py
+- [x] Keep safe update detection (Help → Check for Updates → opens releases page)
+- [x] MSIX packaging (AppxManifest, AppInstaller, build script)
+- [x] GitHub Actions workflow updated to build MSIX
+- [x] Architecture documentation (windows-distribution.md, updater-architecture.md)
+- [ ] Code-signing certificate for signed MSIX distribution
+- [ ] End-to-end validation on Windows 10/11
+- [ ] App Installer update flow validation
 
 ## ✓ v1.0.0 — Shipped
 
