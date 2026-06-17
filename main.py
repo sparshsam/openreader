@@ -52,7 +52,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.1.10-dev"
+__version__ = "1.1.11-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_INSTALLER_ASSET = "PDFReader-by-Sparsh-Setup.exe"
 WINDOWS_PORTABLE_ASSET = "PDFReader-by-Sparsh-Windows.zip"

@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.11 — Updater Validation Release — 2026-06-17
+
+- **Version:** Bumped `__version__` to `1.1.11-dev`.
+- **Updater test release** — intentionally minimal release used to validate the `v1.1.10` installer-based Windows updater path end-to-end.
+- **No functional app changes** — this release exists so installed `v1.1.10` builds can detect a newer GitHub Release, download `PDFReader-by-Sparsh-Setup.exe`, request UAC, and apply the update through Inno Setup.
+
 ## v1.1.10 — Installer-Based Windows Updater — 2026-06-17
 
 - **Version:** Bumped `__version__` to `1.1.10-dev`.
