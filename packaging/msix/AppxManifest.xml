@@ -6,14 +6,30 @@
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
   IgnorableNamespaces="uap uap3 rescap">
 
+  <!--
+    ═══════════════════════════════════════════════════════════════
+    FROZEN IDENTITY — DO NOT CHANGE
+    ═══════════════════════════════════════════════════════════════
+    Identity Name:  SparshSam.OpenReader
+    Publisher:      CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0
+    Publisher Display Name: Sparsh Sam
+    Package Family Name:    SparshSam.OpenReader_yh0byntbzd2qw
+    Store ID:       9MXDVW2645LL
+    Executable:     OpenReader.exe
+
+    Changing Identity Name or Publisher after release will break
+    upgrade continuity for all existing users.
+    ═══════════════════════════════════════════════════════════════
+  -->
+
   <Identity
-    Name="PDFReaderBySparsh"
-    Publisher="CN=SparshSam"
+    Name="SparshSam.OpenReader"
+    Publisher="CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0"
     Version="1.2.0.0" />
 
   <Properties>
-    <DisplayName>PDFReader by Sparsh</DisplayName>
-    <PublisherDisplayName>Sparsh</PublisherDisplayName>
+    <DisplayName>OpenReader</DisplayName>
+    <PublisherDisplayName>Sparsh Sam</PublisherDisplayName>
     <Description>A local-first desktop PDF reader. Read, search, copy, merge, split, extract, and compress PDFs without uploading documents anywhere.</Description>
     <Logo>assets\icon-150x150.png</Logo>
   </Properties>
@@ -33,11 +49,11 @@
 
   <Applications>
     <Application
-      Id="PDFReaderBySparsh"
-      Executable="PDFReader by Sparsh.exe"
+      Id="OpenReader"
+      Executable="OpenReader.exe"
       EntryPoint="Windows.FullTrustApplication">
       <uap:VisualElements
-        DisplayName="PDFReader by Sparsh"
+        DisplayName="OpenReader"
         Description="A local-first desktop PDF reader"
         Square150x150Logo="assets\icon-150x150.png"
         Square44x44Logo="assets\icon-44x44.png"
@@ -50,7 +66,7 @@
 
       <uap3:Extension
         Category="windows.fileTypeAssociation">
-        <uap3:FileTypeAssociation Name="pdfreader_pdf">
+        <uap3:FileTypeAssociation Name="openreader_pdf">
           <uap:SupportedFileTypes>
             <uap:FileType ContentType="application/pdf">.pdf</uap:FileType>
           </uap:SupportedFileTypes>

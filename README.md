@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/screenshot-main.png" alt="PDFReader by Sparsh main window" width="880">
+  <img src="assets/screenshot-main.png" alt="OpenReader main window" width="880">
 </p>
 
-<h1 align="center">PDFReader by Sparsh</h1>
+<h1 align="center">OpenReader</h1>
 
 <p align="center">
   A local-first desktop PDF reader for Windows.
@@ -43,11 +43,11 @@
 
 ## Overview
 
-PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with Python, PySide6, and PyMuPDF. It is designed for people who want common PDF tasks in a simple native app without sending private documents to a cloud service.
+OpenReader is a **stable, local-first desktop PDF utility** built with Python, PySide6, and PyMuPDF. It is designed for people who want common PDF tasks in a simple native app without sending private documents to a cloud service.
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.2.0-dev** (in development) migrates Windows distribution from Inno Setup self-updating to MSIX/App Installer. In-app self-update has been removed — Windows handles updates via App Installer. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.2.0-dev** (in development) migrates Windows distribution from Inno Setup self-updating to MSIX/App Installer. Update detection replaces in-app self-update — Windows handles updates via App Installer. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
@@ -55,14 +55,14 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 
 | Platform | Recommended Download | Alternative | Notes |
 |---|---|---|---|---|
-| Windows | `PDFReader-by-Sparsh.msix` | `PDFReader-by-Sparsh-Setup.exe` or `PDFReader-by-Sparsh-Windows.zip` | **MSIX (recommended for v1.2.0+):** Windows-managed updates via App Installer. No admin required for per-user install when signed. *(Currently unsigned — enable Developer Mode for sideloading.)* **Legacy Setup.exe:** Inno Setup installer, requires admin. ZIP for portable/manual recovery. |
+| Windows | `OpenReader.msix` | `OpenReader-Setup.exe` (legacy) or `OpenReader-Windows.zip` | **MSIX (recommended for v1.2.0+):** Windows-managed updates via App Installer. Signed with a future Store identity. No admin required for per-user install when signed. *(Currently unsigned — enable Developer Mode for sideloading.)* **Legacy Setup.exe:** Inno Setup installer, requires admin. ZIP for portable/manual recovery. |
 | macOS | — | — | **Not currently stable.** macOS builds are published for source-build testing only. The app may exhibit UI issues, missing features, or crashes. Run from source for the best macOS experience (see [Build From Source](#build-from-source)). |
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
-**About the "Unknown Publisher" warning:** The installer currently displays "Unknown Publisher" because the build is unsigned. The AppPublisher metadata (`Sparsh`) and version info are embedded in the executable by PyInstaller and Inno Setup, but Windows code signing is a separate step that requires an EV certificate. The installer is safe — SmartScreen shows this warning purely because there is no code-signing signature, not because of any detected issue. A code-signing certificate purchase and integration is tracked as a future improvement.
+**About the "Unknown Publisher" warning:** The installer currently displays "Unknown Publisher" because the build is unsigned. The AppPublisher metadata (`Sparsh Sam`) and version info are embedded in the executable by PyInstaller and Inno Setup, but Windows code signing is a separate step that requires an EV certificate. The installer is safe — SmartScreen shows this warning purely because there is no code-signing signature, not because of any detected issue. A code-signing certificate purchase and integration is tracked as a future improvement.
 
-**v1.2.0 update change:** In-app self-updating (downloading and running Setup.exe) has been removed. The app now detects updates via GitHub API and opens the releases page — Windows App Installer (via MSIX) handles the actual update. Source builds should be updated with `git pull` and rebuilt locally.
+**v1.2.0 update change:** In-app self-updating has been removed. The app now detects updates via GitHub API and opens the releases page — Windows App Installer (via MSIX) handles the actual update. Source builds should be updated with `git pull` and rebuilt locally.
 
 ## Features
 
@@ -84,26 +84,26 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 | Desktop integration | Windows installer with `.pdf` file association, Start Menu, and desktop shortcut |
 | Dark mode | System-aware dark theme (Catppuccin Mocha) with Auto/Light/Dark toggle via View → Theme |
 | Recent files | Quick access to the last 10 opened PDFs via File → Open Recent |
-| Update detection | Help → Check for Updates queries GitHub API and opens the releases page in a browser. App does not download or run installers |
+| Update detection | Help → Check for Updates queries GitHub API and opens the releases page in a browser. |
 | Release engineering | Tag-driven GitHub Release publishing, PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer (legacy), MSIX packaging |
 
 ## Screenshots
 
 ### Main Window
 
-![PDFReader by Sparsh main window](assets/screenshot-main.png)
+![OpenReader main window](assets/screenshot-main.png)
 
 ### Search View
 
-![PDFReader by Sparsh search view](assets/screenshot-search.png)
+![OpenReader search view](assets/screenshot-search.png)
 
 ## Why I Built This
 
-I built PDFReader by Sparsh as a local-first alternative for reading and handling PDFs without uploading private documents to cloud services. The project helped me practice desktop GUI development, PDF processing, OCR fallback handling, packaging, release automation, and security hardening while creating a tool people can actually use.
+I built OpenReader as a local-first alternative for reading and handling PDFs without uploading private documents to cloud services. The project helped me practice desktop GUI development, PDF processing, OCR fallback handling, packaging, release automation, and security hardening while creating a tool people can actually use.
 
 ## Security and Privacy
 
-PDFReader by Sparsh processes PDFs locally. It does not use network services and does not upload PDFs.
+OpenReader processes PDFs locally. It does not use network services and does not upload PDFs.
 
 The app includes lightweight safety checks before opening and rendering documents:
 
@@ -120,7 +120,7 @@ These checks reduce risk from malformed or oversized PDFs, but PDF parsing still
 
 ## License and Use
 
-PDFReader by Sparsh is free to use, share, study, and modify for non-commercial purposes under the [PolyForm Noncommercial License 1.0.0](LICENSE).
+OpenReader is free to use, share, study, and modify for non-commercial purposes under the [PolyForm Noncommercial License 1.0.0](LICENSE).
 
 Commercial use, resale, paid redistribution, or bundling in a commercial product is not permitted without separate written permission from the copyright holder.
 
@@ -153,8 +153,8 @@ Build the Windows executable:
 Output:
 
 ```text
-dist\PDFReader by Sparsh\
-├── PDFReader by Sparsh.exe
+dist\OpenReader\
+├── OpenReader.exe
 └── _internal\
     ├── python311.dll
     ├── PySide6\
@@ -219,7 +219,7 @@ Windows does not allow apps to silently take over file defaults. To make this yo
 
 1. Right-click a PDF file.
 2. Choose **Open with > Choose another app**.
-3. Pick `PDFReader by Sparsh.exe`.
+3. Pick `OpenReader.exe`.
 4. Select **Always use this app to open .pdf files**.
 5. Click **OK**.
 
@@ -302,7 +302,7 @@ sudo pacman -S tesseract tesseract-data-eng
 
 ### ✓ v1.1.10 — Installer-Based Windows Updater
 
-- [x] Windows in-app updates use `PDFReader-by-Sparsh-Setup.exe`
+- [x] Windows in-app updates use `OpenReader-Setup.exe`
 - [x] Inno Setup handles UAC elevation and Program Files replacement
 - [x] Portable ZIP remains available for manual recovery
 - [x] Release workflow requires the Windows installer asset
@@ -310,7 +310,7 @@ sudo pacman -S tesseract tesseract-data-eng
 ### ✓ v1.1.11 — Updater Validation Release
 
 - [x] Minimal version-only release to test v1.1.10 → v1.1.11 updater flow
-- [x] Confirms Windows updater downloads and launches `PDFReader-by-Sparsh-Setup.exe`
+- [x] Confirms Windows updater downloads and launches `OpenReader-Setup.exe`
 
 ### 🚧 v1.2.0 — MSIX Distribution Reset (In Development)
 
@@ -369,7 +369,7 @@ Base is used only as a low-cost, permanent verification layer. It is not a data 
 
 ## Future Philosophy
 
-PDFReader by Sparsh sits at the intersection of a few ideas that I think are worth building towards:
+OpenReader sits at the intersection of a few ideas that I think are worth building towards:
 
 - **Local-first tools** that work offline, respect your filesystem, and don't require an account
 - **Privacy-preserving software** that treats user data as something to protect, not extract
@@ -395,7 +395,7 @@ This project is one piece of that broader picture. The immediate goal is a genui
 ├── pdfreader_lib/           # Core library (search, comparison, MCP server)
 ├── requirements.txt         # Pinned runtime/build dependencies
 ├── requirements-mcp.txt     # MCP server dependencies (optional)
-├── PDFReader by Sparsh.spec # PyInstaller spec
+├── OpenReader.spec # PyInstaller spec
 ├── .bandit                  # Bandit security scanner configuration
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md
@@ -409,7 +409,7 @@ Contributions are welcome for non-commercial use cases. Please read [CONTRIBUTIN
 
 ## AI Agent Integration (MCP Server)
 
-PDFReader by Sparsh ships with a built-in [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI agents interact with PDFs programmatically. Agents can read, search, compare, merge, split, compress, and index PDFs — all locally, no cloud involved.
+OpenReader ships with a built-in [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI agents interact with PDFs programmatically. Agents can read, search, compare, merge, split, compress, and index PDFs — all locally, no cloud involved.
 
 ### Available Tools (14)
 

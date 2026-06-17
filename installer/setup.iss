@@ -1,15 +1,15 @@
-; PDFReader by Sparsh — Inno Setup Installer
+; OpenReader — Inno Setup Installer (Legacy/Manual Recovery Only)
 ; Build: run from repo root after PyInstaller build:
 ;   iscc installer/setup.iss
 
-#define MyAppName "PDFReader by Sparsh"
+#define MyAppName "OpenReader"
 #ifndef AppVersion
   #define AppVersion "0.0.0-dev"
 #endif
 #define MyAppVersion AppVersion
-#define MyAppPublisher "Sparsh"
+#define MyAppPublisher "Sparsh Sam"
 #define MyAppURL "https://github.com/sparshsam/pdfreader-by-sparsh"
-#define MyAppExeName "PDFReader by Sparsh.exe"
+#define MyAppExeName "OpenReader.exe"
 
 [Setup]
 AppId={{D3A7F9E1-4B2C-4A8F-9E6D-1C5B3A7F9E01}
@@ -23,8 +23,8 @@ DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes
 OutputDir=..
-OutputBaseFilename=PDFReader-by-Sparsh-{#MyAppVersion}-Setup
-SetupIconFile=..\assets\pdfreader_by_sparsh.ico
+OutputBaseFilename=OpenReader-{#MyAppVersion}-Setup
+SetupIconFile=..\assets\openreader.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 UninstallDisplayIcon={app}\{#MyAppExeName}
@@ -38,9 +38,9 @@ DisableWelcomePage=no
 DisableDirPage=auto
 AlwaysShowDirOnReadyPage=yes
 
-; Close PDFReader if running before install
+; Close OpenReader if running before install
 CloseApplications=force
-AppMutex=PDFReaderBySparsh
+AppMutex=OpenReader
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -48,13 +48,12 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Additional icons:"; Flags: checkedonce
 Name: "quicklaunchicon"; Description: "Create a &Quick Launch icon"; GroupDescription: "Additional icons:"; Flags: unchecked
-Name: "autoupdate"; Description: "&Automatically check for updates on launch"; GroupDescription: "Update preferences:"; Flags: checkedonce
 
 [Files]
 #ifdef AppSourceDir
 Source: "{#AppSourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 #else
-Source: "dist\PDFReader by Sparsh\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "dist\OpenReader\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 #endif
 
 [Icons]
@@ -65,11 +64,11 @@ Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\{#MyAppName}"; Fil
 
 [Registry]
 ; Register as a PDF handler — all keys cleaned up on uninstall
-Root: HKCR; Subkey: ".pdf\OpenWithProgids"; ValueType: string; ValueName: "PDFReaderbySparsh"; ValueData: ""; Flags: uninsdeletevalue
-Root: HKCR; Subkey: "PDFReaderbySparsh"; ValueType: string; ValueName: ""; ValueData: "PDF Document"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "PDFReaderbySparsh\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
-Root: HKCR; Subkey: "PDFReaderbySparsh\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
-Root: HKCR; Subkey: "PDFReaderbySparsh\shell\open\command"; ValueType: expandsz; ValueName: "DelegateExecute"; Flags: deletevalue
+Root: HKCR; Subkey: ".pdf\OpenWithProgids"; ValueType: string; ValueName: "OpenReaderPDF"; ValueData: ""; Flags: uninsdeletevalue
+Root: HKCR; Subkey: "OpenReaderPDF"; ValueType: string; ValueName: ""; ValueData: "PDF Document"; Flags: uninsdeletekey
+Root: HKCR; Subkey: "OpenReaderPDF\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName},0"
+Root: HKCR; Subkey: "OpenReaderPDF\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+Root: HKCR; Subkey: "OpenReaderPDF\shell\open\command"; ValueType: expandsz; ValueName: "DelegateExecute"; Flags: deletevalue
 
 ; Register application path — cleaned up on uninstall
 Root: HKLM; Subkey: "SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{#MyAppExeName}"; ValueType: string; ValueName: ""; ValueData: "{app}\{#MyAppExeName}"; Flags: uninsdeletekey

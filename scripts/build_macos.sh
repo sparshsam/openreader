@@ -34,9 +34,9 @@ fi
   --windowed \
   --onedir \
   --noupx \
-  --name "PDFReader by Sparsh" \
+  --name "OpenReader" \
   --argv-emulation \
   "${ICON_ARGS[@]}" \
   main.py
 
-echo "Built dist/PDFReader by Sparsh.app (version ${VERSION})"
+echo "Built dist/OpenReader.app (version ${VERSION})"

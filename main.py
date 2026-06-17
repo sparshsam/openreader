@@ -52,7 +52,7 @@ from PySide6.QtWidgets import (
 
 __version__ = "1.2.0-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
-IPC_SERVER_NAME = "PDFReaderBySparsh-IPC"
+IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
@@ -632,7 +632,7 @@ class PdfPageLabel(QLabel):
 # ---------------------------------------------------------------------------
 
 class PdfReaderWindow(QMainWindow):
-    APP_NAME = "PDFReader by Sparsh"
+    APP_NAME = "OpenReader"
     MAX_PDF_SIZE_BYTES = 500 * 1024 * 1024
     MAX_PAGE_DIMENSION_POINTS = 14400
     MAX_RENDER_PIXELS = 80_000_000
@@ -700,7 +700,7 @@ class PdfReaderWindow(QMainWindow):
         # Enable drag-and-drop
         self.setAcceptDrops(True)
 
-        self.settings = QSettings("Sparsh", "PDFReader by Sparsh")
+        self.settings = QSettings("Sparsh Sam", "OpenReader")
 
         # ---- Render debounce timer ----
         self._render_timer = QTimer(self)
@@ -2913,7 +2913,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_nam_silent.finished.connect(self._on_silent_update_reply)
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
         request = QNetworkRequest(url)
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setHeader(QNetworkRequest.UserAgentHeader, "OpenReader/1.0")
         request.setTransferTimeout(15000)
         self._update_nam_silent.get(request)
 
@@ -3106,7 +3106,7 @@ class PdfReaderWindow(QMainWindow):
         self.statusBar().showMessage("Checking for updates...")
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
         request = QNetworkRequest(url)
-        request.setHeader(QNetworkRequest.UserAgentHeader, "PDFReader-by-Sparsh/1.0")
+        request.setHeader(QNetworkRequest.UserAgentHeader, "OpenReader/1.0")
         request.setTransferTimeout(15000)
         self._update_nam.get(request)
 
@@ -3729,7 +3729,7 @@ def _try_send_to_existing_instance(file_paths: list[str]) -> bool:
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName(PdfReaderWindow.APP_NAME)
-    app.setOrganizationName("Sparsh")
+    app.setOrganizationName("Sparsh Sam")
 
     # ---- Single-instance IPC: route file opens to existing window ----
     pdf_paths = [a for a in sys.argv[1:] if Path(a).suffix.lower() == ".pdf"]

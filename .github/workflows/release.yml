@@ -35,11 +35,11 @@ jobs:
 
       - name: Build Windows app
         run: |
-          pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --noupx --name "OpenReader" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
 
       - name: Package Windows ZIP
         run: |
-          Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows.zip"
+          Compress-Archive -Path "dist\OpenReader\*" -DestinationPath "OpenReader-Windows.zip"
 
       - name: Build Inno Setup installer
         shell: pwsh
@@ -68,15 +68,15 @@ jobs:
           Write-Host "Using ISCC: $iscc"
 
           Write-Host "=== Building installer via ISCC ==="
-          $srcDir = (Get-Item "dist\PDFReader by Sparsh").FullName
+          $srcDir = (Get-Item "dist\OpenReader").FullName
           Write-Host "Source dir: $srcDir"
           & $iscc /Q "/DAppVersion=$version" "/DAppSourceDir=$srcDir" installer/setup.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
 
-          $expected = "PDFReader-by-Sparsh-$version-Setup.exe"
+          $expected = "OpenReader-$version-Setup.exe"
           if (Test-Path $expected) {
-            Copy-Item $expected "PDFReader-by-Sparsh-Setup.exe"
-            Write-Host "=== SUCCESS: PDFReader-by-Sparsh-Setup.exe built ==="
+            Copy-Item $expected "OpenReader-Setup.exe"
+            Write-Host "=== SUCCESS: OpenReader-Setup.exe built ==="
           } else {
             throw "Setup.exe not found at $expected"
           }
@@ -112,7 +112,7 @@ jobs:
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
           # Copy app files
-          Copy-Item -Path "dist\PDFReader by Sparsh\*" -Destination $stageDir -Recurse -Force
+          Copy-Item -Path "dist\OpenReader\*" -Destination $stageDir -Recurse -Force
 
           # Copy and patch manifest
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
@@ -123,14 +123,14 @@ jobs:
           New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
 
           # Build MSIX (unsigned)
-          $msixName = "PDFReader-by-Sparsh.msix"
+          $msixName = "OpenReader.msix"
           & $makeAppx.Source pack /p $msixName /d $stageDir /l
           if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
           Write-Host "=== MSIX built: $msixName (unsigned) ==="
 
           # Also generate the AppInstaller file with the correct version
           $installerPath = "packaging\msix\AppInstaller.xml"
-          (Get-Content $installerPath) -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "PDFReader-by-Sparsh.appinstaller"
+          (Get-Content $installerPath) -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "OpenReader.appinstaller"
 
           # Clean up
           Remove-Item -Recurse -Force $stageDir
@@ -140,9 +140,9 @@ jobs:
         with:
           name: release-windows
           path: |
-            PDFReader-by-Sparsh-Windows.zip
-            PDFReader-by-Sparsh-Setup.exe
-            PDFReader-by-Sparsh.msix
+            OpenReader-Windows.zip
+            OpenReader-Setup.exe
+            OpenReader.msix
 
   build-macos:
     name: Build macOS Release Asset
@@ -151,9 +151,9 @@ jobs:
       matrix:
         include:
           - runner: macos-15
-            asset-name: PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
+            asset-name: OpenReader-macOS-Apple-Silicon.zip
           - runner: macos-15-intel
-            asset-name: PDFReader-by-Sparsh-macOS-Intel.zip
+            asset-name: OpenReader-macOS-Intel.zip
 
     runs-on: ${{ matrix.runner }}
 
@@ -180,11 +180,11 @@ jobs:
         run: |
           QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
           iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
-          pyinstaller --windowed --onedir --noupx --name "PDFReader by Sparsh" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+          pyinstaller --windowed --onedir --noupx --name "OpenReader" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
 
       - name: Package macOS ZIP
         run: |
-          ditto -c -k --sequesterRsrc --keepParent "dist/PDFReader by Sparsh.app" "${{ matrix.asset-name }}"
+          ditto -c -k --sequesterRsrc --keepParent "dist/OpenReader.app" "${{ matrix.asset-name }}"
 
       - name: Upload macOS release asset
         uses: actions/upload-artifact@v7
@@ -211,12 +211,12 @@ jobs:
         run: |
           echo "=== Release assets ==="
           ls -la release-assets/
-          test -f "release-assets/PDFReader-by-Sparsh-Windows.zip" || { echo "Missing Windows ZIP"; exit 1; }
-          test -f "release-assets/PDFReader-by-Sparsh-Setup.exe" || { echo "Missing Windows Setup.exe"; exit 1; }
-          test -f "release-assets/PDFReader-by-Sparsh-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
-          test -f "release-assets/PDFReader-by-Sparsh-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
+          test -f "release-assets/OpenReader-Windows.zip" || { echo "Missing Windows ZIP"; exit 1; }
+          test -f "release-assets/OpenReader-Setup.exe" || { echo "Missing Windows Setup.exe"; exit 1; }
+          test -f "release-assets/OpenReader-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
+          test -f "release-assets/OpenReader-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
           # MSIX is optional until signing is set up; warn if missing
-          if [ -f "release-assets/PDFReader-by-Sparsh.msix" ]; then
+          if [ -f "release-assets/OpenReader.msix" ]; then
             echo "MSIX package found — will attach to release"
           else
             echo "⚠️  MSIX package not found — MakeAppx.exe may not be available on this runner"
@@ -235,13 +235,13 @@ jobs:
           Update responsibility belongs to Windows packaging, not the app itself.
 
           ### Assets for Windows
-          - **\`PDFReader-by-Sparsh.msix\`** — ✅ **Recommended for v1.2.0+.** MSIX package with App Installer support for automatic Windows-managed updates. No admin required for per-user install when signed. *(Currently unsigned — requires Windows Developer Mode for sideloading until code signing is procured.)*
-          - **\`PDFReader-by-Sparsh-Setup.exe\`** — ✅ **Legacy fallback.** Inno Setup installer with PDF file association, Start Menu shortcut, desktop shortcut, and Add/Remove Programs entry. Requires admin rights.
-          - \`PDFReader-by-Sparsh-Windows.zip\` — Portable/manual recovery package. Use only if you need a portable copy or are following SUPPORT.md recovery steps.
+          - **\`OpenReader.msix\`** — ✅ **Recommended for v1.2.0+.** MSIX package with App Installer support for automatic Windows-managed updates. No admin required for per-user install when signed. *(Currently unsigned — requires Windows Developer Mode for sideloading until code signing is procured.)*
+          - **\`OpenReader-Setup.exe\`** — ✅ **Legacy fallback.** Inno Setup installer with PDF file association, Start Menu shortcut, desktop shortcut, and Add/Remove Programs entry. Requires admin rights.
+          - \`OpenReader-Windows.zip\` — Portable/manual recovery package. Use only if you need a portable copy or are following SUPPORT.md recovery steps.
 
           ### Assets for macOS
-          - \`PDFReader-by-Sparsh-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
-          - \`PDFReader-by-Sparsh-macOS-Intel.zip\` — macOS Intel app bundle.
+          - \`OpenReader-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
+          - \`OpenReader-macOS-Intel.zip\` — macOS Intel app bundle.
 
           Packaged builds include the tag-injected app version and canonical release asset names.
           NOTE_EOF
@@ -253,5 +253,5 @@ jobs:
           gh release create "$GITHUB_REF_NAME" release-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --verify-tag \
-            --title "PDFReader by Sparsh $GITHUB_REF_NAME" \
+            --title "OpenReader $GITHUB_REF_NAME" \
             --notes-file /tmp/release-notes.md

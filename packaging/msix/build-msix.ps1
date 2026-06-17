@@ -1,31 +1,34 @@
 <#
 .SYNOPSIS
-    Build an MSIX package for PDFReader by Sparsh.
+    Build an MSIX package for OpenReader.
 
 .DESCRIPTION
     This script packages a PyInstaller build output into an MSIX container
-    suitable for sideloading or App Installer distribution.
+    suitable for Microsoft Store, sideloading, or App Installer distribution.
 
     Prerequisites (Windows):
     - Visual Studio 2022 Build Tools (or SDK): install "Desktop development with C++"
     - Or install the Windows SDK standalone:
       https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/
-    - A code-signing certificate (.pfx) for package signing
+    - A code-signing certificate (.pfx) for package signing (or use Store signing)
 
     Usage:
-      .\build-msix.ps1 -ExeDir "..\dist\PDFReader by Sparsh" -Version "1.2.0.0"
+      .\build-msix.ps1 -ExeDir "..\dist\OpenReader" -Version "1.2.0.0"
 
     Optional:
       -PfxPath ".\certificate.pfx" -PfxPassword "password"
 
     The script generates:
-      - PDFReader-by-Sparsh.msix
-      - PDFReader-by-Sparsh.msix (sideload-ready)
-      - The AppInstaller file references the GitHub Release for autoupdate.
+      - OpenReader.msix (sideload-ready or Store-ready)
+
+    FROZEN IDENTITY (do not change):
+      Identity Name:  SparshSam.OpenReader
+      Publisher:      CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0
+      Executable:     OpenReader.exe
 
 .NOTES
     File: build-msix.ps1
-    Author: Sparsh
+    Author: Sparsh Sam
 #>
 
 param(
@@ -114,7 +117,7 @@ foreach ($icon in $iconSizes) {
 }
 
 # --- Build MSIX ---
-$MsixPath = Join-Path $OutputDir "PDFReader-by-Sparsh.msix"
+$MsixPath = Join-Path $OutputDir "OpenReader.msix"
 Write-Host "Building MSIX: $MsixPath" -ForegroundColor Cyan
 
 if ($PfxPath -and (Test-Path $PfxPath)) {

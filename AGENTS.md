@@ -13,9 +13,9 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 - The updater depends on GitHub Release assets, not GitHub Actions artifacts.
 - Canonical release assets must keep these exact names:
-  - `PDFReader-by-Sparsh-Windows.zip`
-  - `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`
-  - `PDFReader-by-Sparsh-macOS-Intel.zip`
+  - `OpenReader-Windows.zip`
+  - `OpenReader-macOS-Apple-Silicon.zip`
+  - `OpenReader-macOS-Intel.zip`
 - Tag releases with `vMAJOR.MINOR.PATCH`.
 - Packaged builds must inject the tag version into `main.py` via `scripts/inject_version.py`.
 - Source builds may remain `-dev`.

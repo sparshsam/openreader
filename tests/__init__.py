@@ -1,1 +1,1 @@
-# PDFReader by Sparsh — Regression Test Suite
+# OpenReader — Regression Test Suite

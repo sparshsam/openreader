@@ -1,4 +1,4 @@
-name: Build Windows EXE
+name: Build Windows EXE (OpenReader)
 
 on:
   workflow_dispatch:
@@ -57,7 +57,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconsole --onedir --noupx --name "PDFReader by Sparsh" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --noupx --name "OpenReader" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
 
       - name: Determine artifact suffix
         shell: bash
@@ -71,7 +71,7 @@ jobs:
 
       - name: Package as ZIP
         run: |
-          Compress-Archive -Path "dist\PDFReader by Sparsh\*" -DestinationPath "PDFReader-by-Sparsh-Windows${{ env.ARTIFACT_SUFFIX }}.zip"
+          Compress-Archive -Path "dist\OpenReader\*" -DestinationPath "OpenReader-Windows${{ env.ARTIFACT_SUFFIX }}.zip"
 
       - name: Build Inno Setup installer
         shell: pwsh
@@ -101,14 +101,14 @@ jobs:
           Write-Host "Using ISCC: $iscc"
 
           Write-Host "=== Building installer via ISCC ==="
-          $srcDir = (Get-Item "dist\PDFReader by Sparsh").FullName
+          $srcDir = (Get-Item "dist\OpenReader").FullName
           Write-Host "Source dir: $srcDir"
           & $iscc /Q "/DAppVersion=$version" "/DAppSourceDir=$srcDir" installer/setup.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited with code $LASTEXITCODE" }
 
-          $expected = "PDFReader-by-Sparsh-$version-Setup.exe"
+          $expected = "OpenReader-$version-Setup.exe"
           if (Test-Path $expected) {
-            $outputName = "PDFReader-by-Sparsh-Setup$suffix.exe"
+            $outputName = "OpenReader-Setup$suffix.exe"
             Copy-Item $expected $outputName
             Write-Host "=== SUCCESS: $outputName ==="
           } else {
@@ -147,7 +147,7 @@ jobs:
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
 
           # Copy app files
-          Copy-Item -Path "dist\PDFReader by Sparsh\*" -Destination $stageDir -Recurse -Force
+          Copy-Item -Path "dist\OpenReader\*" -Destination $stageDir -Recurse -Force
 
           # Copy and patch manifest
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
@@ -158,7 +158,7 @@ jobs:
           New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
 
           # Build MSIX (unsigned)
-          $msixName = "PDFReader-by-Sparsh${{ env.ARTIFACT_SUFFIX }}.msix"
+          $msixName = "OpenReader${{ env.ARTIFACT_SUFFIX }}.msix"
           & $makeAppx.Source pack /p $msixName /d $stageDir /l
           if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
           Write-Host "=== MSIX built: $msixName (unsigned) ==="
@@ -171,6 +171,6 @@ jobs:
         with:
           name: build-windows
           path: |
-            PDFReader-by-Sparsh-Windows${{ env.ARTIFACT_SUFFIX }}.zip
-            PDFReader-by-Sparsh-Setup${{ env.ARTIFACT_SUFFIX }}.exe
-            PDFReader-by-Sparsh${{ env.ARTIFACT_SUFFIX }}.msix
+            OpenReader-Windows${{ env.ARTIFACT_SUFFIX }}.zip
+            OpenReader-Setup${{ env.ARTIFACT_SUFFIX }}.exe
+            OpenReader${{ env.ARTIFACT_SUFFIX }}.msix

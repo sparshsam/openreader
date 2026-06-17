@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.2.0-beta.1 — OpenReader Rebrand & Identity Freeze — 2026-06-17
+
+- **Version:** Bumped `__version__` to `1.2.0-dev`.
+- **Rebrand:** Application renamed from "PDFReader by Sparsh" to "OpenReader". All user-facing branding updated: window title, About dialog, installer names, asset names, build scripts, CI workflows, and documentation.
+- **Frozen Microsoft Store identity applied to all packaging:**
+  - Identity Name: `SparshSam.OpenReader`
+  - Publisher: `CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0`
+  - Publisher Display Name: `Sparsh Sam`
+  - Package Family Name: `SparshSam.OpenReader_yh0byntbzd2qw`
+  - Store ID: `9MXDVW2645LL`
+  - Executable: `OpenReader.exe`
+- **Identity freeze documented:** `packaging/msix/AppxManifest.xml` and `packaging/msix/AppInstaller.xml` updated with frozen values. Identity Freeze sections added to `docs/windows-distribution.md` and `docs/updater-architecture.md`.
+- **MSIX versioning standardized:** 4-part `major.minor.patch.build` scheme. Git tag `v1.2.0-beta.1` → MSIX version `1.2.0.0`.
+- **Distribution channels documented:**
+  - Primary: Microsoft Store (reserved — submission pending)
+  - Secondary: GitHub Releases (MSIX)
+  - Discovery: Winget (future — `SparshSam.OpenReader`)
+  - Legacy: Setup.exe (manual recovery only)
+- **App Installer infrastructure prepared:** Permanent update URI defined (`https://downloads.openreader.app/stable/OpenReader.appinstaller`). Template exists but not yet active.
+- **Code signing documented:** Store signing (preferred) vs third-party certificate vs unsigned behavior.
+- **Winget readiness:** Package identifier `SparshSam.OpenReader` documented. Release workflow produces predictable asset names.
+- **Release readiness document:** Created `docs/release-readiness-v1.2.0.md` with 16 validation scenarios covering install, upgrade, uninstall, reinstall, settings persistence, file associations, update detection, and rollback.
+- **CI/CD renamed:** All workflow asset names updated: `OpenReader.msix`, `OpenReader-Setup.exe`, `OpenReader-Windows.zip`, `OpenReader-macOS-*.zip`.
+- **Library files updated:** `pdfreader_lib/mcp_server.py`, `search_index.py`, `comparison.py`, `tests/__init__.py`, `CONTRIBUTING.md`, `SECURITY.md` — all updated with OpenReader branding.
+- **Installer updated:** `installer/setup.iss` uses `OpenReader.exe`, `OpenReader` app name, `Sparsh Sam` publisher, `OpenReaderPDF` file association.
+- **Hard rules enforced:**
+  - Identity Name must never change after release
+  - Publisher must never change after release
+  - No placeholder Publisher values used anywhere
+  - No `com.sparshsam.*` identities introduced
+  - No self-update code reintroduced
+  - App never replaces itself
+
 ## v1.2.0 — MSIX Distribution Reset — 2026-06-17
 
 - **Version:** Bumped `__version__` to `1.2.0-dev`.
