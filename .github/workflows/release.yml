@@ -107,6 +107,17 @@ jobs:
           }
 
           $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
+
+          # --- Map Git tag to MSIX 4-part version ---
+          # v1.2.0-beta.1 -> 1.2.0.0, v1.2.0-beta.2 -> 1.2.0.1, v1.2.0 -> 1.2.0.0
+          $msixVersion = if ($version -match '^(\d+\.\d+\.\d+)-beta\.(\d+)$') {
+              "$($Matches[1]).$($Matches[2] - 1)"
+          } elseif ($version -match '^(\d+\.\d+\.\d+)$') {
+              "$($Matches[1]).0"
+          } else {
+              "$version.0"  # fallback for dev/test builds
+          }
+
           $stageDir = "_msix_staging"
           if (Test-Path $stageDir) { Remove-Item -Recurse -Force $stageDir }
           New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
@@ -116,7 +127,7 @@ jobs:
 
           # Copy and patch manifest
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
-          (Get-Content "$stageDir\AppxManifest.xml") -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "$stageDir\AppxManifest.xml"
+          (Get-Content "$stageDir\AppxManifest.xml") -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "$stageDir\AppxManifest.xml"
 
           # Create assets directory
           $assetDir = "$stageDir\assets"
@@ -130,7 +141,7 @@ jobs:
 
           # Also generate the AppInstaller file with the correct version
           $installerPath = "packaging\msix\AppInstaller.xml"
-          (Get-Content $installerPath) -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "OpenReader.appinstaller"
+          (Get-Content $installerPath) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "OpenReader.appinstaller"
 
           # Clean up
           Remove-Item -Recurse -Force $stageDir
