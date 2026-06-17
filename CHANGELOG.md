@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.0-beta.2 — MSIX Update Validation — 2026-06-17
+
+- **Version:** Bumped `__version__` to `1.2.0-beta.2-dev`.
+- **MSIX version:** `1.2.0.1` (build number incremented from beta.1).
+- **CI version mapping:** Added proper `major.minor.patch.build` extraction for pre-release tags. `v1.2.0-beta.2` now correctly maps to MSIX `1.2.0.1`.
+- **Purpose:** Validate MSIX update behavior from v1.2.0-beta.1 to v1.2.0-beta.2.
+- **No functional changes** — one version bump for update validation. See `docs/msix-update-validation.md` for test scenarios.
+
 ## v1.2.0-beta.1 — OpenReader Rebrand & Identity Freeze — 2026-06-17
 
 - **Version:** Bumped `__version__` to `1.2.0-dev`.
