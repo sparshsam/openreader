@@ -59,6 +59,9 @@ if (-not (Test-Path $ExeDir)) {
 
 # --- Locate MakeAppx.exe ---
 $makeAppx = Get-Command "MakeAppx.exe" -ErrorAction SilentlyContinue
+# Normalize to path string (Get-Command returns CommandInfo, Get-ChildItem returns FileInfo)
+$makeAppxPath = if ($makeAppx -is [System.IO.FileInfo]) { $makeAppx.FullName } else { $makeAppxPath }
+
 if (-not $makeAppx) {
     $sdkPaths = @(
         "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\MakeAppx.exe",
@@ -70,12 +73,15 @@ if (-not $makeAppx) {
     }
 }
 
+# Normalize to path string (Get-Command returns CommandInfo, Get-ChildItem returns FileInfo)
+$makeAppxPath = if ($makeAppx -is [System.IO.FileInfo]) { $makeAppx.FullName } else { $makeAppxPath }
+
 if (-not $makeAppx) {
     Write-Error "MakeAppx.exe not found. Install the Windows SDK (https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)"
     exit 1
 }
 
-Write-Host "Using MakeAppx: $($makeAppx.Source)" -ForegroundColor Cyan
+Write-Host "Using MakeAppx: $($makeAppxPath)" -ForegroundColor Cyan
 
 # --- Prepare staging directory ---
 $StageDir = Join-Path $OutputDir "_msix_staging"
@@ -122,7 +128,7 @@ Write-Host "Building MSIX: $MsixPath" -ForegroundColor Cyan
 
 if ($PfxPath -and (Test-Path $PfxPath)) {
     # Build and sign in one step (Windows 10 SDK 10.0.17763+)
-    & $makeAppx.Source pack /p $MsixPath /d $StageDir /l
+    & $makeAppxPath pack /p $MsixPath /d $StageDir /l
     if ($LASTEXITCODE -ne 0) { Write-Error "MakeAppx failed (exit $LASTEXITCODE)"; exit 1 }
 
     # Sign the package
@@ -150,7 +156,7 @@ if ($PfxPath -and (Test-Path $PfxPath)) {
     }
 } else {
     # Build without signing (sideload only — requires developer mode)
-    & $makeAppx.Source pack /p $MsixPath /d $StageDir /l
+    & $makeAppxPath pack /p $MsixPath /d $StageDir /l
     if ($LASTEXITCODE -ne 0) { Write-Error "MakeAppx failed (exit $LASTEXITCODE)"; exit 1 }
     Write-Warning "No signing certificate provided. MSIX is unsigned — must be sideloaded in Developer Mode."
 }

@@ -141,6 +141,9 @@ jobs:
             exit 0
           }
 
+          # Normalize to path string (Get-Command returns CommandInfo, Get-ChildItem returns FileInfo)
+          $makeAppxPath = if ($makeAppx -is [System.IO.FileInfo]) { $makeAppx.FullName } else { $makeAppx.Source }
+
           $version = "$env:VERSION"
           $stageDir = "_msix_staging"
 
@@ -170,7 +173,7 @@ jobs:
 
           # Build MSIX (unsigned)
           $msixName = "OpenReader${{ env.ARTIFACT_SUFFIX }}.msix"
-          & $makeAppx.Source pack /p $msixName /d $stageDir /l
+          & $makeAppxPath pack /p $msixName /d $stageDir /l
           if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
           Write-Host "=== MSIX built: $msixName (unsigned) ==="
 
