@@ -43,7 +43,7 @@ PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with 
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.1.10** is the current stable release for Windows. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.1.11** is the current Windows release. It is an updater validation release for the v1.1.10 installer-based update path. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
@@ -288,12 +288,17 @@ sudo pacman -S tesseract tesseract-data-eng
 - [x] Windows publisher docs — "Unknown Publisher" explained
 - [x] 9 new regression tests (28 total, all passing)
 
-### ✓ v1.1.10 — Installer-Based Windows Updater (Current Stable — Windows)
+### ✓ v1.1.10 — Installer-Based Windows Updater
 
 - [x] Windows in-app updates use `PDFReader-by-Sparsh-Setup.exe`
 - [x] Inno Setup handles UAC elevation and Program Files replacement
 - [x] Portable ZIP remains available for manual recovery
 - [x] Release workflow requires the Windows installer asset
+
+### ✓ v1.1.11 — Updater Validation Release (Current Windows Release)
+
+- [x] Minimal version-only release to test v1.1.10 → v1.1.11 updater flow
+- [x] Confirms Windows updater downloads and launches `PDFReader-by-Sparsh-Setup.exe`
 
 ### Near-Term
 Items in active or planned development.
