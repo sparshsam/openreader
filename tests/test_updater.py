@@ -212,6 +212,7 @@ class TestPlatformAssetSelection:
 
     def test_windows_selects_correct_asset(self, updater):
         assets = self._make_assets([
+            "PDFReader-by-Sparsh-Setup.exe",
             "PDFReader-by-Sparsh-Windows.zip",
             "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip",
             "PDFReader-by-Sparsh-macOS-Intel.zip",
@@ -221,8 +222,8 @@ class TestPlatformAssetSelection:
         platform.system = lambda: "Windows"
         try:
             url, name = updater._get_platform_asset(assets)
-            assert url == "https://example.com/PDFReader-by-Sparsh-Windows.zip"
-            assert name == "PDFReader-by-Sparsh-Windows.zip"
+            assert url == "https://example.com/PDFReader-by-Sparsh-Setup.exe"
+            assert name == "PDFReader-by-Sparsh-Setup.exe"
         finally:
             platform.system = original
 
@@ -315,6 +316,14 @@ class TestUpdateMethodSelection:
             "Windows", "PDFReader-by-Sparsh-Windows.zip", tmpzip,
         )
         assert method == "windows_zip"
+        assert diagnostic == ""
+
+    def test_windows_installer_method(self, updater, tmp_path):
+        installer = str(tmp_path / "PDFReader-by-Sparsh-Setup.exe")
+        method, diagnostic = updater._select_update_apply_method(
+            "Windows", "PDFReader-by-Sparsh-Setup.exe", installer,
+        )
+        assert method == "windows_installer"
         assert diagnostic == ""
 
     def test_macos_zip_method(self, updater, tmpzip):

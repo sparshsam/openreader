@@ -43,7 +43,7 @@ PDFReader by Sparsh is a **stable, local-first desktop PDF utility** built with 
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.1.1** is the current stable release for Windows. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.1.10** is the current stable release for Windows. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
@@ -51,7 +51,7 @@ Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfr
 
 | Platform | Recommended Download | Alternative | Notes |
 |---|---|---|---|---|
-| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | **Stable and tested.** Use Setup.exe for normal installation (requires admin — see [Windows installer notes](SUPPORT.md#windows-installer)). ZIP remains for updater/portable/manual use. |
+| Windows | `PDFReader-by-Sparsh-Setup.exe` | `PDFReader-by-Sparsh-Windows.zip` | **Stable and tested.** Use Setup.exe for normal installation and in-app updates (requires admin — see [Windows installer notes](SUPPORT.md#windows-installer)). ZIP remains for portable/manual recovery use. |
 | macOS | — | — | **Not currently stable.** macOS builds are published for source-build testing only. The app may exhibit UI issues, missing features, or crashes. Run from source for the best macOS experience (see [Build From Source](#build-from-source)). |
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
@@ -80,7 +80,7 @@ Packaged builds check the latest GitHub Release for updates. Source builds are i
 | Desktop integration | Windows installer with `.pdf` file association, Start Menu, and desktop shortcut |
 | Dark mode | System-aware dark theme (Catppuccin Mocha) with Auto/Light/Dark toggle via View → Theme |
 | Recent files | Quick access to the last 10 opened PDFs via File → Open Recent |
-| Auto-update | Packaged builds check GitHub Releases and update from canonical release ZIP assets |
+| Auto-update | Packaged builds check GitHub Releases and Windows installs update through the canonical Setup.exe asset |
 | Release engineering | Tag-driven GitHub Release publishing, PyInstaller packaging, Windows/macOS GitHub Actions builds, Inno Setup installer, self-update mechanism with diagnostic logging |
 
 ## Screenshots
@@ -189,10 +189,15 @@ https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 It expects these exact asset names on the latest GitHub Release:
 
 ```text
+PDFReader-by-Sparsh-Setup.exe
 PDFReader-by-Sparsh-Windows.zip
 PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
 PDFReader-by-Sparsh-macOS-Intel.zip
 ```
+
+On Windows, in-app updates use `PDFReader-by-Sparsh-Setup.exe` so the installer
+handles UAC elevation and replacement under `C:\Program Files`. The ZIP is kept
+for portable use and manual recovery.
 
 See [RELEASE.md](RELEASE.md) for release instructions, version injection, updater discovery, and validation.
 
@@ -273,7 +278,7 @@ sudo pacman -S tesseract tesseract-data-eng
 - [x] README features table synced with code
 - [x] README tech stack expanded
 
-### ✓ v1.1.1 — Stability and UX Hardening (Current Stable — Windows)
+### ✓ v1.1.1 — Stability and UX Hardening
 
 - [x] Open file — single picker, no cascading fallbacks, re-entrant guard
 - [x] New Tab — creates blank tab without file dialog
@@ -282,6 +287,13 @@ sudo pacman -S tesseract tesseract-data-eng
 - [x] Updater — post-launch version verification with status bar confirmation
 - [x] Windows publisher docs — "Unknown Publisher" explained
 - [x] 9 new regression tests (28 total, all passing)
+
+### ✓ v1.1.10 — Installer-Based Windows Updater (Current Stable — Windows)
+
+- [x] Windows in-app updates use `PDFReader-by-Sparsh-Setup.exe`
+- [x] Inno Setup handles UAC elevation and Program Files replacement
+- [x] Portable ZIP remains available for manual recovery
+- [x] Release workflow requires the Windows installer asset
 
 ### Near-Term
 Items in active or planned development.

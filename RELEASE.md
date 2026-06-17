@@ -20,14 +20,18 @@ https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 The release workflow must attach these assets:
 
 ```text
-PDFReader-by-Sparsh-Windows.zip          (updater package — do not download unless instructed)
-PDFReader-by-Sparsh-Setup.exe            (Windows installer — recommended for normal use)
+PDFReader-by-Sparsh-Setup.exe            (Windows installer and in-app updater package)
+PDFReader-by-Sparsh-Windows.zip          (portable/manual recovery package)
 PDFReader-by-Sparsh-macOS-Apple-Silicon.zip
 PDFReader-by-Sparsh-macOS-Intel.zip
 ```
 
-The updater uses only `PDFReader-by-Sparsh-Windows.zip`. The `-Setup.exe` is the recommended download for normal Windows users.
-Do not rename or remove the canonical ZIP assets without updating `main.py`.
+The Windows updater uses `PDFReader-by-Sparsh-Setup.exe` so Inno Setup owns
+elevation and replacement under `C:\Program Files`. The ZIP remains available
+for portable/manual recovery use, but it is not the normal Windows in-app update
+path.
+
+Do not rename or remove the canonical assets without updating `main.py`.
 
 ## How to Cut a Release
 
@@ -43,7 +47,7 @@ Do not rename or remove the canonical ZIP assets without updating `main.py`.
 
 5. GitHub Actions runs `.github/workflows/release.yml`.
 6. The workflow builds Windows, macOS Apple Silicon, and macOS Intel packages.
-7. The workflow creates the GitHub Release and attaches the canonical ZIP assets.
+7. The workflow creates the GitHub Release and attaches the canonical release assets.
 
 ## Auto-Update Discovery
 
@@ -53,6 +57,8 @@ The app's updater:
 2. Reads `tag_name`.
 3. Compares `tag_name` against the packaged app's injected `__version__`.
 4. Selects the platform asset by exact canonical filename.
+   - Windows: `PDFReader-by-Sparsh-Setup.exe`
+   - macOS: the matching architecture ZIP
 5. Downloads and applies the package for supported packaged builds.
 
 Source builds usually run with a `-dev` version and are not the primary auto-update target. Developers should update source builds with `git pull` and rebuild locally.
@@ -63,13 +69,14 @@ After publishing a tag:
 
 - [ ] The release workflow completed successfully.
 - [ ] The GitHub Release exists for the pushed tag.
-- [ ] The release contains `PDFReader-by-Sparsh-Windows.zip` (updater).
+- [ ] The release contains `PDFReader-by-Sparsh-Setup.exe` (Windows updater).
+- [ ] The release contains `PDFReader-by-Sparsh-Windows.zip` (portable/recovery).
 - [ ] The release contains `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`.
 - [ ] The release contains `PDFReader-by-Sparsh-macOS-Intel.zip`.
 - [ ] Downloaded packaged builds show the tag-injected version in **Help > About**.
-- [ ] `releases/latest` returns the new tag and all assets (including Setup.exe).
+- [ ] `releases/latest` returns the new tag and all canonical assets.
 - [ ] An older packaged build detects the newer version.
-- [ ] The updater selects the correct asset for Windows.
+- [ ] The updater selects `PDFReader-by-Sparsh-Setup.exe` for Windows.
 - [ ] The updater selects the Apple Silicon asset on arm64 macOS.
 - [ ] The updater selects the Intel asset on Intel macOS.
 
@@ -108,7 +115,7 @@ Resolution:
 
 The updater now binds immutable metadata directly to the `QNetworkReply` with
 `asset_name` and `latest_tag` properties. The download-finished handler reads
-those reply properties, saves Windows updates only as
-`PDFReader-by-Sparsh-Windows.zip`, and fails loudly if metadata is missing.
-Windows ZIP updates are routed only when the canonical Windows asset name is
-present, preventing silent manual-install fallbacks.
+those reply properties, saves Windows installer updates as
+`PDFReader-by-Sparsh-Setup.exe`, and fails loudly if metadata is missing.
+Windows installer updates are routed only when the canonical Windows installer
+asset name is present, preventing silent manual-install fallbacks.

@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.1.10 — Installer-Based Windows Updater — 2026-06-17
+
+- **Version:** Bumped `__version__` to `1.1.10-dev`.
+- **Windows updater uses Setup.exe** — in-app updates now select `PDFReader-by-Sparsh-Setup.exe` on Windows instead of the ZIP package.
+- **Program Files update fix** — Windows updates are applied by Inno Setup so UAC elevation, app closing, file replacement, shortcuts, and file associations are handled by the installer rather than a hand-written `xcopy` batch script.
+- **Portable ZIP preserved** — `PDFReader-by-Sparsh-Windows.zip` remains available for portable/manual recovery use, but it is no longer the normal Windows in-app update path.
+- **Release workflow hardening** — `PDFReader-by-Sparsh-Setup.exe` is now a required release asset. The release fails if the installer is missing.
+- **Updater diagnostics** — installer launch and exit/failure details are written to `%TEMP%\PDFReader-Updates\updater-debug.log`.
+- **Regression coverage** — updater asset selection, update method routing, release asset consistency, and the standalone asset-flow script now expect the installer-first Windows path.
+
 ## v1.1.1 — Stability and UX Hardening — 2026-06-16
 
 - **Version:** Bumped `__version__` to `1.1.1-dev`.
