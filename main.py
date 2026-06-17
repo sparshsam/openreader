@@ -3345,6 +3345,13 @@ class PdfReaderWindow(QMainWindow):
     def _on_download_finished(self, reply):
         self.update_action.setEnabled(True)
         if self._update_progress is not None:
+            # Disconnect canceled signal before close() to prevent false
+            # "Download cancelled" message when the dialog is closed
+            # programmatically after successful download.
+            try:
+                self._update_progress.canceled.disconnect(self._cancel_download)
+            except (TypeError, RuntimeError):
+                pass
             self._update_progress.close()
             self._update_progress = None
 
@@ -3560,7 +3567,6 @@ class PdfReaderWindow(QMainWindow):
             '    cscript //nologo "%VBS%"\n'
             '    del "%VBS%" >nul 2>&1\n'
             '    echo [%date% %time%] Elevation requested, exiting current instance... >> "%LOG%"\n'
-            '    del "%~f0" >nul 2>&1\n'
             '    exit /b 0\n'
             ') else (\n'
             '    echo [%date% %time%] Running as admin but copy still failed. >> "%LOG%"\n'
