@@ -18,21 +18,15 @@ For security concerns, follow [SECURITY.md](SECURITY.md).
 
 ## v1.2.0 Update Architecture Change
 
-Starting with v1.2.0, **update detection replaces in-app self-updating**. The app no longer
-downloads or runs installers for updates. Instead:
+OpenReader now uses **Windows-native updates**. The app never downloads or runs installers for updates.
 
-- **Windows distribution is migrating to MSIX/App Installer** — Windows handles
-  updates on launch and in the background. See [docs/windows-distribution.md](docs/windows-distribution.md).
-- **Help → Check for Updates** opens the GitHub Releases page in your browser.
-  You download and install the new MSIX (or Setup.exe) manually.
-- **The legacy Setup.exe** remains available as a manual installer, but does not
-  support update detection.
-
-If you are on an older version (v1.1.x or earlier), you will need to install
-v1.2.0 manually from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases).
-After that, future major updates require downloading the new MSIX from the
-releases page. Windows App Installer may automate this for signed MSIX builds
-in the future.
+**Migration path for existing users:**
+- **Existing v1.0.x and v1.1.x users must manually install v1.2.0-beta.1 once.**
+  Future updates will be handled automatically by Windows (via MSIX/App Installer).
+- **v1.2.0+ users:** Windows App Installer manages updates on launch and in the
+  background. The app's Help → Check for Updates opens the GitHub Releases page.
+- **The legacy Setup.exe** remains available as a manual installer only — it does
+  not support automatic updates or in-app triggering.
 
 ## Windows v1.0.0/v1.0.1 updater recovery
 

@@ -47,7 +47,7 @@ OpenReader is a **stable, local-first desktop PDF utility** built with Python, P
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.2.0-dev** (in development) migrates Windows distribution from Inno Setup self-updating to MSIX/App Installer. Update detection replaces in-app self-update — Windows handles updates via App Installer. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.2.0-beta.1** (current release) migrates Windows distribution from Inno Setup self-updating to MSIX/App Installer. OpenReader now uses Windows-native updates — the app never replaces itself. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
@@ -62,7 +62,11 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 
 **About the "Unknown Publisher" warning:** The installer currently displays "Unknown Publisher" because the build is unsigned. The AppPublisher metadata (`Sparsh Sam`) and version info are embedded in the executable by PyInstaller and Inno Setup, but Windows code signing is a separate step that requires an EV certificate. The installer is safe — SmartScreen shows this warning purely because there is no code-signing signature, not because of any detected issue. A code-signing certificate purchase and integration is tracked as a future improvement.
 
-**v1.2.0 update change:** In-app self-updating has been removed. The app now detects updates via GitHub API and opens the releases page — Windows App Installer (via MSIX) handles the actual update. Source builds should be updated with `git pull` and rebuilt locally.
+**v1.2.0 update change:** In-app self-updating has been removed. OpenReader now uses **Windows-native updates** — the app never downloads or runs installers.
+
+- **Existing v1.0.x and v1.1.x users must manually install v1.2.0-beta.1 once.** Future updates will be handled automatically by Windows.
+- **v1.2.0+ users:** Windows App Installer manages updates on launch and in the background. The app's Help → Check for Updates opens the GitHub Releases page in your browser.
+- Source builds should be updated with `git pull` and rebuilt locally.
 
 ## Features
 
