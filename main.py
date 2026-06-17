@@ -52,9 +52,11 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.1.2-dev"
+__version__ = "1.1.10-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
-WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
+WINDOWS_INSTALLER_ASSET = "PDFReader-by-Sparsh-Setup.exe"
+WINDOWS_PORTABLE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
+WINDOWS_UPDATE_ASSET = WINDOWS_INSTALLER_ASSET
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
 MACOS_INTEL_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Intel.zip"
 IPC_SERVER_NAME = "PDFReaderBySparsh-IPC"
@@ -3089,7 +3091,9 @@ class PdfReaderWindow(QMainWindow):
     @staticmethod
     def _select_update_apply_method(system, asset_name, dest):
         suffix = Path(dest).suffix.lower()
-        if system == "Windows" and asset_name == WINDOWS_UPDATE_ASSET and suffix == ".zip":
+        if system == "Windows" and asset_name == WINDOWS_INSTALLER_ASSET and suffix == ".exe":
+            return "windows_installer", ""
+        if system == "Windows" and asset_name == WINDOWS_PORTABLE_ASSET and suffix == ".zip":
             return "windows_zip", ""
         if system == "Darwin" and suffix == ".zip":
             return "macos_zip", ""
@@ -3210,7 +3214,7 @@ class PdfReaderWindow(QMainWindow):
         assets_by_name = {a.get("name", ""): a for a in assets}
         system = platform.system()
         if system == "Windows":
-            asset = assets_by_name.get(WINDOWS_UPDATE_ASSET)
+            asset = assets_by_name.get(WINDOWS_INSTALLER_ASSET)
             if asset:
                 return asset["browser_download_url"], asset["name"]
         elif system == "Darwin":
@@ -3328,9 +3332,11 @@ class PdfReaderWindow(QMainWindow):
             validation_errors.append("missing asset name")
         if not latest_tag:
             validation_errors.append("missing release tag")
-        if system == "Windows" and asset_name != WINDOWS_UPDATE_ASSET:
+        if system == "Windows" and asset_name not in (WINDOWS_INSTALLER_ASSET, WINDOWS_PORTABLE_ASSET):
             validation_errors.append(
-                f"Windows updater expected {WINDOWS_UPDATE_ASSET}, got {asset_name or '<missing>'}"
+                "Windows updater expected "
+                f"{WINDOWS_INSTALLER_ASSET} or {WINDOWS_PORTABLE_ASSET}, "
+                f"got {asset_name or '<missing>'}"
             )
         if validation_errors:
             message = "Cannot start update download:\n\n" + "\n".join(validation_errors)
@@ -3468,7 +3474,9 @@ class PdfReaderWindow(QMainWindow):
         method, diagnostic = self._select_update_apply_method(system, asset_name, dest)
         self._log_update(f"selected_apply_method={method or 'unsupported'}")
 
-        if method == "windows_zip":
+        if method == "windows_installer":
+            self._apply_update_windows_installer(dest, latest_tag)
+        elif method == "windows_zip":
             self._apply_update_windows_zip(dest, latest_tag)
         elif method == "macos_zip":
             self._apply_update_macos(dest, latest_tag)
@@ -3476,6 +3484,80 @@ class PdfReaderWindow(QMainWindow):
             self._log_update(f"failure={diagnostic}")
             QMessageBox.critical(self, "Update Error", diagnostic)
             return
+
+    @staticmethod
+    def _powershell_single_quote(value):
+        return str(value).replace("'", "''")
+
+    def _apply_update_windows_installer(self, dest, tag):
+        """Update Windows installs through Inno Setup instead of in-place ZIP copy."""
+        current_exe = Path(sys.executable)
+        installer = Path(dest)
+        log_path = self._updater_log_path()
+
+        ps_command = (
+            f"$installer = '{self._powershell_single_quote(installer)}'; "
+            f"$exe = '{self._powershell_single_quote(current_exe)}'; "
+            "$args = @('/SP-', '/SILENT', '/SUPPRESSMSGBOXES', "
+            "'/CLOSEAPPLICATIONS', '/RESTARTAPPLICATIONS', '/NORESTART'); "
+            f"Add-Content -LiteralPath '{self._powershell_single_quote(log_path)}' "
+            f"-Value '[installer] starting {tag}'; "
+            "try { "
+            "$p = Start-Process -FilePath $installer -ArgumentList $args -Verb RunAs -Wait -PassThru; "
+            f"Add-Content -LiteralPath '{self._powershell_single_quote(log_path)}' "
+            "-Value \"[installer] exit_code=$($p.ExitCode)\"; "
+            "if ((Test-Path -LiteralPath $exe) -and ($p.ExitCode -eq 0)) { "
+            "Start-Process -FilePath $exe "
+            "} "
+            "} catch { "
+            f"Add-Content -LiteralPath '{self._powershell_single_quote(log_path)}' "
+            "-Value \"[installer] failed=$($_.Exception.Message)\"; "
+            "exit 1 "
+            "}"
+        )
+
+        try:
+            self._log_update(f"success=launching Windows installer updater: {installer}")
+            subprocess.Popen(  # nosec B603, B607 — Windows self-update
+                [
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-Command",
+                    ps_command,
+                ],
+                cwd=str(installer.parent),
+            )
+        except Exception as exc:
+            self._log_update(f"failure=could not launch installer updater: {exc}")
+            QMessageBox.critical(
+                self, "Update Error",
+                "<h3>Update Could Not Start</h3>"
+                "<p>PDFReader was unable to launch the installer.</p>"
+                "<hr>"
+                "<p><b>What happened:</b><br>"
+                f"{exc}</p>"
+                "<p><b>What you can do:</b><br>"
+                "Download the latest Setup.exe manually from the GitHub releases page "
+                "and run it as Administrator.</p>"
+                "<hr>"
+                f"<p style='font-size:11px;color:#888;'>Installer: {installer}</p>",
+            )
+            return
+
+        QMessageBox.information(
+            self,
+            "Update Starting",
+            "<h3>Update Download Complete</h3>"
+            "<p>PDFReader will now close and run the installer.</p>"
+            "<p>It will reopen automatically after the installer completes.</p>"
+            "<hr>"
+            "<p style='font-size:12px;color:#888;'>"
+            "If you see a UAC (User Account Control) prompt, click <b>Yes</b> "
+            "to allow the update to complete.</p>",
+        )
+        QTimer.singleShot(500, self.close)
 
     # ------------------------------------------------------------------
     def _apply_update_windows_zip(self, dest, tag):

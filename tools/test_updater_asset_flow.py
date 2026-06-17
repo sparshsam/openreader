@@ -12,6 +12,8 @@ sys.path.insert(0, str(ROOT))
 from main import (  # noqa: E402
     MACOS_APPLE_SILICON_UPDATE_ASSET,
     MACOS_INTEL_UPDATE_ASSET,
+    WINDOWS_INSTALLER_ASSET,
+    WINDOWS_PORTABLE_ASSET,
     WINDOWS_UPDATE_ASSET,
     PdfReaderWindow,
 )
@@ -32,6 +34,10 @@ def canonical_assets():
         {
             "name": WINDOWS_UPDATE_ASSET,
             "browser_download_url": f"https://example.test/{WINDOWS_UPDATE_ASSET}",
+        },
+        {
+            "name": WINDOWS_PORTABLE_ASSET,
+            "browser_download_url": f"https://example.test/{WINDOWS_PORTABLE_ASSET}",
         },
         {
             "name": MACOS_APPLE_SILICON_UPDATE_ASSET,
@@ -73,8 +79,19 @@ def test_windows_download_filename_and_route():
     method, diagnostic = PdfReaderWindow._select_update_apply_method(
         "Windows", WINDOWS_UPDATE_ASSET, dest
     )
-    assert_equal(method, "windows_zip", "Windows ZIP route")
-    assert_equal(diagnostic, "", "Windows ZIP diagnostic")
+    assert_equal(method, "windows_installer", "Windows installer route")
+    assert_equal(diagnostic, "", "Windows installer diagnostic")
+
+
+def test_windows_portable_zip_route_remains_explicit():
+    temp_dir = Path("C:/Temp/PDFReader-Updates")
+    dest = temp_dir / WINDOWS_PORTABLE_ASSET
+
+    method, diagnostic = PdfReaderWindow._select_update_apply_method(
+        "Windows", WINDOWS_PORTABLE_ASSET, dest
+    )
+    assert_equal(method, "windows_zip", "Windows portable ZIP route")
+    assert_equal(diagnostic, "", "Windows portable ZIP diagnostic")
 
 
 def test_missing_metadata_fails_loudly():
@@ -108,7 +125,8 @@ _MAKE_RELEASE = lambda tag: json.dumps({
     "html_url": "https://github.com/sparshsam/pdfreader-by-sparsh/releases/tag/" + tag,
     "body": "Test release notes.",
     "assets": [
-        {"name": "PDFReader-by-Sparsh-Windows.zip", "browser_download_url": "https://example.test/pkg.zip"},
+        {"name": WINDOWS_INSTALLER_ASSET, "browser_download_url": "https://example.test/setup.exe"},
+        {"name": WINDOWS_PORTABLE_ASSET, "browser_download_url": "https://example.test/pkg.zip"},
         {"name": "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip", "browser_download_url": "https://example.test/mac-arm.zip"},
         {"name": "PDFReader-by-Sparsh-macOS-Intel.zip", "browser_download_url": "https://example.test/mac-intel.zip"},
     ],
@@ -196,6 +214,7 @@ def test_classify_unparseable_tag():
 if __name__ == "__main__":
     test_platform_asset_selection()
     test_windows_download_filename_and_route()
+    test_windows_portable_zip_route_remains_explicit()
     test_missing_metadata_fails_loudly()
     test_windows_wrong_asset_does_not_route_to_zip_installer()
 
@@ -211,4 +230,3 @@ if __name__ == "__main__":
     test_classify_missing_tag()
     test_classify_unparseable_tag()
     print("All regression checks passed (both asset flow and update check classification).")
-

@@ -62,7 +62,9 @@ class TestVersion:
 
     def test_update_asset_names_are_canonical(self):
         import main as m
-        assert m.WINDOWS_UPDATE_ASSET == "PDFReader-by-Sparsh-Windows.zip"
+        assert m.WINDOWS_INSTALLER_ASSET == "PDFReader-by-Sparsh-Setup.exe"
+        assert m.WINDOWS_PORTABLE_ASSET == "PDFReader-by-Sparsh-Windows.zip"
+        assert m.WINDOWS_UPDATE_ASSET == m.WINDOWS_INSTALLER_ASSET
         assert m.MACOS_APPLE_SILICON_UPDATE_ASSET == "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
         assert m.MACOS_INTEL_UPDATE_ASSET == "PDFReader-by-Sparsh-macOS-Intel.zip"
 
@@ -77,19 +79,23 @@ class TestVersion:
 
 
 class TestReleaseAssetConsistency:
-    def test_setup_exe_not_mistaken_for_updater_asset(self):
-        """The Setup.exe should not match any canonical update asset name."""
+    def test_setup_exe_is_windows_updater_asset(self):
+        """Windows updates should use the installer, not in-place ZIP overwrite."""
         import main as m
         setup_name = "PDFReader-by-Sparsh-Setup.exe"
-        windows_asset = m.WINDOWS_UPDATE_ASSET
-        assert setup_name != windows_asset
-        # The updater should NOT select Setup.exe
-        assert m.WINDOWS_UPDATE_ASSET == "PDFReader-by-Sparsh-Windows.zip"
+        assert m.WINDOWS_INSTALLER_ASSET == setup_name
+        assert m.WINDOWS_UPDATE_ASSET == setup_name
+        assert m.WINDOWS_PORTABLE_ASSET == "PDFReader-by-Sparsh-Windows.zip"
 
     def test_asset_names_are_distinct(self):
         import main as m
-        names = {m.WINDOWS_UPDATE_ASSET, m.MACOS_APPLE_SILICON_UPDATE_ASSET, m.MACOS_INTEL_UPDATE_ASSET}
-        assert len(names) == 3, "Update asset names must be distinct"
+        names = {
+            m.WINDOWS_INSTALLER_ASSET,
+            m.WINDOWS_PORTABLE_ASSET,
+            m.MACOS_APPLE_SILICON_UPDATE_ASSET,
+            m.MACOS_INTEL_UPDATE_ASSET,
+        }
+        assert len(names) == 4, "Release asset names must be distinct"
 
 
 # ---------------------------------------------------------------------------
@@ -270,4 +276,3 @@ class TestOpenActionSignalHandling:
         assert "no file selected (cancelled)" in src
         # Verify old cascading fallback messages are removed
         assert "_pick_file_tkinter()" not in src.split("open_pdf: no file selected")[0].rsplit("def open_pdf")[-1]
-
