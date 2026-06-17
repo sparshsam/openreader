@@ -106,6 +106,9 @@ jobs:
             exit 0
           }
 
+          # Normalize to path string (Get-Command returns CommandInfo, Get-ChildItem returns FileInfo)
+          $makeAppxPath = if ($makeAppx -is [System.IO.FileInfo]) { $makeAppx.FullName } else { $makeAppxPath }
+
           $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
 
           # --- Map Git tag to MSIX 4-part version ---
@@ -135,7 +138,7 @@ jobs:
 
           # Build MSIX (unsigned)
           $msixName = "OpenReader.msix"
-          & $makeAppx.Source pack /p $msixName /d $stageDir /l
+          & $makeAppxPath pack /p $msixName /d $stageDir /l
           if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
           Write-Host "=== MSIX built: $msixName (unsigned) ==="
 
