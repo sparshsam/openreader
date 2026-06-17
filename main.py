@@ -52,7 +52,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.1.1-dev"
+__version__ = "1.1.2-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 WINDOWS_UPDATE_ASSET = "PDFReader-by-Sparsh-Windows.zip"
 MACOS_APPLE_SILICON_UPDATE_ASSET = "PDFReader-by-Sparsh-macOS-Apple-Silicon.zip"
@@ -3029,16 +3029,62 @@ class PdfReaderWindow(QMainWindow):
             updater_dir = self.__class__._updater_temp_dir()
             markers = list(updater_dir.glob("_updated_from_*.txt"))
             if markers:
-                self._log_update(f"post_update: {markers[0].read_text().strip()}")
+                marker = markers[0]
+                content = marker.read_text().strip()
+                self._log_update(f"post_update: {content}")
                 self._log_update(f"post_update: current_version={__version__}")
                 self.statusBar().showMessage(
                     f"Updated to v{__version__}", 5000
                 )
+                # Check if marker is stale (>5 min old) — update may have failed
+                import time as _time
+                marker_age = _time.time() - marker.stat().st_mtime
+                if marker_age > 300:
+                    self._log_update("post_update: stale marker found — previous update may have failed")
+                    log_path = self._updater_log_path()
+                    if log_path.exists():
+                        log_content = log_path.read_text(encoding="utf-8", errors="replace")[-2000:]
+                        if "UPDATE FAILED" in log_content or "failure" in log_content.lower():
+                            self._show_update_failed_diagnostic(log_content)
                 # Clean up marker files
                 for m in markers:
                     m.unlink(missing_ok=True)
+            else:
+                # Check for stale extract directories (update was attempted but didn't complete)
+                extract_dirs = list(updater_dir.glob("extracted_*"))
+                if extract_dirs:
+                    import time as _time
+                    for d in extract_dirs:
+                        age = _time.time() - d.stat().st_mtime
+                        if age > 300:  # older than 5 minutes = stale
+                            self._log_update(f"post_update: stale extract dir found: {d.name}")
         except Exception:
             pass  # nosec B110 — best-effort diagnostic
+
+    def _show_update_failed_diagnostic(self, log_content: str):
+        """Show a diagnostic dialog when a previous update appears to have failed."""
+        msg = QMessageBox(self)
+        msg.setWindowTitle("Update May Have Failed")
+        msg.setText(
+            "<h3>Previous Update Did Not Complete</h3>"
+            "<p>A previous update attempt appears to have failed. "
+            "The app is still running the old version.</p>"
+            "<hr>"
+            "<p><b>Common causes:</b><br>"
+            "• The update needs Administrator permission (UAC prompt was declined)<br>"
+            "• The app was installed in a protected folder like Program Files<br>"
+            "• The update file was blocked by antivirus or Windows Defender</p>"
+            "<hr>"
+            "<p><b>Try this:</b><br>"
+            "1. Download the latest Setup.exe from the GitHub releases page<br>"
+            "2. Run the installer as Administrator<br>"
+            "3. Or run PDFReader as Administrator and check for updates again</p>"
+        )
+        msg.setStandardButtons(QMessageBox.Ok)
+        msg.setDetailedText(
+            f"Updater log ({self._updater_log_path()}):\n\n{log_content}"
+        )
+        msg.exec()
 
     @staticmethod
     def _select_update_apply_method(system, asset_name, dest):
@@ -3345,6 +3391,13 @@ class PdfReaderWindow(QMainWindow):
     def _on_download_finished(self, reply):
         self.update_action.setEnabled(True)
         if self._update_progress is not None:
+            # Disconnect canceled signal before close() to prevent false
+            # "Download cancelled" message when the dialog is closed
+            # programmatically after successful download.
+            try:
+                self._update_progress.canceled.disconnect(self._cancel_download)
+            except (TypeError, RuntimeError):
+                pass
             self._update_progress.close()
             self._update_progress = None
 
@@ -3560,7 +3613,6 @@ class PdfReaderWindow(QMainWindow):
             '    cscript //nologo "%VBS%"\n'
             '    del "%VBS%" >nul 2>&1\n'
             '    echo [%date% %time%] Elevation requested, exiting current instance... >> "%LOG%"\n'
-            '    del "%~f0" >nul 2>&1\n'
             '    exit /b 0\n'
             ') else (\n'
             '    echo [%date% %time%] Running as admin but copy still failed. >> "%LOG%"\n'
@@ -3605,9 +3657,11 @@ class PdfReaderWindow(QMainWindow):
         try:
             with open(bat_path, "w") as f:
                 f.write(bat_content)
+            self._log_update(f"success=launched Windows ZIP updater: {bat_path}")
+            # Show a console window so the user can see the updater progress
+            # and any error messages if the update fails.
             subprocess.Popen(  # nosec B603, B607 — Windows self-update
                 ["cmd.exe", "/c", str(bat_path)],
-                creationflags=0x08000000,  # CREATE_NO_WINDOW
             )
             self._log_update("success=launched Windows ZIP updater")
         except Exception as exc:
