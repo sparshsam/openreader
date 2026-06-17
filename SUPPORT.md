@@ -16,6 +16,24 @@ PDFReader by Sparsh is a local-first desktop PDF utility. Support is best-effort
 
 For security concerns, follow [SECURITY.md](SECURITY.md).
 
+## v1.2.0 Update Architecture Change
+
+Starting with v1.2.0, **in-app self-updating has been removed**. The app no longer
+downloads or runs installers for updates. Instead:
+
+- **Windows distribution is migrating to MSIX/App Installer** — Windows handles
+  updates on launch and in the background. See [docs/windows-distribution.md](docs/windows-distribution.md).
+- **Help → Check for Updates** opens the GitHub Releases page in your browser.
+  You download and install the new MSIX (or Setup.exe) manually.
+- **The legacy Setup.exe** remains available as a manual installer, but does not
+  support in-app update triggering.
+
+If you are on an older version (v1.1.x or earlier), you will need to install
+v1.2.0 manually from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases).
+After that, future major updates require downloading the new MSIX from the
+releases page. Windows App Installer may automate this for signed MSIX builds
+in the future.
+
 ## Windows v1.0.0/v1.0.1 updater recovery
 
 If you are using PDFReader v1.0.0 or v1.0.1 on Windows and see this error when checking for updates:
@@ -41,21 +59,41 @@ If you are using PDFReader v1.0.0 or v1.0.1 on Windows and see this error when c
 
 If you are unsure about any step, you can also download the portable ZIP (`PDFReader-by-Sparsh-Windows.zip`), extract it anywhere, and run the app from there without affecting your installed version.
 
-## Windows installer
+## Windows distribution
 
-PDFReader ships a Windows Inno Setup installer (`PDFReader-by-Sparsh-Setup.exe`). This section explains its behavior.
+### MSIX (recommended for v1.2.0+)
 
-### Admin / UAC
+The MSIX package (`PDFReader-by-Sparsh.msix`) is the recommended distribution
+format for v1.2.0+. It provides:
 
-The installer requires administrator privileges. When you run it, Windows will show a **User Account Control (UAC)** prompt asking for permission. This is expected — the installer needs admin rights to:
+- **No admin required** — per-user installs don't need elevation (once signed)
+- **Clean install/uninstall** — no leftover registry keys or files
+- **Windows App Installer** — manages updates on launch and in the background
+
+The MSIX is currently unsigned, which means Windows blocks installation outside
+of **Developer Mode**. Until a code-signing certificate is procured:
+
+1. Enable **Settings → Privacy & security → For developers → Developer Mode**
+2. Double-click the `.msix` file to install
+3. Or use PowerShell: `Add-AppxPackage -Path .\PDFReader-by-Sparsh.msix`
+
+See [docs/windows-distribution.md](docs/windows-distribution.md) for more details.
+
+### Legacy Inno Setup installer
+
+The Inno Setup installer (`PDFReader-by-Sparsh-Setup.exe`) is retained as a
+legacy fallback. It requires administrator privileges:
 
 - Install or update files under `C:\Program Files\PDFReader by Sparsh`
 - Register the app as a PDF file handler in the Windows Registry
 - Create Start Menu and desktop shortcuts
 
-If you do not see a UAC prompt, the installer was not launched with admin rights. Right-click the `.exe` and choose **Run as Administrator**.
+If you do not see a UAC prompt, the installer was not launched with admin rights.
+Right-click the `.exe` and choose **Run as Administrator**.
 
-> **Note for portable users:** The ZIP archive (`PDFReader-by-Sparsh-Windows.zip`) does not require any installer or admin rights. Extract it anywhere and run `PDFReader by Sparsh.exe` directly.
+> **Note for portable users:** The ZIP archive (`PDFReader-by-Sparsh-Windows.zip`)
+> does not require any installer or admin rights. Extract it anywhere and run
+> `PDFReader by Sparsh.exe` directly.
 
 ### Install path
 
@@ -95,7 +133,7 @@ If you want a completely clean removal of all settings, delete these folders aft
 
 ```
 %APPDATA%\Sparsh\PDFReader by Sparsh\     (settings)
-%TEMP%\PDFReader-Updates\                 (update cache)
+%TEMP%\PDFReader-Updates\                 (update logs — no longer used for downloads)
 ```
 
 ### Installing over an existing version

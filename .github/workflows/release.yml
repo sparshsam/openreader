@@ -81,6 +81,60 @@ jobs:
             throw "Setup.exe not found at $expected"
           }
 
+      - name: Build MSIX package (unsigned — requires manual signing for distribution)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          # Locate MakeAppx.exe
+          $makeAppx = Get-Command "MakeAppx.exe" -ErrorAction SilentlyContinue
+          if (-not $makeAppx) {
+            $sdkPaths = @(
+              "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\MakeAppx.exe",
+              "${env:ProgramFiles}\Microsoft SDKs\ClickOnce\signtool\MakeAppx.exe"
+            )
+            foreach ($pattern in $sdkPaths) {
+              $found = Get-ChildItem $pattern -ErrorAction SilentlyContinue | Sort-Object -Descending | Select-Object -First 1
+              if ($found) { $makeAppx = $found; break }
+            }
+          }
+
+          if (-not $makeAppx) {
+            Write-Host "MakeAppx.exe not found — skipping MSIX build."
+            Write-Host "Install Windows SDK or Visual Studio Build Tools for MSIX support."
+            "MSIX_SKIPPED=true" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            exit 0
+          }
+
+          $version = "$env:GITHUB_REF_NAME" -replace "^v", ""
+          $stageDir = "_msix_staging"
+          if (Test-Path $stageDir) { Remove-Item -Recurse -Force $stageDir }
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+          # Copy app files
+          Copy-Item -Path "dist\PDFReader by Sparsh\*" -Destination $stageDir -Recurse -Force
+
+          # Copy and patch manifest
+          Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
+          (Get-Content "$stageDir\AppxManifest.xml") -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "$stageDir\AppxManifest.xml"
+
+          # Create assets directory
+          $assetDir = "$stageDir\assets"
+          New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+
+          # Build MSIX (unsigned)
+          $msixName = "PDFReader-by-Sparsh.msix"
+          & $makeAppx.Source pack /p $msixName /d $stageDir /l
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
+          Write-Host "=== MSIX built: $msixName (unsigned) ==="
+
+          # Also generate the AppInstaller file with the correct version
+          $installerPath = "packaging\msix\AppInstaller.xml"
+          (Get-Content $installerPath) -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "PDFReader-by-Sparsh.appinstaller"
+
+          # Clean up
+          Remove-Item -Recurse -Force $stageDir
+
       - name: Upload Windows release assets
         uses: actions/upload-artifact@v7
         with:
@@ -88,6 +142,7 @@ jobs:
           path: |
             PDFReader-by-Sparsh-Windows.zip
             PDFReader-by-Sparsh-Setup.exe
+            PDFReader-by-Sparsh.msix
 
   build-macos:
     name: Build macOS Release Asset
@@ -160,6 +215,12 @@ jobs:
           test -f "release-assets/PDFReader-by-Sparsh-Setup.exe" || { echo "Missing Windows Setup.exe"; exit 1; }
           test -f "release-assets/PDFReader-by-Sparsh-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
           test -f "release-assets/PDFReader-by-Sparsh-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
+          # MSIX is optional until signing is set up; warn if missing
+          if [ -f "release-assets/PDFReader-by-Sparsh.msix" ]; then
+            echo "MSIX package found — will attach to release"
+          else
+            echo "⚠️  MSIX package not found — MakeAppx.exe may not be available on this runner"
+          fi
           echo "All required assets verified"
 
       - name: Generate release notes
@@ -167,8 +228,15 @@ jobs:
           cat > /tmp/release-notes.md <<- NOTE_EOF
           Release ${GITHUB_REF_NAME}.
 
+          ## MSIX Distribution (v1.2.0+)
+
+          Starting with v1.2.0, Windows distribution is migrating to MSIX/App Installer.
+          In-app self-updating (downloading and running Setup.exe) has been removed.
+          Update responsibility belongs to Windows packaging, not the app itself.
+
           ### Assets for Windows
-          - **\`PDFReader-by-Sparsh-Setup.exe\`** — ✅ **Recommended for normal use and in-app updates.** Inno Setup installer with PDF file association, Start Menu shortcut, desktop shortcut, and Add/Remove Programs entry. Requires admin rights.
+          - **\`PDFReader-by-Sparsh.msix\`** — ✅ **Recommended for v1.2.0+.** MSIX package with App Installer support for automatic Windows-managed updates. No admin required for per-user install when signed. *(Currently unsigned — requires Windows Developer Mode for sideloading until code signing is procured.)*
+          - **\`PDFReader-by-Sparsh-Setup.exe\`** — ✅ **Legacy fallback.** Inno Setup installer with PDF file association, Start Menu shortcut, desktop shortcut, and Add/Remove Programs entry. Requires admin rights.
           - \`PDFReader-by-Sparsh-Windows.zip\` — Portable/manual recovery package. Use only if you need a portable copy or are following SUPPORT.md recovery steps.
 
           ### Assets for macOS

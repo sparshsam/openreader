@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 rescap">
+
+  <Identity
+    Name="PDFReaderBySparsh"
+    Publisher="CN=SparshSam"
+    Version="1.2.0.0" />
+
+  <Properties>
+    <DisplayName>PDFReader by Sparsh</DisplayName>
+    <PublisherDisplayName>Sparsh</PublisherDisplayName>
+    <Description>A local-first desktop PDF reader. Read, search, copy, merge, split, extract, and compress PDFs without uploading documents anywhere.</Description>
+    <Logo>assets\icon-150x150.png</Logo>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+    <Capability Name="internetClient" />
+  </Capabilities>
+
+  <Applications>
+    <Application
+      Id="PDFReaderBySparsh"
+      Executable="PDFReader by Sparsh.exe"
+      EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements
+        DisplayName="PDFReader by Sparsh"
+        Description="A local-first desktop PDF reader"
+        Square150x150Logo="assets\icon-150x150.png"
+        Square44x44Logo="assets\icon-44x44.png"
+        BackgroundColor="transparent">
+        <uap:DefaultTile
+          Wide310x150Logo="assets\icon-310x150.png"
+          Square71x71Logo="assets\icon-71x71.png" />
+        <uap:SplashScreen Image="assets\icon-620x300.png" />
+      </uap:VisualElements>
+
+      <uap3:Extension
+        Category="windows.fileTypeAssociation">
+        <uap3:FileTypeAssociation Name="pdfreader_pdf">
+          <uap:SupportedFileTypes>
+            <uap:FileType ContentType="application/pdf">.pdf</uap:FileType>
+          </uap:SupportedFileTypes>
+        </uap3:FileTypeAssociation>
+      </uap3:Extension>
+    </Application>
+  </Applications>
+
+</Package>

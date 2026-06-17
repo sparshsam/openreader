@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstaller
+  xmlns="http://schemas.microsoft.com/appx/appinstaller/2021"
+  Version="1.0.0.0">
+
+  <MainPackage
+    Name="PDFReaderBySparsh"
+    Publisher="CN=SparshSam"
+    Version="1.2.0.0"
+    ProcessorArchitecture="x64"
+    Uri="https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest/download/PDFReader-by-Sparsh.msix" />
+
+  <UpdateSettings>
+    <OnLaunch
+      HoursBetweenUpdateChecks="0" />
+    <AutomaticBackgroundTask />
+    <ForceUpdateFromAnyVersion>false</ForceUpdateFromAnyVersion>
+  </UpdateSettings>
+
+</AppInstaller>

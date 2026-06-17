@@ -115,6 +115,57 @@ jobs:
             throw "Setup.exe not found at $expected"
           }
 
+      - name: Build MSIX package (unsigned — developer mode only)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          # Locate MakeAppx.exe from Windows SDK
+          $makeAppx = Get-Command "MakeAppx.exe" -ErrorAction SilentlyContinue
+          if (-not $makeAppx) {
+            $sdkPaths = @(
+              "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\MakeAppx.exe",
+              "${env:ProgramFiles}\Microsoft SDKs\ClickOnce\signtool\MakeAppx.exe"
+            )
+            foreach ($pattern in $sdkPaths) {
+              $found = Get-ChildItem $pattern -ErrorAction SilentlyContinue | Sort-Object -Descending | Select-Object -First 1
+              if ($found) { $makeAppx = $found; break }
+            }
+          }
+
+          if (-not $makeAppx) {
+            Write-Host "MakeAppx.exe not found — skipping MSIX build."
+            Write-Host "Install Windows SDK or Visual Studio Build Tools for MSIX support."
+            # Create a marker so downstream steps know MSIX wasn't built
+            "MSIX_SKIPPED=true" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            exit 0
+          }
+
+          $version = "$env:VERSION"
+          $stageDir = "_msix_staging"
+          if (Test-Path $stageDir) { Remove-Item -Recurse -Force $stageDir }
+          New-Item -ItemType Directory -Path $stageDir -Force | Out-Null
+
+          # Copy app files
+          Copy-Item -Path "dist\PDFReader by Sparsh\*" -Destination $stageDir -Recurse -Force
+
+          # Copy and patch manifest
+          Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
+          (Get-Content "$stageDir\AppxManifest.xml") -replace 'Version="[^"]+"', "Version=`"$version.0`"" | Set-Content "$stageDir\AppxManifest.xml"
+
+          # Create assets directory with placeholder PNGs
+          $assetDir = "$stageDir\assets"
+          New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+
+          # Build MSIX (unsigned)
+          $msixName = "PDFReader-by-Sparsh${{ env.ARTIFACT_SUFFIX }}.msix"
+          & $makeAppx.Source pack /p $msixName /d $stageDir /l
+          if ($LASTEXITCODE -ne 0) { throw "MakeAppx failed with exit code $LASTEXITCODE" }
+          Write-Host "=== MSIX built: $msixName (unsigned) ==="
+
+          # Clean up
+          Remove-Item -Recurse -Force $stageDir
+
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v7
         with:
@@ -122,3 +173,4 @@ jobs:
           path: |
             PDFReader-by-Sparsh-Windows${{ env.ARTIFACT_SUFFIX }}.zip
             PDFReader-by-Sparsh-Setup${{ env.ARTIFACT_SUFFIX }}.exe
+            PDFReader-by-Sparsh${{ env.ARTIFACT_SUFFIX }}.msix

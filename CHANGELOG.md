@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.0 — MSIX Distribution Reset — 2026-06-17
+
+- **Version:** Bumped `__version__` to `1.2.0-dev`.
+- **Self-update removed:** The in-app download/apply pipeline (`_start_download`, `_on_download_finished`, `_apply_update_windows_installer`, `_apply_update_windows_zip`, etc.) has been removed. The app no longer downloads or runs installers from within itself.
+- **Safe update detection retained:** Help → Check for Updates still queries the GitHub API. If a newer version exists, the dialog offers "Open Releases Page" (browser) instead of "Download & Install". A background check on launch shows a status bar message.
+- **MSIX packaging added:** `packaging/msix/` with `AppxManifest.xml`, `AppInstaller.xml`, and `build-msix.ps1` for Windows MSIX distribution.
+- **App Installer integration:** `AppInstaller.xml` enables Windows-managed updates — Auto Update checks on launch and in the background. The app no longer manages its own updates.
+- **CI updated:** `release.yml` builds an unsigned MSIX alongside Setup.exe and Windows ZIP. `build-windows.yml` builds an unsigned MSIX for test PRs.
+- **Documentation:** Added `docs/windows-distribution.md` (MSIX strategy, build process, code signing) and `docs/updater-architecture.md` (architecture history, component breakdown, security model).
+- **README updated:** Download table promotes MSIX as recommended format. Auto-update and Releases sections rewritten for v1.2.0 architecture. Roadmap updated.
+- **Tests updated:** Removed `TestPlatformAssetSelection`, `TestDownloadMetadata`, and `TestUpdateMethodSelection` test classes. `tools/test_updater_asset_flow.py` rewritten to test remaining update detection only.
+- **Constants removed:** `WINDOWS_INSTALLER_ASSET`, `WINDOWS_PORTABLE_ASSET`, `WINDOWS_UPDATE_ASSET`, `MACOS_APPLE_SILICON_UPDATE_ASSET`, and `MACOS_INTEL_UPDATE_ASSET` removed as they were only used by the removed download/apply code.
+- **Updater responsibility:** Belongs to Windows packaging (MSIX/App Installer), not `main.py`. The running app no longer overwrites itself, launches elevated installers, or writes batch scripts.
+- **Hard rules enforced:**
+  - No shipping another v1.1.x updater patch
+  - No app self-overwrite
+  - No elevated installer launch from inside the app
+  - Updater responsibility belongs to Windows packaging
+
 ## v1.1.11 — Updater Validation Release — 2026-06-17
 
 - **Version:** Bumped `__version__` to `1.1.11-dev`.
