@@ -35,6 +35,10 @@
   <a href="#cryptographic-verification-base">Verification</a>
   ·
   <a href="#future-philosophy">Philosophy</a>
+  ·
+  <a href="ARCHITECTURE.md">Architecture</a>
+  ·
+  <a href="VERSIONING.md">Versioning</a>
 </p>
 
 ## Overview

@@ -19,6 +19,7 @@ dist/
 # Local files
 .env
 .env.*
+!.env.example
 *.log
 *.pem
 *.key
