@@ -182,7 +182,7 @@ See [docs/macos.md](docs/macos.md) for macOS setup, Finder "Open With" notes, ic
 
 Release assets are the canonical distribution path. GitHub Actions artifacts are CI outputs and are not release assets.
 
-**Starting with v1.2.0, in-app self-updating has been removed.** The app no longer downloads or runs installers. Updates are handled by **Windows App Installer** (via MSIX packaging) or performed manually by the user.
+**Starting with v1.2.0, update detection replaces in-app self-updating.** The app no longer downloads or runs installers. Updates are handled by **Windows App Installer** (via MSIX packaging) or performed manually by the user.
 
 **macOS release assets** (Apple Silicon and Intel ZIPs) are published alongside Windows but **are not stable** — Windows is the tested platform. Mac users should build from source (see [Build From Source](#build-from-source)).
 
@@ -395,7 +395,7 @@ This project is one piece of that broader picture. The immediate goal is a genui
 ├── pdfreader_lib/           # Core library (search, comparison, MCP server)
 ├── requirements.txt         # Pinned runtime/build dependencies
 ├── requirements-mcp.txt     # MCP server dependencies (optional)
-├── OpenReader.spec # PyInstaller spec
+├── OpenReader.spec          # PyInstaller spec
 ├── .bandit                  # Bandit security scanner configuration
 ├── CHANGELOG.md
 ├── CONTRIBUTING.md

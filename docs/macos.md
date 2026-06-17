@@ -1,6 +1,6 @@
 # macOS Support
 
-PDFReader by Sparsh is written with cross-platform Python libraries, so the app source can run on macOS. The Windows `.exe` cannot run on macOS, so Mac users need a macOS build.
+OpenReader is written with cross-platform Python libraries, so the app source can run on macOS. The Windows `.exe` cannot run on macOS, so Mac users need a macOS build.
 
 ## Why a Separate Mac Build Is Needed
 
@@ -39,13 +39,13 @@ chmod +x scripts/build_macos.sh
 The app bundle is created at:
 
 ```text
-dist/PDFReader by Sparsh.app
+dist/OpenReader.app
 ```
 
 Run it:
 
 ```bash
-open "dist/PDFReader by Sparsh.app"
+open "dist/OpenReader.app"
 ```
 
 ## Use "Open With" on macOS
@@ -54,7 +54,7 @@ After building:
 
 1. Right-click a PDF in Finder.
 2. Choose **Open With > Other...**.
-3. Select `dist/PDFReader by Sparsh.app`.
+3. Select `dist/OpenReader.app`.
 4. Optionally choose **Always Open With**.
 
 ## Security Warning

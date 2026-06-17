@@ -1,6 +1,6 @@
 # Release and Versioning
 
-PDFReader by Sparsh uses semantic version tags to publish packaged builds.
+OpenReader uses semantic version tags to publish packaged builds.
 
 ## Version Source of Truth
 
@@ -11,12 +11,12 @@ PDFReader by Sparsh uses semantic version tags to publish packaged builds.
 
 ## Release Architecture (v1.2.0+)
 
-**Starting with v1.2.0, in-app self-updating has been removed.** The app no longer
+**Starting with v1.2.0, update detection replaces in-app self-updating.** The app no longer
 downloads or runs installers. Windows distribution is migrating to MSIX/App Installer:
 
 - **Update detection** — the app queries the GitHub API and opens the releases page
 - **Update application** — handled by Windows App Installer (MSIX) or manual download
-- **Legacy Setup.exe** — retained as a manual installer only; no in-app update triggering
+- **Legacy Setup.exe** — retained as a manual installer only; no update detection support
 
 See [docs/updater-architecture.md](docs/updater-architecture.md) for details.
 
@@ -25,11 +25,11 @@ See [docs/updater-architecture.md](docs/updater-architecture.md) for details.
 The release workflow attaches these assets:
 
 ```text
-PDFReader-by-Sparsh.msix                    (MSIX package — recommended for v1.2.0+)
-PDFReader-by-Sparsh-Setup.exe               (legacy Inno Setup installer — manual use only)
-PDFReader-by-Sparsh-Windows.zip             (portable/manual recovery package)
-PDFReader-by-Sparsh-macOS-Apple-Silicon.zip (macOS Apple Silicon — source-build testing)
-PDFReader-by-Sparsh-macOS-Intel.zip         (macOS Intel — source-build testing)
+OpenReader.msix                    (MSIX package — recommended for v1.2.0+)
+OpenReader-Setup.exe               (legacy Inno Setup installer — manual use only)
+OpenReader-Windows.zip             (portable/manual recovery package)
+OpenReader-macOS-Apple-Silicon.zip (macOS Apple Silicon — source-build testing)
+OpenReader-macOS-Intel.zip         (macOS Intel — source-build testing)
 ```
 
 The MSIX package is built unsigned (requires `MakeAppx.exe` from Windows SDK).
@@ -71,11 +71,11 @@ After publishing a tag:
 
 - [ ] The release workflow completed successfully.
 - [ ] The GitHub Release exists for the pushed tag.
-- [ ] The release contains `PDFReader-by-Sparsh.msix` (MSIX package, if MakeAppx was available).
-- [ ] The release contains `PDFReader-by-Sparsh-Setup.exe` (legacy installer).
-- [ ] The release contains `PDFReader-by-Sparsh-Windows.zip` (portable/recovery).
-- [ ] The release contains `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`.
-- [ ] The release contains `PDFReader-by-Sparsh-macOS-Intel.zip`.
+- [ ] The release contains `OpenReader.msix` (MSIX package, if MakeAppx was available).
+- [ ] The release contains `OpenReader-Setup.exe` (legacy installer).
+- [ ] The release contains `OpenReader-Windows.zip` (portable/recovery).
+- [ ] The release contains `OpenReader-macOS-Apple-Silicon.zip`.
+- [ ] The release contains `OpenReader-macOS-Intel.zip`.
 - [ ] Downloaded packaged builds show the tag-injected version in **Help > About**.
 - [ ] `releases/latest` returns the new tag
 - [ ] An older packaged build detects the newer version (status bar message on launch, dialog via Help → Check for Updates).

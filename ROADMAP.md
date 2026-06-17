@@ -1,4 +1,4 @@
-# PDFReader by Sparsh — Roadmap
+# OpenReader — Roadmap
 
 > Stable, local-first desktop PDF utility with AI agent integration.
 
