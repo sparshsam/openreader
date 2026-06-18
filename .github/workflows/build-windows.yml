@@ -120,6 +120,13 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
+          # Only build MSIX for real release versions, not dev/test builds
+          $buildVersion = "$env:VERSION"
+          if ($buildVersion -eq "0.0.0-dev" -or $buildVersion -like "*-test") {
+            Write-Host "Skipping MSIX build for dev/test version: $buildVersion"
+            exit 0
+          }
+
           # Locate MakeAppx.exe from Windows SDK
           $makeAppx = Get-Command "MakeAppx.exe" -ErrorAction SilentlyContinue
           if (-not $makeAppx) {
