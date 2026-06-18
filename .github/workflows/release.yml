@@ -128,9 +128,11 @@ jobs:
           # Copy app files
           Copy-Item -Path "dist\OpenReader\*" -Destination $stageDir -Recurse -Force
 
-          # Copy and patch manifest
+          # Copy and patch manifest (use .NET I/O for reliable UTF-8 without BOM)
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
-          (Get-Content "$stageDir\AppxManifest.xml" -Raw) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "$stageDir\AppxManifest.xml" -Encoding utf8NoBOM
+          $manifestContent = [System.IO.File]::ReadAllText("$stageDir\AppxManifest.xml")
+          $manifestContent = $manifestContent -replace 'Version="[^"]+"', "Version=`"$msixVersion`""
+          [System.IO.File]::WriteAllText("$stageDir\AppxManifest.xml", $manifestContent)
 
           # Create assets directory
           $assetDir = "$stageDir\assets"
@@ -143,8 +145,9 @@ jobs:
           Write-Host "=== MSIX built: $msixName (unsigned) ==="
 
           # Also generate the AppInstaller file with the correct version
-          $installerPath = "packaging\msix\AppInstaller.xml"
-          (Get-Content $installerPath -Raw) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "OpenReader.appinstaller" -Encoding utf8NoBOM
+          $installerContent = [System.IO.File]::ReadAllText("packaging\msix\AppInstaller.xml")
+          $installerContent = $installerContent -replace 'Version="[^"]+"', "Version=`"$msixVersion`""
+          [System.IO.File]::WriteAllText("$pwd\OpenReader.appinstaller", $installerContent)
 
           # Clean up
           Remove-Item -Recurse -Force $stageDir
