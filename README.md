@@ -95,13 +95,17 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 
 ## Screenshots
 
-### Main Window
+| Reader | Search |
+|--------|--------|
+| ![Reader](assets/screenshots/reader-main.png) | ![Search](assets/screenshots/search.png) |
 
-![OpenReader main window](assets/screenshot-main.png)
+| Annotate | Merge & Split |
+|-----------|---------------|
+| ![Annotations](assets/screenshots/annotations.png) | ![Merge & Split](assets/screenshots/merge-split.png) |
 
-### Search View
-
-![OpenReader search view](assets/screenshot-search.png)
+| Dark Mode | About |
+|------------|-------|
+| ![Dark Mode](assets/screenshots/dark-mode.png) | ![About](assets/screenshots/about.png) |
 
 ## Why I Built This
 
