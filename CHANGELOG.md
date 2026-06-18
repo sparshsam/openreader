@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.0-beta.4 — MSIX Update Validation — 2026-06-18
+
+- **Version:** Bumped `__version__` to `1.2.0-beta.4-dev`.
+- **MSIX version:** `1.2.0.4` (beta.4 maps to build 4).
+- **Purpose:** Validate MSIX update behavior from v1.2.0-beta.3 to v1.2.0-beta.4.
+- **Visible change:** About dialog shows "MSIX update validation — beta.4" label.
+- **No functional changes** — version bump with visible release label for update validation.
+
+## v1.2.0-beta.3 — First Valid MSIX Release — 2026-06-18
+
+- **Version:** Bumped `__version__` to `1.2.0-beta.3-dev`.
+- **MSIX version:** `1.2.0.3` (beta.3 maps to build 3).
+- **MSIX build fixed:** Three root causes resolved across 11 PRs (#32–#42):
+  - **Case-insensitive -replace** corrupting XML declaration → fixed with `-creplace`
+  - **Wrong namespace schema** for Extensions in desktop bridge → removed Extensions block
+  - **MakeAppx.exe path** normalization on CI runner → fixed path resolution
+- **First release to include OpenReader.msix** (beta.1/beta.2 are invalid for MSIX testing).
+
 ## v1.2.0-beta.2 — MSIX Update Validation — 2026-06-17
 
 - **Version:** Bumped `__version__` to `1.2.0-beta.2-dev`.
