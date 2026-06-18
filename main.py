@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.0-beta.2-dev"
+__version__ = "1.2.0-beta.4-dev"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -2784,6 +2784,12 @@ class PdfReaderWindow(QMainWindow):
         ver_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(ver_label)
 
+        # MSIX update validation label (beta.4)
+        msix_label = QLabel("<p style='color:#a6e3a1; font-size:11px; margin:0;'>"
+                            "MSIX update validation &mdash; beta.4</p>")
+        msix_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(msix_label)
+
         layout.addSpacing(8)
 
         # Description
@@ -3142,7 +3148,7 @@ class PdfReaderWindow(QMainWindow):
             QMessageBox.information(
                 self,
                 "Up to Date",
-                f"You're already running the latest version of PDFReader (v{__version__}).",
+                f"You're already running the latest version of OpenReader (v{__version__}).",
             )
             self.statusBar().showMessage(result["message"], 5000)
             return
