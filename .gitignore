@@ -16,6 +16,13 @@ dist/
 # PyInstaller generated runtime files
 *.manifest
 
+# MSIX packaging (local builds)
+_msix_staging/
+*.msix
+*.appinstaller
+OpenReader-Test-Cert.pfx
+OpenReader-Test-Cert.cer
+
 # Local files
 .env
 .env.*
