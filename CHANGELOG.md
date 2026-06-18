@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.2.0-beta.6 — MSIX Update Validation — 2026-06-18
+
+- **Version:** Bumped `__version__` to `1.2.0-beta.6-dev`.
+- **MSIX version:** `1.2.0.6` (beta.6 maps to build 6).
+- **Purpose:** Validate MSIX update from v1.2.0-beta.5 to v1.2.0-beta.6.
+- **Visible change:** About dialog shows "MSIX update validation — beta.6" label.
+- **No functional changes** — version bump with visible release label for update validation.
+
+## v1.2.0-beta.5 — MSIX Splash Asset Fix — 2026-06-18
+
+- **Version:** Bumped `__version__` to `1.2.0-beta.5-dev`.
+- **MSIX version:** `1.2.0.5` (beta.5 maps to build 5).
+- **Fixed:** Placeholder PNGs (icon-620x300.png etc.) were declared in the manifest but never written to the MSIX staging directory. The string variable was created but the file was never persisted to disk. This caused `Add-AppxPackage` to fail with `0x80073CF6` (splash screen image cannot be located).
+- **Added:** `tools/create_msix_placeholder_pngs.py` — generates valid minimal PNG files at all sizes referenced by the manifest.
+- **Added:** Pre-MakeAppx asset validation step that parses `AppxManifest.xml`, extracts all image references, and fails with a clear list of any missing files.
+- **Fixed:** `build-msix.ps1`, `release.yml`, and `build-windows.yml` — all three now generate proper placeholder PNGs.
+
 ## v1.2.0-beta.4 — MSIX Update Validation — 2026-06-18
 
 - **Version:** Bumped `__version__` to `1.2.0-beta.4-dev`.
