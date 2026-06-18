@@ -93,12 +93,15 @@ Write-Host "Copying application files..." -ForegroundColor Cyan
 Copy-Item -Path "$ExeDir\*" -Destination $StageDir -Recurse -Force
 
 # Copy AppxManifest and update version
+# Use XML DOM patching (not regex) to avoid corrupting MinVersion/MaxVersionTested
 $ManifestPath = Join-Path $ScriptDir "AppxManifest.xml"
 $ManifestDest = Join-Path $StageDir "AppxManifest.xml"
 Copy-Item -Path $ManifestPath -Destination $ManifestDest -Force
-$content = [System.IO.File]::ReadAllText("$ManifestDest")
-$content = $content -creplace 'Version="[^"]+"', 'Version="' + "$Version" + '"'
-[System.IO.File]::WriteAllText("$ManifestDest", $content, [System.Text.UTF8Encoding]$false)
+$manifestXml = New-Object System.Xml.XmlDocument
+$manifestXml.PreserveWhitespace = $true
+$manifestXml.Load($ManifestDest)
+$manifestXml.Package.Identity.Version = $Version
+$manifestXml.Save($ManifestDest)
 
 # Generate MSIX asset placeholders using Python
 Write-Host "Generating MSIX asset placeholders..." -ForegroundColor Cyan

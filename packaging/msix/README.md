@@ -136,6 +136,7 @@ MSIX follows a `major.minor.patch.build` version scheme.
 |---------|--------------|-------------|
 | `v1.2.0` | `1.2.0.0` | Initial MSIX release |
 | `v1.2.1` | `1.2.1.0` | First Microsoft Store release candidate |
+| `v1.2.2` | `1.2.2.0` | Store submission fix (MinVersion patch bug) |
 
 The CI workflow automatically extracts the version from the Git tag and injects it
 into the manifest as `{tag}.0` (padded to 4 parts).

@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.2 — Store Submission Fix — 2026-06-18
+
+- **Version:** Bumped `__version__` to `1.2.2`, MSIX version to `1.2.2.0`.
+- **Fixed:** Partner Center package validation rejection (`MinVersion <= 10.0.17134.0`).
+- **Root cause:** MSIX manifest patching used regex `-creplace 'Version="[^"]+"'` which matched inside `MinVersion` and `MaxVersionTested` attributes, overwriting them with the app version number.
+- **Fix:** Replaced regex-based version injection with proper XML DOM patching in:
+  - `release.yml` (CI release build)
+  - `build-windows.yml` (CI dev build)
+  - `build-msix.ps1` (local build script)
+- **Result:** Generated MSIX now correctly preserves `TargetDeviceFamily MinVersion="10.0.17763.0"`.
+- **Validation added:** CI now logs `MinVersion` and `MaxVersionTested` during XML validation step.
+
 ## v1.2.1 — First Public Microsoft Store Release Candidate — 2026-06-18
 
 - **Version:** Bumped `__version__` to `1.2.1`.

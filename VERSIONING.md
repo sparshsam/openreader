@@ -38,6 +38,7 @@ MSIX packages use a 4-part version: `major.minor.patch.build`.
 | `v1.2.0-rc.1` | `1.2.0.2` |
 | `v1.2.0` | `1.2.0.0` |
 | `v1.2.1` | `1.2.1.0` |
+| `v1.2.2` | `1.2.2.0` |
 
 The build number is the prerelease index minus 1 (beta.1 → 0, beta.2 → 1, etc.).
 Stable releases use build 0. The CI workflow automatically extracts the correct

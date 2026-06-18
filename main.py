@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10

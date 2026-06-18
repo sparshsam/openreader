@@ -5,8 +5,8 @@ OpenReader uses semantic version tags to publish packaged builds.
 ## Version Source of Truth
 
 - `__version__` in `main.py` is the canonical source. Set it to the next release version.
-- Tags must use the format `vMAJOR.MINOR.PATCH`, for example `v1.2.1`.
-- The injected runtime version removes the leading `v`, so `v1.2.1` becomes `__version__ = "1.2.1"` in packaged builds.
+- Tags must use the format `vMAJOR.MINOR.PATCH`, for example `v1.2.2`.
+- The injected runtime version removes the leading `v`, so `v1.2.2` becomes `__version__ = "1.2.1"` in packaged builds.
 - CI injects the tag version for release builds via `scripts/inject_version.py`.
 
 ## Release Architecture (v1.2.0+)
@@ -45,8 +45,8 @@ no separate code-signing certificate is needed.
 4. Create and push a semantic version tag:
 
    ```bash
-   git tag v1.2.1
-   git push origin v1.2.1
+   git tag v1.2.2
+   git push origin v1.2.2
    ```
 
 5. GitHub Actions runs `.github/workflows/release.yml`.
@@ -98,7 +98,7 @@ curl https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 The MSIX package is currently unsigned. The distribution plan is:
 
 1. **Microsoft Store** — Submit the unsigned MSIX to the Microsoft Store. The Store
-   signs the package automatically with its Store identity. **v1.2.1 is the first
+   signs the package automatically with its Store identity. **v1.2.2 is the first
    Store release candidate.**
 2. **Sideloading** — Unsigned MSIX from GitHub Releases requires Windows
    Developer Mode. Local test-signing scripts are in `packaging/msix/`.
