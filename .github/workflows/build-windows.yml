@@ -158,7 +158,7 @@ jobs:
           # Strip pre-release and test suffixes, then map beta to build number
           $cleanVersion = $version -replace '-(test|dev)$', ''
           $msixVersion = if ($cleanVersion -match '^(\d+\.\d+\.\d+)-beta\.(\d+)$') {
-              "$($Matches[1]).$($Matches[2] - 1)"
+              "$($Matches[1]).$($Matches[2])"
           } elseif ($cleanVersion -match '^(\d+\.\d+\.\d+)$') {
               "$($Matches[1]).0"
           } else {
