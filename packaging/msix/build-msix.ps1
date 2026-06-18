@@ -96,7 +96,9 @@ Copy-Item -Path "$ExeDir\*" -Destination $StageDir -Recurse -Force
 $ManifestPath = Join-Path $ScriptDir "AppxManifest.xml"
 $ManifestDest = Join-Path $StageDir "AppxManifest.xml"
 Copy-Item -Path $ManifestPath -Destination $ManifestDest -Force
-(Get-Content $ManifestDest) -replace 'Version="[^"]+"', "Version=`"$Version`"" | Set-Content $ManifestDest -Encoding utf8NoBOM
+$content = [System.IO.File]::ReadAllText("$ManifestDest")
+$content = $content -replace 'Version="[^"]+"', 'Version="' + "$Version" + '"'
+[System.IO.File]::WriteAllText("$ManifestDest", $content)
 
 # Create placeholder asset directory and files
 # In production, replace these with actual resized application icons
