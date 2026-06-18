@@ -47,26 +47,28 @@ OpenReader is a **stable, local-first desktop PDF utility** built with Python, P
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.2.0-beta.1** (current release) migrates Windows distribution from Inno Setup self-updating to MSIX/App Installer. OpenReader now uses Windows-native updates — the app never replaces itself. macOS builds are published for source-build testing but are not stable — the primary target is Windows. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.2.0-beta.6** (current release) validates the MSIX update pipeline ahead of Microsoft Store submission. Windows distribution uses MSIX/App Installer with Windows-native updates — the app never replaces itself. The beta.5 → beta.6 in-place MSIX upgrade has been confirmed on Windows 11. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
 Get the latest builds from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest).
 
 | Platform | Recommended Download | Alternative | Notes |
-|---|---|---|---|---|
+|---|---|---|---|
 | Windows | `OpenReader.msix` | `OpenReader-Setup.exe` (legacy) or `OpenReader-Windows.zip` | **MSIX (recommended for v1.2.0+):** Windows-managed updates via App Installer. Signed with a future Store identity. No admin required for per-user install when signed. *(Currently unsigned — enable Developer Mode for sideloading.)* **Legacy Setup.exe:** Inno Setup installer, requires admin. ZIP for portable/manual recovery. |
 | macOS | — | — | **Not currently stable.** macOS builds are published for source-build testing only. The app may exhibit UI issues, missing features, or crashes. Run from source for the best macOS experience (see [Build From Source](#build-from-source)). |
 
 Windows may show a SmartScreen warning because community builds are not code-signed. macOS may show a Gatekeeper warning because the Mac builds are not Apple-notarized. Only run software from sources you trust.
 
-**About the "Unknown Publisher" warning:** The installer currently displays "Unknown Publisher" because the build is unsigned. The AppPublisher metadata (`Sparsh Sam`) and version info are embedded in the executable by PyInstaller and Inno Setup, but Windows code signing is a separate step that requires an EV certificate. The installer is safe — SmartScreen shows this warning purely because there is no code-signing signature, not because of any detected issue. A code-signing certificate purchase and integration is tracked as a future improvement.
+**About the "Unknown Publisher" warning:** The MSIX package currently displays "Unknown Publisher" because GitHub Release builds are unsigned. The Microsoft Store will sign the package automatically with the Store identity upon submission, removing this warning. For local test-signing, see [test signing setup](docs/msix-update-validation.md#test-signing-setup).
 
 **v1.2.0 update change:** In-app self-updating has been removed. OpenReader now uses **Windows-native updates** — the app never downloads or runs installers.
 
-- **Existing v1.0.x and v1.1.x users must manually install v1.2.0-beta.1 once.** Future updates will be handled automatically by Windows.
+- **Existing v1.0.x and v1.1.x users must manually install a v1.2.0 beta MSIX once.** Future updates are handled by Windows App Installer or the Microsoft Store.
 - **v1.2.0+ users:** Windows App Installer manages updates on launch and in the background. The app's Help → Check for Updates opens the GitHub Releases page in your browser.
 - Source builds should be updated with `git pull` and rebuilt locally.
+
+> **⚠️ Production auto-updates via App Installer are not yet proven.** The beta.5 → beta.6 in-place MSIX upgrade has been validated locally with test signing, but the hosted App Installer workflow (automatic updates from a web endpoint) and Microsoft Store-managed updates require a Store submission. Until then, users update by downloading the latest MSIX from GitHub and installing manually.
 
 ## Features
 
@@ -200,16 +202,19 @@ https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 
 - **Background check (optional):** On launch, the app silently checks for a newer version. If found, a brief status bar message appears.
 - **Manual check:** Help → Check for Updates queries the API and shows a dialog with version info and release notes.
-- **No download/install:** The dialog offers "Open Releases Page" — the user gets the MSIX (or Setup.exe) from GitHub and installs it. Windows App Installer manages future updates automatically.
+- **No download/install:** The dialog offers "Open Releases Page" — the user gets the MSIX from GitHub and installs it manually.
+- **Microsoft Store future:** After Store submission, Store-managed automatic updates replace the manual download flow for Store users.
 
 ### MSIX Distribution
 
-The recommended Windows distribution format is MSIX (`.appinstaller`-enabled), which provides:
+The recommended Windows distribution format is MSIX, which provides:
 - **Windows-managed updates** — App Installer checks on launch and in the background
 - **Clean install/uninstall** — no leftover registry keys or files
 - **No admin required** — per-user installs don't need elevation (once signed)
 
-Until a code-signing certificate is procured, the MSIX package is unsigned and requires **Windows Developer Mode** for sideloading.
+**GitHub Release MSIX packages are unsigned** and require Windows Developer Mode for sideloading. After Microsoft Store submission, the Store-signed MSIX will install without Developer Mode and without SmartScreen warnings.
+
+> **⚠️ GitHub MSIX vs Store-signed MSIX:** The unsigned .msix from GitHub Releases is for beta testing only. The Store-signed .msix (delivered through the Microsoft Store) is the production distribution channel. They share the same identity (`SparshSam.OpenReader`) and upgrade chain, so a Store install can upgrade a sideloaded beta and vice versa.
 
 ### Legacy Installer
 
@@ -316,7 +321,7 @@ sudo pacman -S tesseract tesseract-data-eng
 - [x] Minimal version-only release to test v1.1.10 → v1.1.11 updater flow
 - [x] Confirms Windows updater downloads and launches `OpenReader-Setup.exe`
 
-### 🚧 v1.2.0 — MSIX Distribution Reset (In Development)
+### ✓ v1.2.0 — MSIX Distribution Reset (Completed)
 
 **Goal:** Replace in-app self-updating with MSIX/App Installer for Windows.
 
@@ -326,15 +331,14 @@ sudo pacman -S tesseract tesseract-data-eng
 - [x] Add App Installer template for Windows-managed updates
 - [x] Update GitHub Actions workflow to build MSIX
 - [x] Add architecture docs (`docs/windows-distribution.md`, `docs/updater-architecture.md`)
-- [ ] Procure code-signing certificate for signed MSIX distribution
-- [ ] Validate MSIX end-to-end on Windows 10/11
-- [ ] Validate App Installer update flow
+- [x] Validate MSIX install and in-place upgrade (beta.5 → beta.6, confirmed on Windows 11)
+- [ ] **Store submission** — next milestone. Store signing replaces self-procured code-signing cert.
 
 ### Near-Term
 Items in active or planned development.
 
 - **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
-- **Code signing** — signed Windows and macOS releases for smoother downloads without SmartScreen or Gatekeeper warnings
+- **Microsoft Store release** — signed MSIX distribution through the Microsoft Store, removing SmartScreen warnings and enabling Store-managed automatic updates
 - **Stronger sandboxing guidance** — documented approaches for running the app in an OS sandbox when opening documents from untrusted sources
 
 ### Long-Term Vision

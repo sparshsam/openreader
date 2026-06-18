@@ -15,6 +15,15 @@
 - Test certificate (see `packaging/msix/create-test-cert.ps1`)
 - Administrator access to install test certificate (one time)
 
+### Test Certificate Password
+
+The local test-signing certificate is protected with a **non-secret development password**:
+
+- **Password:** `OpenReaderTest2024`
+- **Location:** `packaging/msix/sign-msix-test.ps1` (default parameter)
+
+> This password is not a security secret. The test certificate is for local development only, never used in CI/CD, and never deployed to production. The Microsoft Store signs the production MSIX with its own identity.
+
 ## Test Signing Setup
 
 GitHub Release MSIX packages are unsigned. For local testing, sign with the
@@ -41,10 +50,22 @@ test certificate:
 3. Run: `Add-AppxPackage "C:\Users\spars\Downloads\OpenReader.msix"`
 4. Launch OpenReader from Start Menu
 5. Verify Help → About shows version and beta.5 label
-6. Verify with: `Get-AppxPackage SparshSam.OpenReader`
+6. Verify with:
+
+   ```powershell
+   Get-AppxPackage SparshSam.OpenReader | Select Name, Version, PackageFamilyName
+   ```
 
 **Expected:** Installation completes without error. App launches.
 **Result:** ✅ **PASS** (confirmed on Windows)
+**Expected output:**
+
+```text
+Name                    Version  PackageFamilyName
+----                    -------  -----------------
+SparshSam.OpenReader    1.2.0.5  SparshSam.OpenReader_yh0byntbzd2qw
+```
+
 **PFN:** `SparshSam.OpenReader_yh0byntbzd2qw`
 
 ### SC-MSIX-02: Update to New Version (beta.5 → beta.6)
@@ -57,13 +78,21 @@ test certificate:
 3. Run: `Add-AppxPackage "C:\Users\spars\Downloads\OpenReader.msix"`
 4. Launch OpenReader
 5. Verify Help → About shows version `1.2.0-beta.6-dev` and beta.6 label
-6. Verify with: `Get-AppxPackage SparshSam.OpenReader`
+6. Verify with:
+
+   ```powershell
+   Get-AppxPackage SparshSam.OpenReader | Select Name, Version, PackageFamilyName
+   ```
 
 **Expected:** In-place upgrade. No duplicate app entry. Same PFN.
 **Result:** ✅ **PASS** (confirmed on Windows)
-- Version: `1.2.0.5` → `1.2.0.6`
-- PFN: `SparshSam.OpenReader_yh0byntbzd2qw` (unchanged)
-- No duplicate app entry
+**Expected output after upgrade:**
+
+```text
+Name                    Version  PackageFamilyName
+----                    -------  -----------------
+SparshSam.OpenReader    1.2.0.6  SparshSam.OpenReader_yh0byntbzd2qw
+```
 
 ### SC-MSIX-03: Settings Persistence After Update
 

@@ -21,8 +21,8 @@ For security concerns, follow [SECURITY.md](SECURITY.md).
 OpenReader now uses **Windows-native updates**. The app never downloads or runs installers for updates.
 
 **Migration path for existing users:**
-- **Existing v1.0.x and v1.1.x users must manually install v1.2.0-beta.1 once.**
-  Future updates will be handled automatically by Windows (via MSIX/App Installer).
+- **Existing v1.0.x and v1.1.x users must manually install a v1.2.0 MSIX once.**
+  Future updates will be handled by the Microsoft Store or App Installer.
 - **v1.2.0+ users:** Windows App Installer manages updates on launch and in the
   background. The app's Help → Check for Updates opens the GitHub Releases page.
 - **The legacy Setup.exe** remains available as a manual installer only — it does
@@ -45,10 +45,10 @@ If you are using OpenReader v1.0.0 or v1.0.1 on Windows and see this error when 
 **One-time manual recovery** — you need to install v1.0.3 manually, then the updater will work from then on:
 
 1. **Download the installer** from the [v1.0.3 release page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/tag/v1.0.3) — use `OpenReader-Setup.exe`.
-2. **Close PDFReader** if it is running (File → Quit, or close the window).
+2. **Close OpenReader** if it is running (File → Quit, or close the window).
 3. **Right-click the installer** and choose **Run as Administrator**.
 4. **Install over the existing version** — use the same install location (`C:\Program Files\OpenReader` by default).
-5. **Launch PDFReader** — it will show v1.0.3 in the About dialog.
+5. **Launch OpenReader** — it will show v1.0.3 in the About dialog.
 6. **Future updates will work normally** — the updater no longer needs admin access.
 
 If you are unsure about any step, you can also download the portable ZIP (`OpenReader-Windows.zip`), extract it anywhere, and run the app from there without affecting your installed version.

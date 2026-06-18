@@ -33,8 +33,9 @@ OpenReader-macOS-Intel.zip         (macOS Intel — source-build testing)
 ```
 
 The MSIX package is built unsigned (requires `MakeAppx.exe` from Windows SDK).
-Until a code-signing certificate is procured, MSIX installation requires Windows
-Developer Mode for sideloading.
+GitHub Release MSIX packages require Windows Developer Mode for sideloading.
+The Microsoft Store will sign the production MSIX with its Store identity —
+no separate code-signing certificate is needed.
 
 ## How to Cut a Release
 
@@ -94,12 +95,14 @@ curl https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 
 ## MSIX Signing
 
-The MSIX package is currently unsigned. For it to be installable without
-Developer Mode, a code-signing certificate must be procured and the CI
-workflow updated to sign the package:
+The MSIX package is currently unsigned. The distribution plan is:
 
-1. Purchase an OV or EV code-signing certificate from a trusted CA
-2. Store the certificate securely as a GitHub Actions secret
-3. Update `release.yml` to sign the MSIX with `signtool.exe` post-build
+1. **Short term** — Submit the unsigned MSIX to the Microsoft Store. The Store
+   signs the package automatically with its Store identity.
+2. **Beta/sideloading** — Unsigned MSIX from GitHub Releases requires Windows
+   Developer Mode. Local test-signing scripts are in `packaging/msix/`.
+3. **No self-procured code-signing cert** — The Store handles production signing.
+   Do not purchase a separate code-signing certificate.
 
-See [docs/windows-distribution.md](docs/windows-distribution.md) for more details.
+See [docs/store-submission-checklist.md](docs/store-submission-checklist.md) and
+[docs/windows-distribution.md](docs/windows-distribution.md) for details.
