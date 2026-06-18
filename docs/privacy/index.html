@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — OpenReader</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    max-width: 720px;
+    margin: 40px auto;
+    padding: 0 20px;
+    line-height: 1.6;
+    color: #1a1a1a;
+    font-size: 15px;
+  }
+  h1 { font-size: 1.6em; margin-top: 1.5em; }
+  h2 { font-size: 1.2em; margin-top: 1.8em; }
+  p { margin: 0.8em 0; }
+  footer { margin-top: 3em; font-size: 0.85em; color: #666; border-top: 1px solid #ddd; padding-top: 1em; }
+  code { background: #f4f4f4; padding: 2px 5px; border-radius: 3px; font-size: 0.9em; }
+  ul { padding-left: 1.2em; }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p><strong>Effective date:</strong> June 18, 2026</p>
+<p><strong>Application:</strong> OpenReader — a local-first desktop PDF utility for Windows.</p>
+
+<h2>Data Collection</h2>
+<p><strong>OpenReader does not collect, transmit, or store any personal data.</strong></p>
+<p>The application is designed to be entirely local-first. All PDF processing — including reading, searching, copying, annotating, merging, splitting, extracting, and compressing — occurs on your local machine. No document content is ever uploaded, transmitted, or shared with any remote service.</p>
+
+<h2>Network Access</h2>
+<p>OpenReader makes a single optional network request:</p>
+<ul>
+  <li><strong>Update check (opt-in):</strong> On launch (if enabled), the app sends a GET request to
+    <code>https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest</code>
+    to compare the installed version against the latest published release. This request includes no
+    identifiers, no document data, no telemetry, and no usage statistics.</li>
+</ul>
+<p>The update check can be performed manually at any time via <strong>Help → Check for Updates</strong>.</p>
+<p>No other network requests are made by the application. No analytics, crash reporting, or usage tracking is included.</p>
+
+<h2>Local Storage</h2>
+<p>OpenReader stores the following data locally on your device:</p>
+<ul>
+  <li><strong>User preferences:</strong> Theme (dark/light), zoom level, window position, and other settings are saved in your user profile via Qt QSettings.</li>
+  <li><strong>Session state:</strong> The app may optionally remember which PDFs were open and your last-viewed page position. This data is stored in a local file and never transmitted.</li>
+  <li><strong>Search indexes:</strong> If you use library search, a local SQLite full-text index is built and stored on your filesystem. It is never uploaded anywhere.</li>
+</ul>
+<p>All local storage is confined to your user profile and can be cleared via the application's settings or your operating system's application data management tools.</p>
+
+<h2>Third-Party Services</h2>
+<p>OpenReader does not embed any third-party analytics, advertising, tracking, or telemetry SDKs.</p>
+<p>The only external service referenced is <strong>GitHub</strong> (for the optional update check described above) and the <strong>Microsoft Store</strong> (for distribution — the Store itself may collect standard installation metrics as described in Microsoft's privacy policy).</p>
+
+<h2>Data Sharing</h2>
+<p>OpenReader does not share any user data with any third party. There are no accounts, no user profiles, and no cloud sync features.</p>
+
+<h2>Security</h2>
+<p>Because all processing is local, your documents remain on your device. OpenReader includes basic safety checks before rendering PDFs (file type validation, size limits, render caps) to reduce risk from malformed documents, but PDF parsing depends on underlying libraries. As with any software that opens files from untrusted sources, we recommend using OS-level sandboxing or a VM when working with sensitive or unknown documents.</p>
+
+<h2>Changes to This Policy</h2>
+<p>If this policy changes, the updated version will be published at this same URL. Material changes will be noted in the application's changelog.</p>
+
+<h2>Contact</h2>
+<p>For questions about this privacy policy: open an issue on the
+<a href="https://github.com/sparshsam/pdfreader-by-sparsh">GitHub repository</a>.</p>
+
+<footer>
+  <p>OpenReader · <a href="https://sparshsam.github.io/pdfreader-by-sparsh/privacy/">Privacy Policy</a></p>
+</footer>
+
+</body>
+</html>
