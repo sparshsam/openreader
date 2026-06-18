@@ -3,7 +3,9 @@
 **Target version:** v1.2.0 stable (MSIX version `1.2.0.0`)
 **Store ID:** `9MXDVW2645LL`
 **PFN:** `SparshSam.OpenReader_yh0byntbzd2qw`
-**Status:** 🔜 Pre-submission
+**Status:** 🔜 Ready for submission (privacy policy published)
+**Privacy policy URL:** https://sparshsam.github.io/pdfreader-by-sparsh/privacy/
+**Upload artifact:** `OpenReader.msix` from v1.2.0 GitHub Release (built by release.yml workflow)
 
 ---
 
@@ -89,7 +91,7 @@ Start-Process "OpenReader"
 | App Store icons | `assets\icon-*.png` (44, 71, 150, 310x150, 620x300) | Must match manifest declarations |
 | Screenshots (at least 1) | Capture from running app | 1366×768 or 1920×1080 PNG recommended |
 | Description text | See README overview section | 1–3 paragraphs, no HTML |
-| Privacy policy URL | Provide publicly hosted URL | Required by Store for `internetClient` capability |
+| Privacy policy URL | `https://sparshsam.github.io/pdfreader-by-sparsh/privacy/` | Published via GitHub Pages from repo `docs/` directory |
 | Age rating questionnaire | Complete in Partner Center | Desktop app category |
 
 ### 2.2 Store Listing Details
@@ -243,7 +245,7 @@ Write-Host "Publisher check: $($matches.Count -gt 0 ? 'PASS' : 'FAIL')"
 
 ## 6. Post-Submission Tasks
 
-- [ ] Publish privacy policy URL (required by Store)
+- [x] Publish privacy policy URL (published at `https://sparshsam.github.io/pdfreader-by-sparsh/privacy/`)
 - [ ] Prepare Winget manifest for `SparshSam.OpenReader` (optional, medium priority)
 - [ ] Monitor Partner Center certification report
 - [ ] After acceptance: test Store install on clean Windows VM
