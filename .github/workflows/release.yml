@@ -130,7 +130,7 @@ jobs:
 
           # Copy and patch manifest
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
-          (Get-Content "$stageDir\AppxManifest.xml") -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "$stageDir\AppxManifest.xml"
+          (Get-Content "$stageDir\AppxManifest.xml" -Raw) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "$stageDir\AppxManifest.xml" -Encoding utf8NoBOM
 
           # Create assets directory
           $assetDir = "$stageDir\assets"
@@ -144,7 +144,7 @@ jobs:
 
           # Also generate the AppInstaller file with the correct version
           $installerPath = "packaging\msix\AppInstaller.xml"
-          (Get-Content $installerPath) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "OpenReader.appinstaller"
+          (Get-Content $installerPath -Raw) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "OpenReader.appinstaller" -Encoding utf8NoBOM
 
           # Clean up
           Remove-Item -Recurse -Force $stageDir
