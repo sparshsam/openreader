@@ -1,6 +1,10 @@
-# MSIX Update Validation Guide
+# MSIX Update Validation Guide (Archived)
 
-**Purpose:** Validate that MSIX updates work correctly for OpenReader.
+> **ℹ️ Historical record.** MSIX beta validation (beta.5 → beta.6) completed
+> successfully. v1.2.1 is the first Microsoft Store release candidate — Store-managed
+> updates replace sideloaded MSIX update testing.
+
+**Purpose:** Validate that MSIX updates work correctly for OpenReader (historical).
 
 **Test versions:**
 - v1.2.0-beta.5 (MSIX 1.2.0.5) — first installable MSIX baseline

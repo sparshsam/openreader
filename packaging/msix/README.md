@@ -134,13 +134,11 @@ MSIX follows a `major.minor.patch.build` version scheme.
 
 | Git Tag | MSIX Version | Description |
 |---------|--------------|-------------|
-| `v1.2.0-beta.1` | `1.2.0.0` | Beta release |
-| `v1.2.0` | `1.2.0.0` | Stable release (same as beta) |
-| `v1.2.1` | `1.2.1.0` | Patch release |
+| `v1.2.0` | `1.2.0.0` | Initial MSIX release |
+| `v1.2.1` | `1.2.1.0` | First Microsoft Store release candidate |
 
 The CI workflow automatically extracts the version from the Git tag and injects it
-into the manifest as `{tag}.0` (padded to 4 parts). Source builds use `1.2.0.0`
-as the development version.
+into the manifest as `{tag}.0` (padded to 4 parts).
 
 ## Visual Assets
 
@@ -217,22 +215,16 @@ identity exactly: `CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0`.
 # 1. Install the test certificate (requires admin)
 .\packaging\msix\install-test-cert.ps1
 
-# 2. Install beta.3 MSIX (baseline)
-#    Double-click OpenReader.msix from v1.2.0-beta.3 release
-
-# 3. Install beta.4 MSIX (update test)
-#    Double-click OpenReader.msix from v1.2.0-beta.4 release
-#    Windows should perform an in-place upgrade
+# 2. Install the MSIX package
+#    Double-click OpenReader.msix from the target release
 ```
 
 ### What to Verify
 
-After installing the beta.3 MSIX and updating to beta.4:
-
-- [ ] MSIX installs without Developer Mode
-- [ ] Update is **in-place** (not side-by-side)
-- [ ] Package Family Name remains `SparshSam.OpenReader_yh0byntbzd2qw`
-- [ ] About dialog shows the beta.4 release label
+- [ ] MSIX installs without Developer Mode (when test-signed)
+- [ ] Package Family Name is `SparshSam.OpenReader_yh0byntbzd2qw`
+- [ ] New branding appears in Start Menu and taskbar
+- [ ] About dialog shows the correct version
 - [ ] Previous settings (theme, recent files) persist
 - [ ] No duplicate application entries in Start Menu or Apps list
 - [ ] PDF file associations remain intact

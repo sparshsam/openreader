@@ -263,7 +263,7 @@ jobs:
 
       - name: Build macOS app
         run: |
-          QT_QPA_PLATFORM=offscreen python tools/create_icon.py --png-iconset assets/AppIcon.iconset
+          QT_QPA_PLATFORM=offscreen python tools/create_icon.py --source assets/app-icon-source.png --macos-iconset assets/AppIcon.iconset
           iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
           pyinstaller --windowed --onedir --noupx --name "OpenReader" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
 

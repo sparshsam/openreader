@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.2.1 — First Public Microsoft Store Release Candidate — 2026-06-18
+
+- **Version:** Bumped `__version__` to `1.2.1`.
+- **MSIX version:** `1.2.1.0`.
+- **Purpose:** First public Microsoft Store release candidate.
+- **UI/Branding only:** New application icon (1024×1024 source). No architectural changes.
+- **Assets regenerated:** Windows .ico, MSIX brand images (44×44, 71×71, 150×150, 310×150, 620×300), macOS .iconset.
+- **About dialog cleaned up:** Removed beta/dev/validation wording. Shows clean "OpenReader — Version 1.2.1 — Release Notes".
+- **Frozen identity unchanged:** `SparshSam.OpenReader`, `CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0`, PFN `SparshSam.OpenReader_yh0byntbzd2qw`.
+
 ## v1.2.0-beta.6 — MSIX Update Validation — 2026-06-18
 
 - **Version:** Bumped `__version__` to `1.2.0-beta.6-dev`.

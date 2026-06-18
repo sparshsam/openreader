@@ -1,11 +1,11 @@
 # Microsoft Store Submission Checklist — OpenReader
 
-**Target version:** v1.2.0 stable (MSIX version `1.2.0.0`)
+**Target version:** v1.2.1 stable (MSIX version `1.2.1.0`)
 **Store ID:** `9MXDVW2645LL`
 **PFN:** `SparshSam.OpenReader_yh0byntbzd2qw`
 **Status:** 🔜 Ready for submission (privacy policy published)
 **Privacy policy URL:** https://sparshsam.github.io/pdfreader-by-sparsh/privacy/
-**Upload artifact:** `OpenReader.msix` from v1.2.0 GitHub Release (built by release.yml workflow)
+**Upload artifact:** `OpenReader.msix` from v1.2.1 GitHub Release (built by release.yml workflow)
 
 ---
 
@@ -24,7 +24,7 @@ Get-AppxPackage SparshSam.OpenReader | Select Name, Version, PackageFamilyName
 ```text
 Name                    Version  PackageFamilyName
 ----                    -------  -----------------
-SparshSam.OpenReader    1.2.0.0  SparshSam.OpenReader_yh0byntbzd2qw
+SparshSam.OpenReader    1.2.1.0  SparshSam.OpenReader_yh0byntbzd2qw
 ```
 
 ### 1.2 Manifest Audit
@@ -44,7 +44,7 @@ Select-Xml -Path .\msix-check\AppxManifest.xml -XPath "//*[local-name()='Identit
 
 - [ ] `<Identity Name="SparshSam.OpenReader">`
 - [ ] `<Publisher="CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0">`
-- [ ] Version is `1.2.0.0`
+- [ ] Version is `1.2.1.0`
 - [ ] `<DisplayName>OpenReader</DisplayName>`
 - [ ] `<PublisherDisplayName>Sparsh Sam</PublisherDisplayName>`
 - [ ] Executable is `OpenReader.exe`
@@ -111,7 +111,7 @@ Start-Process "OpenReader"
 1. Navigate to **Partner Center** → OpenReader → **Packages**
 2. Upload the **unsigned** `OpenReader.msix` from the GitHub Release
 3. The Store will automatically sign the package with its Store identity
-4. Set `1.2.0.0` as the version in Partner Center (must match manifest)
+4. Set `1.2.1.0` as the version in Partner Center (must match manifest)
 5. Submit for certification
 
 > **ℹ️** Upload the MSIX produced by the GitHub Actions release workflow directly.
@@ -150,7 +150,7 @@ Start-Process "OpenReader"
 | **`runFullTrust` capability** | Store may ask why a desktop app needs full trust | Expected for Win32 desktop bridge apps. Document in submission notes: *"Desktop PDF reader using PySide6 — requires full trust for file system access and window management."* |
 | **App description claims** | Store may reject if claims are unrealistic | Keep description factual and shipping-feature-only. Remove roadmap items from Store description. |
 | **Unsplash/mock screenshots** | Store requires real app screenshots | Use actual app screenshots from `assets/` |
-| **Version mismatch** | Upload rejected if manifest version ≠ Partner Center version | Verify `1.2.0.0` matches everywhere |
+| **Version mismatch** | Upload rejected if manifest version ≠ Partner Center version | Verify `1.2.1.0` matches everywhere |
 | **Store ID reuse** | Cannot reuse Store ID for a different app | Reserved ID `9MXDVW2645LL` is tied to OpenReader — do not reassign |
 
 ### 4.2 Certification Notes for Submission
@@ -203,7 +203,7 @@ Get-AppxPackage SparshSam.OpenReader | Select Name, Version, PackageFamilyName
 ```text
 Name                    Version  PackageFamilyName
 ----                    -------  -----------------
-SparshSam.OpenReader    1.2.0.0  SparshSam.OpenReader_yh0byntbzd2qw
+SparshSam.OpenReader    1.2.1.0  SparshSam.OpenReader_yh0byntbzd2qw
 ```
 
 ### 5.3 Functional Smoke Test
@@ -249,7 +249,7 @@ Write-Host "Publisher check: $($matches.Count -gt 0 ? 'PASS' : 'FAIL')"
 - [ ] Prepare Winget manifest for `SparshSam.OpenReader` (optional, medium priority)
 - [ ] Monitor Partner Center certification report
 - [ ] After acceptance: test Store install on clean Windows VM
-- [ ] After acceptance: test Store upgrade over existing sideloaded beta.6
+- [ ] After acceptance: test Store upgrade over existing sideloaded installation
 - [ ] Update `README.md` to reflect Store availability
 - [ ] Update `docs/windows-distribution.md` with Store channel details
 

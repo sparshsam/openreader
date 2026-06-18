@@ -1,39 +1,62 @@
-"""Generate minimal placeholder PNGs for MSIX packaging.
+"""Generate MSIX brand image assets from the project's source icon.
 
-Creates 1x1 pixel PNG files at specified sizes. These are real valid PNGs
-that MakeAppx accepts. Replace with proper icon assets before production.
+Creates MSIX-required PNGs at the sizes declared in AppxManifest.xml.
+Uses the project's source icon for real brand images instead of placeholders.
 """
-import struct
-import zlib
+
 import sys
 from pathlib import Path
 
+from PIL import Image
 
-def create_png(filepath: Path, width: int, height: int):
-    """Create a minimal valid 1x1 pixel PNG."""
-    # PNG signature
-    signature = b'\x89PNG\r\n\x1a\n'
 
-    # IHDR chunk: width, height, bit_depth=8, color_type=2(RGB)
-    ihdr_data = struct.pack('>IIBBBBB', width, height, 8, 2, 0, 0, 0)
-    ihdr_crc = zlib.crc32(b'IHDR' + ihdr_data) & 0xffffffff
-    ihdr = struct.pack('>I', 13) + b'IHDR' + ihdr_data + struct.pack('>I', ihdr_crc)
+def make_png_square(img: Image.Image, size: int) -> Image.Image:
+    w, h = img.size
+    if w != h:
+        min_dim = min(w, h)
+        left = (w - min_dim) // 2
+        top = (h - min_dim) // 2
+        img = img.crop((left, top, left + min_dim, top + min_dim))
+    return img.resize((size, size), Image.LANCZOS)
 
-    # IDAT chunk: minimal compressed pixel data (1 pixel red)
-    raw_data = b'\x00' + b'\xff\x00\x00'  # filter byte + RGB red
-    compressed = zlib.compress(raw_data)
-    idat_crc = zlib.crc32(b'IDAT' + compressed) & 0xffffffff
-    idat = struct.pack('>I', len(compressed)) + b'IDAT' + compressed + struct.pack('>I', idat_crc)
 
-    # IEND chunk
-    iend_crc = zlib.crc32(b'IEND') & 0xffffffff
-    iend = struct.pack('>I', 0) + b'IEND' + struct.pack('>I', iend_crc)
-
-    filepath.parent.mkdir(parents=True, exist_ok=True)
-    filepath.write_bytes(signature + ihdr + idat + iend)
+def make_png_rect(img: Image.Image, width: int, height: int) -> Image.Image:
+    src_w, src_h = img.size
+    target_ratio = width / height
+    src_ratio = src_w / src_h
+    if abs(src_ratio - target_ratio) > 0.01:
+        if src_ratio > target_ratio:
+            new_w = int(src_h * target_ratio)
+            left = (src_w - new_w) // 2
+            img = img.crop((left, 0, left + new_w, src_h))
+        else:
+            new_h = int(src_w / target_ratio)
+            top = (src_h - new_h) // 2
+            img = img.crop((0, top, src_w, top + new_h))
+    return img.resize((width, height), Image.LANCZOS)
 
 
 def main():
+    root = Path(__file__).resolve().parents[1]
+    source_path = root / "assets" / "pdfreader_by_sparsh.ico"
+    output_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "assets"
+
+    # Load from .ico or find source PNG
+    if source_path.exists():
+        img = Image.open(source_path)
+        # .ico loads first frame; get full size
+        img = img.convert("RGBA")
+    else:
+        # Fallback: try a source PNG
+        png_path = root / "assets" / "icon-150x150.png"
+        if png_path.exists():
+            img = Image.open(png_path).convert("RGBA")
+        else:
+            print("ERROR: No source icon found. Run tools/create_icon.py first.")
+            sys.exit(1)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     sizes = [
         ("icon-44x44.png", 44, 44),
         ("icon-150x150.png", 150, 150),
@@ -42,15 +65,14 @@ def main():
         ("icon-620x300.png", 620, 300),
     ]
 
-    output_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("assets")
-
     for name, w, h in sizes:
         path = output_dir / name
-        if path.exists():
-            print(f"SKIP  {path} (exists)")
+        if w == h:
+            resized = make_png_square(img, w)
         else:
-            create_png(path, w, h)
-            print(f"CREATED {path} ({w}x{h})")
+            resized = make_png_rect(img, w, h)
+        resized.save(path, "PNG")
+        print(f"GENERATED {path} ({w}x{h})")
 
 
 if __name__ == "__main__":

@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.0-beta.6-dev"
+__version__ = "1.2.1"
 GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -2783,12 +2783,6 @@ class PdfReaderWindow(QMainWindow):
         ver_label.setOpenExternalLinks(True)
         ver_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(ver_label)
-
-        # MSIX update validation label (beta.4)
-        msix_label = QLabel("<p style='color:#a6e3a1; font-size:11px; margin:0;'>"
-                            "MSIX update validation &mdash; beta.6</p>")
-        msix_label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(msix_label)
 
         layout.addSpacing(8)
 
