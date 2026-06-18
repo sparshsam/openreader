@@ -180,6 +180,75 @@ Without any signing, MSIX packages can only be installed when:
 - The package is installed via PowerShell: `Add-AppxPackage -Path .\OpenReader.msix`
 - SmartScreen may show warnings for unsigned executables
 
+## Local Test Signing (Beta Testing Only)
+
+The release MSIX packages on GitHub Releases are unsigned. To install them on
+a test machine without enabling Developer Mode, use the test signing scripts
+in this directory. The test certificate's Subject matches the frozen Publisher
+identity exactly: `CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0`.
+
+> **⚠️ WARNING:** This is for LOCAL TESTING ONLY. Not for production distribution.
+> Production signing must use the Microsoft Store.
+
+### Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `create-test-cert.ps1` | Creates a self-signed code-signing certificate matching the MSIX Publisher |
+| `sign-msix-test.ps1` | Signs `OpenReader.msix` using the test certificate and SignTool.exe |
+| `install-test-cert.ps1` | Installs the test certificate into Local Machine Trusted Root (admin required) |
+
+### Workflow (Developer)
+
+```powershell
+# 1. Create the test certificate (one time)
+.\packaging\msix\create-test-cert.ps1
+
+# 2. Build the MSIX (or download from CI)
+# 3. Sign it
+.\packaging\msix\sign-msix-test.ps1
+
+# 4. Distribute OpenReader-Test-Cert.cer and the signed .msix to testers
+```
+
+### Workflow (Tester)
+
+```powershell
+# 1. Install the test certificate (requires admin)
+.\packaging\msix\install-test-cert.ps1
+
+# 2. Install beta.3 MSIX (baseline)
+#    Double-click OpenReader.msix from v1.2.0-beta.3 release
+
+# 3. Install beta.4 MSIX (update test)
+#    Double-click OpenReader.msix from v1.2.0-beta.4 release
+#    Windows should perform an in-place upgrade
+```
+
+### What to Verify
+
+After installing the beta.3 MSIX and updating to beta.4:
+
+- [ ] MSIX installs without Developer Mode
+- [ ] Update is **in-place** (not side-by-side)
+- [ ] Package Family Name remains `SparshSam.OpenReader_yh0byntbzd2qw`
+- [ ] About dialog shows the beta.4 release label
+- [ ] Previous settings (theme, recent files) persist
+- [ ] No duplicate application entries in Start Menu or Apps list
+- [ ] PDF file associations remain intact
+
+### Security Notes
+
+- The test certificate's private key (.pfx) is password-protected
+- The .cer file contains only the public key and is safe to distribute
+- The certificate expires in 3 years
+- Testers should **remove the certificate** after testing:
+  ```powershell
+  Get-ChildItem Cert:\LocalMachine\Root | Where-Object {
+    $_.Subject -eq "CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0"
+  } | Remove-Item
+  ```
+
 ## App Installer (Future)
 
 Automatic updates via Windows App Installer are **not yet implemented**.

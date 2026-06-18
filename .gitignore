@@ -27,6 +27,7 @@ dist/
 *.crt
 *.p12
 *.pfx
+*.cer
 *.mobileprovision
 
 # OS/editor files
