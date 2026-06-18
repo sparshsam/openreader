@@ -114,7 +114,7 @@ jobs:
 
           # Map Git tag to MSIX 4-part version
           $msixVersion = if ($version -match '^(\d+\.\d+\.\d+)-beta\.(\d+)$') {
-              "$($Matches[1]).$($Matches[2] - 1)"
+              "$($Matches[1]).$($Matches[2])"
           } elseif ($version -match '^(\d+\.\d+\.\d+)$') {
               "$($Matches[1]).0"
           } else {
