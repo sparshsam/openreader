@@ -12,8 +12,8 @@ OpenReader follows [Semantic Versioning 2.0](https://semver.org/):
 
 The current version is tracked in the `__version__` variable in `main.py`.
 
-- **Source builds** — use a `-dev` suffix (e.g., `1.2.0-beta.2-dev`).
-- **Packaged releases** — the version is injected from the Git tag during the release workflow (see `scripts/inject_version.py`).
+- **Source builds** — update `__version__` in `main.py` to match the target release.
+- **Packaged releases** — the version can be overridden from the Git tag during the CI release workflow (see `scripts/inject_version.py`).
 
 ## Tag Format
 

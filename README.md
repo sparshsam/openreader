@@ -47,7 +47,7 @@ OpenReader is a **stable, local-first desktop PDF utility** built with Python, P
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.2.0-beta.6** (current release) validates the MSIX update pipeline ahead of Microsoft Store submission. Windows distribution uses MSIX/App Installer with Windows-native updates — the app never replaces itself. The beta.5 → beta.6 in-place MSIX upgrade has been confirmed on Windows 11. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.2.1** (current release) is the first public Microsoft Store release candidate. Windows distribution uses MSIX/App Installer with Windows-native updates — the app never replaces itself. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 
@@ -64,11 +64,11 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 
 **v1.2.0 update change:** In-app self-updating has been removed. OpenReader now uses **Windows-native updates** — the app never downloads or runs installers.
 
-- **Existing v1.0.x and v1.1.x users must manually install a v1.2.0 beta MSIX once.** Future updates are handled by Windows App Installer or the Microsoft Store.
+- **Existing v1.0.x and v1.1.x users** must manually install a v1.2.0+ MSIX once. Future updates are handled by the Microsoft Store or Windows App Installer.
 - **v1.2.0+ users:** Windows App Installer manages updates on launch and in the background. The app's Help → Check for Updates opens the GitHub Releases page in your browser.
 - Source builds should be updated with `git pull` and rebuilt locally.
 
-> **⚠️ Production auto-updates via App Installer are not yet proven.** The beta.5 → beta.6 in-place MSIX upgrade has been validated locally with test signing, but the hosted App Installer workflow (automatic updates from a web endpoint) and Microsoft Store-managed updates require a Store submission. Until then, users update by downloading the latest MSIX from GitHub and installing manually.
+> **ℹ️ Microsoft Store-managed updates** will provide automatic updates after Store approval. Until then, users update by downloading the latest MSIX from GitHub Releases and installing manually (Developer Mode required for unsigned packages).
 
 ## Features
 
@@ -331,14 +331,13 @@ sudo pacman -S tesseract tesseract-data-eng
 - [x] Add App Installer template for Windows-managed updates
 - [x] Update GitHub Actions workflow to build MSIX
 - [x] Add architecture docs (`docs/windows-distribution.md`, `docs/updater-architecture.md`)
-- [x] Validate MSIX install and in-place upgrade (beta.5 → beta.6, confirmed on Windows 11)
-- [ ] **Store submission** — next milestone. Store signing replaces self-procured code-signing cert.
+- [x] Validate MSIX install and in-place upgrade (confirmed on Windows 11)
+- [x] Store submission — v1.2.1 is the first Microsoft Store release candidate
 
 ### Near-Term
 Items in active or planned development.
 
 - **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
-- **Microsoft Store release** — signed MSIX distribution through the Microsoft Store, removing SmartScreen warnings and enabling Store-managed automatic updates
 - **Stronger sandboxing guidance** — documented approaches for running the app in an OS sandbox when opening documents from untrusted sources
 
 ### Long-Term Vision

@@ -1,96 +1,121 @@
-from pathlib import Path
+#!/usr/bin/env python3
+"""Generate all app icon assets from a source PNG.
+
+Usage:
+  python tools/create_icon.py --source <path-to-source-png> [--ico assets/icon.ico]
+
+Generates:
+  - Windows .ico (16, 24, 32, 48, 64, 128, 256 px)
+  - MSIX-branded PNGs (44x44, 71x71, 150x150, 310x150, 620x300)
+  - macOS .iconset directory (for iconutil -> .icns)
+"""
+
 import argparse
+import io
 import struct
 import sys
+from pathlib import Path
 
-from PySide6.QtCore import QBuffer, QByteArray, QIODevice, QPointF, QRectF, Qt
-from PySide6.QtGui import QColor, QFont, QImage, QLinearGradient, QPainter, QPainterPath, QPen
-from PySide6.QtWidgets import QApplication
-
-
-ROOT = Path(__file__).resolve().parents[1]
-ASSETS = ROOT / "assets"
-ICON_PATH = ASSETS / "pdfreader_by_sparsh.ico"
+from PIL import Image
 
 
-def make_png(size: int) -> bytes:
-    image = QImage(size, size, QImage.Format_ARGB32)
-    image.fill(Qt.transparent)
-
-    painter = QPainter(image)
-    painter.setRenderHint(QPainter.Antialiasing)
-
-    scale = size / 256
-
-    shadow = QPainterPath()
-    shadow.addRoundedRect(QRectF(42 * scale, 24 * scale, 158 * scale, 210 * scale), 22 * scale, 22 * scale)
-    painter.fillPath(shadow.translated(7 * scale, 8 * scale), QColor(0, 0, 0, 44))
-
-    page = QPainterPath()
-    page.addRoundedRect(QRectF(38 * scale, 20 * scale, 162 * scale, 214 * scale), 22 * scale, 22 * scale)
-    painter.fillPath(page, QColor("#f8fafc"))
-    painter.setPen(QPen(QColor("#cbd5e1"), max(1, int(3 * scale))))
-    painter.drawPath(page)
-
-    fold = QPainterPath()
-    fold.moveTo(158 * scale, 20 * scale)
-    fold.lineTo(200 * scale, 62 * scale)
-    fold.lineTo(166 * scale, 72 * scale)
-    fold.quadTo(158 * scale, 72 * scale, 158 * scale, 64 * scale)
-    fold.closeSubpath()
-    painter.fillPath(fold, QColor("#e2e8f0"))
-
-    accent = QLinearGradient(QPointF(54 * scale, 142 * scale), QPointF(184 * scale, 214 * scale))
-    accent.setColorAt(0, QColor("#ef4444"))
-    accent.setColorAt(1, QColor("#b91c1c"))
-    painter.setBrush(accent)
-    painter.setPen(Qt.NoPen)
-    painter.drawRoundedRect(QRectF(54 * scale, 142 * scale, 132 * scale, 58 * scale), 16 * scale, 16 * scale)
-
-    painter.setPen(QPen(QColor("#94a3b8"), max(1, int(7 * scale)), Qt.SolidLine, Qt.RoundCap))
-    for y in (82, 104, 126):
-        painter.drawLine(QPointF(62 * scale, y * scale), QPointF(156 * scale, y * scale))
-
-    font = QFont("Segoe UI", max(10, int(44 * scale)), QFont.Bold)
-    painter.setFont(font)
-    painter.setPen(QColor("white"))
-    painter.drawText(QRectF(54 * scale, 137 * scale, 132 * scale, 66 * scale), Qt.AlignCenter, "S")
-
-    small_font = QFont("Segoe UI", max(7, int(22 * scale)), QFont.Bold)
-    painter.setFont(small_font)
-    painter.setPen(QColor("#991b1b"))
-    painter.drawText(QRectF(58 * scale, 204 * scale, 118 * scale, 24 * scale), Qt.AlignCenter, "PDF")
-
-    painter.end()
-
-    data = QByteArray()
-    buffer = QBuffer(data)
-    buffer.open(QIODevice.WriteOnly)
-    image.save(buffer, "PNG")
-    return bytes(data)
+def load_source(source: Path) -> Image.Image:
+    """Load source PNG, ensure RGBA mode."""
+    img = Image.open(source)
+    return img.convert("RGBA")
 
 
-def write_ico(path: Path, sizes=(16, 24, 32, 48, 64, 128, 256)):
-    pngs = [(size, make_png(size)) for size in sizes]
+def make_png_square(img: Image.Image, size: int) -> Image.Image:
+    """Resize to a square, cropping centered if needed."""
+    w, h = img.size
+    if w != h:
+        # Crop to center square first
+        min_dim = min(w, h)
+        left = (w - min_dim) // 2
+        top = (h - min_dim) // 2
+        img = img.crop((left, top, left + min_dim, top + min_dim))
+    return img.resize((size, size), Image.LANCZOS)
+
+
+def make_png_rect(img: Image.Image, width: int, height: int) -> Image.Image:
+    """Resize to a rectangle, cropping centered if needed to match aspect ratio."""
+    src_w, src_h = img.size
+    target_ratio = width / height
+    src_ratio = src_w / src_h
+
+    if abs(src_ratio - target_ratio) > 0.01:
+        # Crop source to target ratio
+        if src_ratio > target_ratio:
+            # Source is wider, crop sides
+            new_w = int(src_h * target_ratio)
+            left = (src_w - new_w) // 2
+            img = img.crop((left, 0, left + new_w, src_h))
+        else:
+            # Source is taller, crop top/bottom
+            new_h = int(src_w / target_ratio)
+            top = (src_h - new_h) // 2
+            img = img.crop((0, top, src_w, top + new_h))
+
+    return img.resize((width, height), Image.LANCZOS)
+
+
+def write_ico(img: Image.Image, path: Path, sizes=(16, 24, 32, 48, 64, 128, 256)):
+    """Write a multi-resolution .ico file from source image."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    pngs = []
+    for size in sizes:
+        resized = make_png_square(img, size)
+        buf = io.BytesIO()
+        resized.save(buf, "PNG")
+        pngs.append(buf.getvalue())
+
     header = struct.pack("<HHH", 0, 1, len(pngs))
     directory = bytearray()
     offset = 6 + 16 * len(pngs)
 
-    for size, png in pngs:
-        width = 0 if size == 256 else size
-        height = 0 if size == 256 else size
-        directory.extend(struct.pack("<BBBBHHII", width, height, 0, 0, 1, 32, len(png), offset))
-        offset += len(png)
+    for size, png_data in zip(sizes, pngs):
+        width = 0 if size >= 256 else size
+        height = 0 if size >= 256 else size
+        directory.extend(
+            struct.pack(
+                "<BBBBHHII", width, height, 0, 0, 1, 32, len(png_data), offset
+            )
+        )
+        offset += len(png_data)
 
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("wb") as file:
-        file.write(header)
-        file.write(directory)
-        for _, png in pngs:
-            file.write(png)
+    with path.open("wb") as f:
+        f.write(header)
+        f.write(directory)
+        for png_data in pngs:
+            f.write(png_data)
+
+    print(f"    .ico -> {path} ({len(sizes)} sizes)")
 
 
-def write_png_iconset(path: Path):
+def write_msix_assets(img: Image.Image, output_dir: Path):
+    """Write MSIX brand images at the sizes the manifest declares."""
+    manifest_sizes = [
+        ("icon-44x44.png", 44, 44),
+        ("icon-71x71.png", 71, 71),
+        ("icon-150x150.png", 150, 150),
+        ("icon-310x150.png", 310, 150),
+        ("icon-620x300.png", 620, 300),
+    ]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, w, h in manifest_sizes:
+        path = output_dir / name
+        if w == h:
+            resized = make_png_square(img, w)
+        else:
+            resized = make_png_rect(img, w, h)
+        resized.save(path, "PNG")
+        print(f"    MSIX asset -> {path} ({w}x{h})")
+
+
+def write_macos_iconset(img: Image.Image, output_dir: Path):
+    """Write macOS .iconset directory (for iconutil -> .icns on macOS)."""
     icon_sizes = {
         "icon_16x16.png": 16,
         "icon_16x16@2x.png": 32,
@@ -103,22 +128,51 @@ def write_png_iconset(path: Path):
         "icon_512x512.png": 512,
         "icon_512x512@2x.png": 1024,
     }
-    path.mkdir(parents=True, exist_ok=True)
-    for file_name, size in icon_sizes.items():
-        image = QImage()
-        image.loadFromData(make_png(size), "PNG")
-        image.save(str(path / file_name), "PNG")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for name, size in icon_sizes.items():
+        resized = make_png_square(img, size)
+        path = output_dir / name
+        resized.save(path, "PNG")
+    print(f"    macOS iconset -> {output_dir}/ ({len(icon_sizes)} files)")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Create app icon assets from source PNG.")
+    parser.add_argument("--source", required=True, help="Path to source PNG (1024x1024 recommended)")
+    parser.add_argument("--ico", default="assets/pdfreader_by_sparsh.ico", help="Output .ico path")
+    parser.add_argument("--msix-dir", default="assets", help="Output directory for MSIX PNGs")
+    parser.add_argument("--macos-iconset", default="assets/AppIcon.iconset", help="Output macOS .iconset dir")
+    args = parser.parse_args()
+
+    source_path = Path(args.source)
+    if not source_path.exists():
+        print(f"ERROR: Source not found: {source_path}")
+        sys.exit(1)
+
+    print(f"Loading source: {source_path}")
+    img = load_source(source_path)
+    print(f"  Source size: {img.size}")
+
+    root = Path(__file__).resolve().parents[1]
+
+    # 1. Windows .ico
+    ico_path = root / args.ico
+    print(f"\nGenerating Windows .ico...")
+    write_ico(img, ico_path)
+
+    # 2. MSIX brand PNGs
+    msix_dir = root / args.msix_dir
+    print(f"\nGenerating MSIX brand assets...")
+    write_msix_assets(img, msix_dir)
+
+    # 3. macOS iconset
+    iconset_dir = root / args.macos_iconset
+    print(f"\nGenerating macOS iconset...")
+    write_macos_iconset(img, iconset_dir)
+
+    print(f"\n✅ All icon assets generated from {source_path.name}")
 
 
 if __name__ == "__main__":
-    app = QApplication.instance() or QApplication(sys.argv)
-    parser = argparse.ArgumentParser(description="Create app icon assets.")
-    parser.add_argument("--ico", default=str(ICON_PATH), help="Path for the Windows .ico output.")
-    parser.add_argument("--png-iconset", help="Optional macOS .iconset directory to create.")
-    args = parser.parse_args()
-
-    write_ico(Path(args.ico))
-    print(args.ico)
-    if args.png_iconset:
-        write_png_iconset(Path(args.png_iconset))
-        print(args.png_iconset)
+    main()
