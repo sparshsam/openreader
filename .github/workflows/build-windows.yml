@@ -171,12 +171,13 @@ jobs:
           Copy-Item -Path "dist\OpenReader\*" -Destination $stageDir -Recurse -Force
 
           # Copy and patch manifest
-          # PowerShell -replace is case-insensitive; use -creplace to avoid
-          # matching version="1.0" in the XML declaration.
+          # Use XML DOM patching (not regex) to avoid corrupting MinVersion/MaxVersionTested
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
-          $manifestContent = [System.IO.File]::ReadAllText("$stageDir\AppxManifest.xml")
-          $manifestContent = $manifestContent -creplace 'Version="[^"]+"', "Version=`"$msixVersion`""
-          [System.IO.File]::WriteAllText("$stageDir\AppxManifest.xml", $manifestContent, [System.Text.UTF8Encoding]$false)
+          $manifestXml = New-Object System.Xml.XmlDocument
+          $manifestXml.PreserveWhitespace = $true
+          $manifestXml.Load("$stageDir\AppxManifest.xml")
+          $manifestXml.Package.Identity.Version = $msixVersion
+          $manifestXml.Save("$stageDir\AppxManifest.xml")
 
           # Generate MSIX asset placeholders using Python
           Write-Host "=== Generating MSIX asset placeholders ==="

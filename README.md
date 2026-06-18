@@ -47,7 +47,7 @@ OpenReader is a **stable, local-first desktop PDF utility** built with Python, P
 
 The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
 
-**v1.2.1** (current release) is the first public Microsoft Store release candidate. Windows distribution uses MSIX/App Installer with Windows-native updates — the app never replaces itself. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
+**v1.2.2** (current release) fixes the MSIX manifest for Microsoft Store acceptance. Windows distribution uses MSIX/App Installer with Windows-native updates — the app never replaces itself. See the [changelog](CHANGELOG.md) and [roadmap](ROADMAP.md) for what's new and what's next.
 
 ## Download
 

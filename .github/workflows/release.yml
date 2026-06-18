@@ -131,15 +131,15 @@ jobs:
           Copy-Item -Path "dist\OpenReader\*" -Destination $stageDir -Recurse -Force
 
           # Copy and patch manifest
-          # CRITICAL: PowerShell -replace is CASE-INSENSITIVE by default.
-          # Regex 'Version="[^"]+"' matches version="1.0" in XML declaration too!
-          # Use -creplace (case-sensitive) to only match Identity element's Version.
+          # Use XML DOM patching (not regex) to avoid corrupting MinVersion/MaxVersionTested
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
           $manifestPath = "$stageDir\AppxManifest.xml"
-          $content = [System.IO.File]::ReadAllText($manifestPath)
-          $content = $content -creplace 'Version="[^"]+"', "Version=`"$msixVersion`""
-          [System.IO.File]::WriteAllText($manifestPath, $content, [System.Text.UTF8Encoding]$false)
-          Write-Host "Manifest patched: Version -> $msixVersion"
+          $manifestXml = New-Object System.Xml.XmlDocument
+          $manifestXml.PreserveWhitespace = $true
+          $manifestXml.Load($manifestPath)
+          $manifestXml.Package.Identity.Version = $msixVersion
+          $manifestXml.Save($manifestPath)
+          Write-Host "Manifest patched: Identity Version -> $msixVersion"
           Write-Host ""
 
           # Validate XML before MakeAppx
@@ -147,9 +147,11 @@ jobs:
           try {
               $xml = [xml](Get-Content $manifestPath -Raw)
               Write-Host "XML parsed successfully."
-              Write-Host "Identity: $($xml.Package.Identity.Name)"
-              Write-Host "Version:  $($xml.Package.Identity.Version)"
-              Write-Host "Publisher: $($xml.Package.Identity.Publisher)"
+              Write-Host "Identity:    $($xml.Package.Identity.Name)"
+              Write-Host "Version:     $($xml.Package.Identity.Version)"
+              Write-Host "Publisher:   $($xml.Package.Identity.Publisher)"
+              Write-Host "MinVersion:  $($xml.Package.TargetDeviceFamily.MinVersion)"
+              Write-Host "MaxVersion:  $($xml.Package.TargetDeviceFamily.MaxVersionTested)"
           } catch {
               Write-Host "XML PARSE ERROR: $_"
               Write-Host "First 20 lines of manifest:"
@@ -213,9 +215,15 @@ jobs:
           Write-Host "=== MSIX built: $msixName (unsigned) ==="
 
           # Generate AppInstaller
-          $installerContent = [System.IO.File]::ReadAllText("packaging\msix\AppInstaller.xml")
-          $installerContent = $installerContent -creplace 'Version="[^"]+"', "Version=`"$msixVersion`""
-          [System.IO.File]::WriteAllText("$pwd\OpenReader.appinstaller", $installerContent, [System.Text.UTF8Encoding]$false)
+          # Use XML DOM patching to only update MainPackage version (not AppInstaller schema version)
+          $installerXml = New-Object System.Xml.XmlDocument
+          $installerXml.PreserveWhitespace = $true
+          $installerXml.Load("packaging\msix\AppInstaller.xml")
+          $nsm = New-Object System.Xml.XmlNamespaceManager($installerXml.NameTable)
+          $nsm.AddNamespace("ai", "http://schemas.microsoft.com/appx/appinstaller/2021")
+          $mainPkg = $installerXml.SelectSingleNode("//ai:MainPackage", $nsm)
+          if ($mainPkg) { $mainPkg.Version = $msixVersion }
+          $installerXml.Save("$pwd\OpenReader.appinstaller")
 
           # Clean up
           Remove-Item -Recurse -Force $stageDir
