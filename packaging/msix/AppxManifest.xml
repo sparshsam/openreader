@@ -63,16 +63,18 @@
           Square71x71Logo="assets\icon-71x71.png" />
         <uap:SplashScreen Image="assets\icon-620x300.png" />
       </uap:VisualElements>
-
-      <uap3:Extension
-        Category="windows.fileTypeAssociation">
-        <uap3:FileTypeAssociation Name="openreader_pdf">
-          <uap:SupportedFileTypes>
-            <uap:FileType ContentType="application/pdf">.pdf</uap:FileType>
-          </uap:SupportedFileTypes>
-        </uap3:FileTypeAssociation>
-      </uap3:Extension>
     </Application>
   </Applications>
+
+  <Extensions>
+    <uap3:Extension
+      Category="windows.fileTypeAssociation">
+      <uap3:FileTypeAssociation Name="openreader_pdf">
+        <uap:SupportedFileTypes>
+          <uap:FileType ContentType="application/pdf">.pdf</uap:FileType>
+        </uap:SupportedFileTypes>
+      </uap3:FileTypeAssociation>
+    </uap3:Extension>
+  </Extensions>
 
 </Package>
