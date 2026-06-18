@@ -170,11 +170,13 @@ jobs:
           # Copy app files
           Copy-Item -Path "dist\OpenReader\*" -Destination $stageDir -Recurse -Force
 
-          # Copy and patch manifest (use .NET I/O for reliable UTF-8 without BOM)
+          # Copy and patch manifest
+          # PowerShell -replace is case-insensitive; use -creplace to avoid
+          # matching version="1.0" in the XML declaration.
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
           $manifestContent = [System.IO.File]::ReadAllText("$stageDir\AppxManifest.xml")
-          $manifestContent = $manifestContent -replace 'Version="[^"]+"', "Version=`"$msixVersion`""
-          [System.IO.File]::WriteAllText("$stageDir\AppxManifest.xml", $manifestContent)
+          $manifestContent = $manifestContent -creplace 'Version="[^"]+"', "Version=`"$msixVersion`""
+          [System.IO.File]::WriteAllText("$stageDir\AppxManifest.xml", $manifestContent, [System.Text.UTF8Encoding]$false)
 
           # Create assets directory with placeholder PNGs
           $assetDir = "$stageDir\assets"
