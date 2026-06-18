@@ -38,11 +38,13 @@ python -m pytest tests/ -v
 
 ## Release Rules
 
-- Canonical release asset names must be preserved:
-  - `PDFReader-by-Sparsh-Setup.exe`
-  - `PDFReader-by-Sparsh-Windows.zip`
-  - `PDFReader-by-Sparsh-macOS-Apple-Silicon.zip`
-  - `PDFReader-by-Sparsh-macOS-Intel.zip`
+- Canonical release asset names:
+  - `OpenReader-Windows.zip`
+  - `OpenReader-macOS-Apple-Silicon.zip`
+  - `OpenReader-macOS-Intel.zip`
+  - `OpenReader.msix` (MSIX package for beta testing/Store submission)
+  - `OpenReader-Setup.exe` (legacy Inno Setup installer, when published)
+- MSIX identity (`SparshSam.OpenReader`) is frozen — never change.
 - Tag releases with `vMAJOR.MINOR.PATCH`.
 - Version injected from tag via `scripts/inject_version.py`.
 - Source builds remain `-dev`.

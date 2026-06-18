@@ -2,7 +2,7 @@
 
 ## Overview
 
-PDFReader by Sparsh is a **local-first desktop PDF utility** built with Python, PySide6 (Qt 6), and PyMuPDF. All PDF processing happens on the local machine — no network services, no uploads, no telemetry.
+OpenReader is a **local-first desktop PDF utility** built with Python, PySide6 (Qt 6), and PyMuPDF. All PDF processing happens on the local machine — no network services, no uploads, no telemetry.
 
 ## High-Level Architecture
 
@@ -98,13 +98,14 @@ Optional AI agent integration via the Model Context Protocol:
 - **Scope:** All core PDF operations exposed as tools
 - **Dependency:** Requires `mcp` SDK (separate requirements file)
 
-### 7. Auto-Update
+### 7. Update Detection (v1.2.0+)
 
 Checks GitHub Releases API on launch:
 
 - Compares latest tag against packaged version
-- Downloads canonical installer asset (`PDFReader-by-Sparsh-Setup.exe`)
-- Launches installer for UAC-elevated replacement
+- **No download or install** — shows "Open Releases Page" dialog or status bar message
+- Updates applied via Microsoft Store (future) or manual MSIX download
+- Self-update pipeline removed in v1.2.0 (see `docs/updater-architecture.md`)
 
 ## Data Flow
 
@@ -142,7 +143,7 @@ PyMuPDF.open() ──► Validation checks (size, header, page limits)
 }
 ```
 
-Stored in `%APPDATA%\Sparsh\PDFReader by Sparsh\session.json` (Windows) or `~/Library/Application Support/` (macOS).
+Stored in `%APPDATA%\Sparsh\OpenReader\session.json` (Windows) or `~/Library/Application Support/` (macOS).
 
 ## OCR Integration
 
