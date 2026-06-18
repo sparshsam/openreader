@@ -95,16 +95,16 @@ Windows may show a SmartScreen warning because community builds are not code-sig
 
 ## Screenshots
 
-| Reader | Search |
-|--------|--------|
-| ![Reader](assets/screenshots/reader-main.png) | ![Search](assets/screenshots/search.png) |
+| Reader | Sample PDF |
+|--------|------------|
+| ![Reader](assets/screenshots/reader-main.png) | ![Sample PDF](assets/screenshots/sample-pdf.png) |
 
-| Annotate | Merge & Split |
-|-----------|---------------|
-| ![Annotations](assets/screenshots/annotations.png) | ![Merge & Split](assets/screenshots/merge-split.png) |
+| Sample PDF 2 | PDF Tools |
+|--------------|-----------|
+| ![Sample PDF 2](assets/screenshots/sample-pdf-2.png) | ![PDF Tools](assets/screenshots/merge-split.png) |
 
 | Dark Mode | About |
-|------------|-------|
+|-----------|-------|
 | ![Dark Mode](assets/screenshots/dark-mode.png) | ![About](assets/screenshots/about.png) |
 
 ## Why I Built This
