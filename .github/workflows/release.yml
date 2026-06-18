@@ -166,9 +166,38 @@ jobs:
           }
           Write-Host ""
 
-          # Create assets directory
+          # Generate MSIX asset placeholders using Python
+          Write-Host "=== Generating MSIX asset placeholders ==="
           $assetDir = "$stageDir\assets"
           New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+          python tools/create_msix_placeholder_pngs.py $assetDir
+          if ($LASTEXITCODE -ne 0) { throw "Asset generation failed" }
+          Write-Host ""
+
+          # Validate all referenced assets exist in staging
+          Write-Host "=== Asset Validation ==="
+          $missingAssets = @()
+          $namespace = @{uap = "http://schemas.microsoft.com/appx/manifest/uap/windows10"}
+          $assetsToCheck = @($xml.Package.Logo)
+          $app = $xml.Package.Applications.Application
+          $assetsToCheck += $app."uap:VisualElements".Square150x150Logo
+          $assetsToCheck += $app."uap:VisualElements".Square44x44Logo
+          $assetsToCheck += $app."uap:VisualElements"."uap:DefaultTile".Wide310x150Logo
+          $assetsToCheck += $app."uap:VisualElements"."uap:DefaultTile".Square71x71Logo
+          $assetsToCheck += $app."uap:VisualElements"."uap:SplashScreen".Image
+          foreach ($asset in $assetsToCheck) {
+              $fullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($stageDir, $asset))
+              if (-not (Test-Path $fullPath)) {
+                  Write-Host "MISSING: $asset"
+                  $missingAssets += $asset
+              } else {
+                  Write-Host "FOUND:   $asset"
+              }
+          }
+          if ($missingAssets.Count -gt 0) {
+              throw "Missing MSIX assets: $($missingAssets -join ', ')"
+          }
+          Write-Host "All assets validated."
 
           # Build MSIX (unsigned)
           $msixName = "OpenReader.msix"

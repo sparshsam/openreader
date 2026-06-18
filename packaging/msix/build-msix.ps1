@@ -100,27 +100,26 @@ $content = [System.IO.File]::ReadAllText("$ManifestDest")
 $content = $content -creplace 'Version="[^"]+"', 'Version="' + "$Version" + '"'
 [System.IO.File]::WriteAllText("$ManifestDest", $content, [System.Text.UTF8Encoding]$false)
 
-# Create placeholder asset directory and files
-# In production, replace these with actual resized application icons
+# Generate MSIX asset placeholders using Python
+Write-Host "Generating MSIX asset placeholders..." -ForegroundColor Cyan
 $AssetDir = Join-Path $StageDir "assets"
 New-Item -ItemType Directory -Path $AssetDir -Force | Out-Null
-
-# Generate minimal PNG placeholders if not present
-$iconSizes = @(
-    @{Name="icon-44x44.png"; Size=44},
-    @{Name="icon-150x150.png"; Size=150},
-    @{Name="icon-71x71.png"; Size=71},
-    @{Name="icon-310x150.png"; Width=310; Height=150},
-    @{Name="icon-620x300.png"; Width=620; Height=300}
-)
-
-foreach ($icon in $iconSizes) {
-    $iconPath = Join-Path $AssetDir $icon.Name
-    if (-not (Test-Path $iconPath)) {
-        # Create a minimal 1-pixel PNG placeholder
-        # (Replace with actual icon assets before production packaging)
-        $placeholder = "$([char]0x89)PNG$([char]0x0D)$([char]0x0A)$([char]0x1A)$([char]0x0A)"
-        $null -eq $placeholder  # This would be a proper PNG in production
+$PngScript = Join-Path (Split-Path $PSScriptRoot -Parent) "tools" "create_msix_placeholder_pngs.py"
+if (Test-Path $PngScript) {
+    & python $PngScript $AssetDir
+    if ($LASTEXITCODE -ne 0) { Write-Error "Asset generation failed"; exit 1 }
+} else {
+    Write-Warning "Asset generation script not found at $PngScript"
+    Write-Warning "Creating minimal PNGs with PowerShell fallback..."
+    Add-Type -AssemblyName System.Drawing
+    $sizes = @(@(44,44), @(150,150), @(71,71), @(310,150), @(620,300))
+    foreach ($pair in $sizes) {
+        $p = Join-Path $AssetDir "icon-$($pair[0])x$($pair[1]).png"
+        if (-not (Test-Path $p)) {
+            $bmp = New-Object System.Drawing.Bitmap($pair[0], $pair[1])
+            $bmp.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
+            $bmp.Dispose()
+        }
     }
 }
 

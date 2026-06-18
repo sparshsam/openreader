@@ -178,9 +178,39 @@ jobs:
           $manifestContent = $manifestContent -creplace 'Version="[^"]+"', "Version=`"$msixVersion`""
           [System.IO.File]::WriteAllText("$stageDir\AppxManifest.xml", $manifestContent, [System.Text.UTF8Encoding]$false)
 
-          # Create assets directory with placeholder PNGs
+          # Generate MSIX asset placeholders using Python
+          Write-Host "=== Generating MSIX asset placeholders ==="
           $assetDir = "$stageDir\assets"
           New-Item -ItemType Directory -Path $assetDir -Force | Out-Null
+          python tools/create_msix_placeholder_pngs.py $assetDir
+          if ($LASTEXITCODE -ne 0) { throw "Asset generation failed" }
+
+          # Validate all referenced assets exist in staging
+          Write-Host "=== Asset Validation ==="
+          $missingAssets = @()
+          $manifestXml = [xml](Get-Content "$stageDir\AppxManifest.xml" -Raw)
+          $ns = @{uap = "http://schemas.microsoft.com/appx/manifest/uap/windows10"}
+          $appEl = $manifestXml.Package.Applications.Application
+          $assetsToCheck = @($manifestXml.Package.Logo)
+          $assetsToCheck += $appEl."uap:VisualElements".Square150x150Logo
+          $assetsToCheck += $appEl."uap:VisualElements".Square44x44Logo
+          $assetsToCheck += $appEl."uap:VisualElements"."uap:DefaultTile".Wide310x150Logo
+          $assetsToCheck += $appEl."uap:VisualElements"."uap:DefaultTile".Square71x71Logo
+          $assetsToCheck += $appEl."uap:VisualElements"."uap:SplashScreen".Image
+          foreach ($asset in $assetsToCheck) {
+              $fullPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($stageDir, $asset))
+              if (-not (Test-Path $fullPath)) {
+                  Write-Host "MISSING: $asset"
+                  $missingAssets += $asset
+              } else {
+                  Write-Host "FOUND:   $asset"
+              }
+          }
+          if ($missingAssets.Count -gt 0) {
+              throw "Missing MSIX assets: $($missingAssets -join ', ')"
+          }
+          Write-Host "All assets validated."
+          Write-Host ""
 
           # Build MSIX (unsigned)
           $msixName = "OpenReader${{ env.ARTIFACT_SUFFIX }}.msix"
