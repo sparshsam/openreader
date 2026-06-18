@@ -148,8 +148,8 @@ jobs:
           $stageDir = "_msix_staging"
 
           # --- Map version to MSIX 4-part version ---
-          # Strip -test suffix first, then map beta to build number
-          $cleanVersion = $version -replace '-test$', ''
+          # Strip pre-release and test suffixes, then map beta to build number
+          $cleanVersion = $version -replace '-(test|dev)$', ''
           $msixVersion = if ($cleanVersion -match '^(\d+\.\d+\.\d+)-beta\.(\d+)$') {
               "$($Matches[1]).$($Matches[2] - 1)"
           } elseif ($cleanVersion -match '^(\d+\.\d+\.\d+)$') {
@@ -165,7 +165,7 @@ jobs:
 
           # Copy and patch manifest
           Copy-Item -Path "packaging\msix\AppxManifest.xml" -Destination "$stageDir\AppxManifest.xml" -Force
-          (Get-Content "$stageDir\AppxManifest.xml") -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "$stageDir\AppxManifest.xml"
+          (Get-Content "$stageDir\AppxManifest.xml" -Raw) -replace 'Version="[^"]+"', "Version=`"$msixVersion`"" | Set-Content "$stageDir\AppxManifest.xml" -Encoding utf8NoBOM
 
           # Create assets directory with placeholder PNGs
           $assetDir = "$stageDir\assets"
