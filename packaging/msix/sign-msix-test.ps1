@@ -81,9 +81,12 @@ if (-not $signtool) {
     exit 1
 }
 
+# Normalize to path string (Get-Command returns CommandInfo, Get-ChildItem returns FileInfo)
+$signToolPath = if ($signtool -is [System.IO.FileInfo]) { $signtool.FullName } else { $signToolPath }
+
 Write-Host "=== OpenReader MSIX Test Signing ===" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "SignTool: $($signtool.Source)" -ForegroundColor Cyan
+Write-Host "SignTool: $signToolPath" -ForegroundColor Cyan
 Write-Host "MSIX:     $MsixPath" -ForegroundColor Cyan
 Write-Host "Cert:     $PfxPath" -ForegroundColor Cyan
 Write-Host ""
@@ -109,7 +112,7 @@ if ($TimestampServer) {
 
 $signArgs += (Resolve-Path $MsixPath).Path
 
-& $signtool.Source $signArgs
+& $signToolPath $signArgs
 if ($LASTEXITCODE -eq 0) {
     Write-Host ""
     Write-Host "=== SIGNING SUCCESSFUL ===" -ForegroundColor Green
