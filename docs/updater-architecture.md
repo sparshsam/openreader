@@ -84,7 +84,7 @@ breaking upgrades.
 
 | Channel | Status | Update Mechanism |
 |---------|--------|-----------------|
-| Microsoft Store | 🔒 Reserved | Windows Update (automatic) |
+| Microsoft Store | 🔜 In certification | Windows Update (automatic) |
 | GitHub Releases (MSIX) | ✅ Active | Manual download (unsigned — Developer Mode) |
 | Winget | 🔜 Future | `winget install SparshSam.OpenReader` |
 | GitHub Releases (Setup.exe) | ⚠️ Legacy | Manual download only — no in-app updates |
@@ -151,7 +151,6 @@ Once Store submission is active or App Installer is deployed:
 
 ## Future Work
 
-- [ ] Submit MSIX to Microsoft Store
+- [x] Submit MSIX to Microsoft Store (in certification)
 - [ ] Deploy App Installer hosting infrastructure
 - [ ] Submit Winget manifest
-- [ ] End-to-end validation on Windows 10/11

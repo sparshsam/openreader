@@ -321,22 +321,16 @@ jobs:
           cat > /tmp/release-notes.md <<- NOTE_EOF
           Release ${GITHUB_REF_NAME}.
 
-          ## MSIX Distribution (v1.2.0+)
+          ## Assets
 
-          Starting with v1.2.0, Windows distribution is migrating to MSIX/App Installer.
-          In-app self-updating (downloading and running Setup.exe) has been removed.
-          Update responsibility belongs to Windows packaging, not the app itself.
+          ### Windows
+          - \`OpenReader.msix\` — MSIX package. May be unsigned — requires Windows Developer Mode for sideloading.
+          - \`OpenReader-Setup.exe\` — Legacy Inno Setup installer for manual recovery. Requires administrator rights.
+          - \`OpenReader-Windows.zip\` — Portable/manual recovery ZIP.
 
-          ### Assets for Windows
-          - **\`OpenReader.msix\`** — ✅ **Recommended for v1.2.0+.** MSIX package with App Installer support for automatic Windows-managed updates. No admin required for per-user install when signed. *(Currently unsigned — requires Windows Developer Mode for sideloading until code signing is procured.)*
-          - **\`OpenReader-Setup.exe\`** — ✅ **Legacy fallback.** Inno Setup installer with PDF file association, Start Menu shortcut, desktop shortcut, and Add/Remove Programs entry. Requires admin rights.
-          - \`OpenReader-Windows.zip\` — Portable/manual recovery package. Use only if you need a portable copy or are following SUPPORT.md recovery steps.
-
-          ### Assets for macOS
-          - \`OpenReader-macOS-Apple-Silicon.zip\` — macOS Apple Silicon app bundle.
-          - \`OpenReader-macOS-Intel.zip\` — macOS Intel app bundle.
-
-          Packaged builds include the tag-injected app version and canonical release asset names.
+          ### macOS
+          - \`OpenReader-macOS-Apple-Silicon.zip\` — Experimental macOS Apple Silicon app bundle.
+          - \`OpenReader-macOS-Intel.zip\` — Experimental macOS Intel app bundle.
           NOTE_EOF
 
       - name: Publish release

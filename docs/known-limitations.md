@@ -16,13 +16,13 @@ These are accepted limitations of the current release. They are documented here 
 
 ## Memory
 
-- **Log file grows unboundedly.** The updater debug log at `%TEMP%\PDFReader-Updates\updater-debug.log` and the app debug log at `%TEMP%\PDFReader-Logs\app-debug.log` grow indefinitely. Manual cleanup is required.
+- **Log file grows unboundedly.** The app debug log at `%TEMP%\PDFReader-Logs\app-debug.log` grows indefinitely. Manual cleanup is required.
 - **No backup rotation.** The safety backup system (`_save_with_backup`) only keeps one `.bak` file per document. Multiple saves overwrite the same backup. This is intentional — the backup is meant for crash recovery, not version history.
 
 ## macOS
 
 - **Unsigned builds.** Both GitHub Actions builds and local builds are unsigned. macOS Gatekeeper will warn before running. The app needs Apple Developer ID code signing and notarization for smooth public distribution.
-- **No macOS update apply verification.** The in-app updater can download macOS updates but the apply flow (`_apply_update_macos`) has not been validated in a full end-to-end release cycle since v0.3.x.
+- **macOS is experimental.** The app is developed and tested on Windows. macOS builds are published for community testing but are not stable.
 
 ## Windows
 
@@ -39,7 +39,3 @@ These are accepted limitations of the current release. They are documented here 
 - **Library modules are optional.** The `pdfreader_lib` package (library full-text search, PDF comparison, semantic search) is only loaded if installed. Without it, the Compare and Library buttons are grayed out. This is by design — the core PDF reader works without these modules.
 - **Semantic search requires an indexed library.** The TF-IDF index must be built by adding folders via the Library dialog before semantic search returns results.
 
-## Updater
-
-- **Source builds don't auto-update.** The in-app updater works only in PyInstaller-packaged builds (`sys.frozen == True`). Source builds must be updated with `git pull` and rebuilt locally.
-- **Update check may fail behind proxies.** The updater uses `QNetworkAccessManager` and respects system proxy settings, but network timeouts are limited to 15 seconds for the check and 5 minutes for the download.

@@ -1,12 +1,11 @@
-"""Regression checks for update detection (v1.2.0+ MSIX distribution).
+"""Regression checks for update detection (current architecture).
 
-The old self-update download/apply pipeline has been replaced by MSIX/App Installer
-packaging. These checks validate that update detection still works correctly:
+These checks validate that update detection still works correctly:
 - Version parsing
 - Update response classification
 - The Help -> Check for Updates dialog correctly opens the releases page
 
-The app no longer downloads or installs updates from within itself.
+The app does not download or install updates from within itself.
 """
 import json
 

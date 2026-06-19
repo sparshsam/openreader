@@ -9,6 +9,8 @@ OpenReader has migrated from Inno Setup self-updating to **MSIX** — Microsoft'
 modern packaging format — with multiple distribution channels. The app no longer
 downloads or runs installers from within itself; Windows handles updates.
 
+The Microsoft Store submission is currently in certification.
+
 ## ⚠️ Frozen Identity (MSIX / Microsoft Store)
 
 The following values are **permanently frozen** and must never change after
@@ -58,7 +60,7 @@ CI auto-extracts from Git tag and pads to 4 parts: `${tag}.0`
 
 **Store ID:** `9MXDVW2645LL`
 
-OpenReader is reserved in the Microsoft Store. Users can search for "OpenReader"
+OpenReader is currently in Microsoft Store certification. Once approved, users can search for "OpenReader"
 or install directly via:
 
 ```
