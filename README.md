@@ -1,68 +1,53 @@
 <p align="center">
-  <img src="assets/screenshot-main.png" alt="OpenReader main window" width="880">
+  <img src="assets/screenshots/v1.2.2/reader-main.png" alt="OpenReader reading a PDF" width="880">
 </p>
 
 <h1 align="center">OpenReader</h1>
 
 <p align="center">
-  A privacy-first desktop PDF utility for Windows.
+  Privacy-first PDF tools for humans and AI agents — entirely local.
   <br>
-  Read, search, copy, merge, split, extract, and compress PDFs — all locally, no uploads required.
+  Read, search, compare, merge, split, extract, and compress PDFs without uploading documents anywhere.
 </p>
 
 <p align="center">
   <a href="https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/sparshsam/pdfreader-by-sparsh?sort=semver&label=stable%20release"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-blue"></a>
-  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/actions/workflows/release.yml"><img alt="Release build" src="https://img.shields.io/github/actions/workflow/status/sparshsam/pdfreader-by-sparsh/release.yml?label=release%20build"></a>
   <a href="https://github.com/sparshsam/pdfreader-by-sparsh/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sparshsam/pdfreader-by-sparsh/ci.yml?label=CI"></a>
-  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/actions/workflows/security.yml"><img alt="Security" src="https://img.shields.io/github/actions/workflow/status/sparshsam/pdfreader-by-sparsh/security.yml?label=security"></a>
-  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/sparshsam/pdfreader-by-sparsh/total"></a>
+  <a href="#"><img alt="Microsoft Store" src="https://img.shields.io/badge/Store-In%20certification-lightgrey"></a>
+  <a href="#download"><img alt="Windows" src="https://img.shields.io/badge/platform-Windows%2010%2F11-blue"></a>
 </p>
 
-<p align="center">
-  <a href="#download">Download</a>
-  ·
-  <a href="#features">Features</a>
-  ·
-  <a href="#screenshots">Screenshots</a>
-  ·
-  <a href="#build-from-source">Build</a>
-  ·
-  <a href="#privacy-and-security">Privacy</a>
-  ·
-  <a href="#ai-agent-integration-mcp-server">AI Agent</a>
-  ·
-  <a href="ARCHITECTURE.md">Architecture</a>
-  ·
-  <a href="VERSIONING.md">Versioning</a>
-</p>
+---
 
 ## Overview
 
-OpenReader is a **local-first desktop PDF utility** built with Python, PySide6, and PyMuPDF. It is designed for people who want common PDF tasks in a simple native app without sending private documents to a cloud service.
+OpenReader is a **local-first PDF utility** that works with AI agents.
 
-The app is intentionally local-first: PDFs are opened, rendered, searched, merged, split, annotated, and compressed on your computer — no uploads, no accounts, no telemetry.
+Every operation — reading, searching, annotating, compressing, comparing, merging, splitting — runs on your machine. No accounts. No subscriptions. No telemetry. No cloud uploads.
 
-**Current version:** v1.2.2 (June 2026)
+Use OpenReader directly, from scripts, or through AI agents.
+
+---
 
 ## Download
 
-### Recommended: Microsoft Store
+### Microsoft Store (Recommended)
 
-The Microsoft Store submission is in certification. Once approved, install OpenReader with one click — automatic updates included.
+The Store submission is in certification. Once approved, install with one click — automatic updates included.
 
 *Store link will appear here after certification.*
 
 ### GitHub Releases (Advanced Users)
 
-MSIX packages are available from the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases).
+MSIX packages are available on the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases).
 
 | Platform | Package | Notes |
 |---|---|---|
-| Windows 10/11 | `OpenReader.msix` | MSIX package. May be unsigned — requires [Windows Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) for sideloading. |
-| Windows 10/11 | `OpenReader-Setup.exe` | Legacy Inno Setup installer for manual recovery. Requires administrator rights. |
-| Windows 10/11 | `OpenReader-Windows.zip` | Portable ZIP for manual recovery. |
-| macOS | `OpenReader-macOS-*.zip` | **Experimental.** Community-tested. See [macOS notes](docs/macos.md). |
+| Windows 10/11 | `OpenReader.msix` | MSIX package. May be unsigned — requires [Developer Mode](https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development) for sideloading. |
+| Windows 10/11 | `OpenReader-Setup.exe` | Legacy installer for manual recovery. Requires administrator rights. |
+| Windows 10/11 | `OpenReader-Windows.zip` | Portable ZIP. |
+| macOS | `OpenReader-macOS-*.zip` | **Experimental.** See [macOS notes](docs/macos.md). |
 | Linux | — | Unsupported. |
 
 ### Platform Support
@@ -81,8 +66,77 @@ MSIX packages are available from the [Releases page](https://github.com/sparshsa
 OpenReader does not install updates itself.
 
 - **Microsoft Store** installations update automatically through the Store.
-- **GitHub MSIX** installations can check for new versions (Help → Check for Updates) but updates must be downloaded and installed manually.
-- **Source builds** should be updated with `git pull` and rebuilt locally.
+- **GitHub MSIX** installations: Help → Check for Updates opens the releases page. Download and install manually.
+- **Source builds**: `git pull` and rebuild.
+
+---
+
+## AI Agent Integration (MCP Server)
+
+OpenReader ships with a built-in [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server. Any MCP-compatible agent — Claude Code, Claude Desktop, Hermes, or others — can interact with PDFs directly on your machine.
+
+No cloud, no API keys, no document uploads.
+
+### What you can do with AI agents
+
+| Workflow | What happens |
+|---|---|
+| **Ask questions about a PDF** | Agent extracts text from any page and answers. |
+| **Search entire PDF libraries** | Agent indexes a folder and searches across all documents (keyword or semantic). |
+| **Compare document versions** | Agent runs a side-by-side diff and gives you a structured summary. |
+| **Summarize research collections** | Agent reads multiple PDFs and synthesizes findings. |
+| **Build automated PDF pipelines** | Write scripts that merge, split, compress, and extract — all local. |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────┐
+│  Claude / Hermes / any MCP-compatible agent          │
+│  (asks questions, runs searches, compares docs)       │
+└──────────┬──────────────────────────────────────────┘
+           │ MCP protocol (stdio or SSE)
+           ▼
+┌─────────────────────────────────────────────────────┐
+│  OpenReader MCP Server                               │
+│  pdfreader_lib/mcp_server.py                         │
+│  14 tools: extract, search, compare, merge, split…   │
+└──────────┬──────────────────────────────────────────┘
+           │ local file access only
+           ▼
+┌─────────────────────────────────────────────────────┐
+│  Your PDFs (stored on your machine)                   │
+└─────────────────────────────────────────────────────┘
+```
+
+### Quick setup
+
+```bash
+# Install MCP dependencies
+pip install -r requirements-mcp.txt
+```
+
+Add to your MCP-compatible agent's configuration:
+
+```json
+{
+  "mcpServers": {
+    "openreader": {
+      "command": "python",
+      "args": ["-m", "pdfreader_lib.mcp_server"]
+    }
+  }
+}
+```
+
+The server runs over stdio by default. For HTTP/SSE transport:
+
+```bash
+python -m pdfreader_lib.mcp_server --transport sse --port 8312
+```
+
+All operations are local. No data is uploaded anywhere.
+
+---
 
 ## Features
 
@@ -105,19 +159,23 @@ OpenReader does not install updates itself.
 | Recent files | Quick access to the last 10 opened PDFs via File → Open Recent |
 | Update detection | Help → Check for Updates queries GitHub API and opens the releases page. |
 
+---
+
 ## Screenshots
 
 | Reader | Sample PDF |
 |---|---|
-| ![Reader](assets/screenshots/reader-main.png) | ![Sample PDF](assets/screenshots/sample-pdf.png) |
+| ![Reader](assets/screenshots/v1.2.2/reader-main.png) | ![Sample PDF](assets/screenshots/v1.2.2/sample-pdf.png) |
 
-| Sample PDF 2 | PDF Tools |
+| Dark Mode | PDF Tools |
 |---|---|
-| ![Sample PDF 2](assets/screenshots/sample-pdf-2.png) | ![PDF Tools](assets/screenshots/merge-split.png) |
+| ![Dark Mode](assets/screenshots/v1.2.2/dark-mode.png) | ![PDF Tools](assets/screenshots/v1.2.2/merge-split.png) |
 
-| Dark Mode | About |
+| Sample PDF 2 | |
 |---|---|
-| ![Dark Mode](assets/screenshots/dark-mode.png) | ![About](assets/screenshots/about.png) |
+| ![Sample PDF 2](assets/screenshots/v1.2.2/sample-pdf-2.png) | |
+
+---
 
 ## Privacy and Security
 
@@ -136,18 +194,15 @@ The app includes lightweight safety checks before opening and rendering document
 
 These checks reduce risk from malformed or oversized PDFs, but PDF parsing still depends on PyMuPDF/MuPDF. Avoid opening PDFs from untrusted sources unless you use OS-level sandboxing, a VM, or another isolation layer.
 
+---
+
 ## License
 
 OpenReader is free software under the [GNU AGPLv3](LICENSE).
 
 Copyright &copy; 2026 Sparsh Sam.
 
-## Requirements
-
-| Use case | Requirements |
-|---|---|
-| Run Windows package | Windows 10 or newer. Python is not required. |
-| Develop or build from source | Python 3.11 or newer. Windows recommended. macOS source builds may work but are not tested. |
+---
 
 ## Build From Source
 
@@ -160,7 +215,7 @@ python -m pip install -r requirements.txt
 python main.py
 ```
 
-Build the Windows executable:
+Build the executable:
 
 ```powershell
 .\scripts\build_windows.ps1
@@ -179,9 +234,7 @@ dist\OpenReader\
 
 ### macOS
 
-The Windows `.exe` cannot run on macOS. PyInstaller bundles native binaries for the operating system it runs on.
-
-**macOS packaged builds are experimental.** The app is developed and tested primarily on Windows. To run on macOS, build from source:
+macOS packaged builds are **experimental**. To run from source:
 
 ```bash
 git clone https://github.com/sparshsam/pdfreader-by-sparsh.git
@@ -192,53 +245,19 @@ pip install -r requirements.txt
 python main.py
 ```
 
-See [docs/macos.md](docs/macos.md) for macOS setup, Finder "Open With" notes, icon generation, and OCR notes.
+See [docs/macos.md](docs/macos.md) for macOS setup and OCR notes.
 
-## OCR Setup
+### OCR Setup
 
 Text selection works natively on PDFs with embedded text. For scanned/image-only PDFs, the app falls back to OCR via PyMuPDF's Tesseract integration.
 
-No OCR setup is needed to read regular PDFs — the app only requires Tesseract when you drag-select text on a scanned page.
+**Windows:** Download Tesseract from [UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/releases), run the installer, check "Add to PATH", restart the app.
 
-### Installing Tesseract
+**macOS:** `brew install tesseract`
 
-**Windows**
-1. Download the installer from [GitHub UB-Mannheim/tesseract](https://github.com/UB-Mannheim/tesseract/releases)
-2. Run the installer — check "Add to PATH" during setup
-3. Restart the app; OCR will work automatically
+**Linux (source builds):** `sudo apt install tesseract-ocr tesseract-ocr-eng`
 
-**macOS**
-```bash
-brew install tesseract
-```
-No restart needed — PyMuPDF finds it automatically.
-
-**Linux (source builds)**
-```bash
-# Debian / Ubuntu
-sudo apt install tesseract-ocr tesseract-ocr-eng
-
-# Fedora
-sudo dnf install tesseract tesseract-langpack-eng
-
-# Arch
-sudo pacman -S tesseract tesseract-data-eng
-```
-
-## Roadmap
-
-### Near-Term
-- **Microsoft Store submission** — currently in certification
-- **Local AI summarization** — generate document summaries and extract key points using a local LLM (e.g. Ollama, llama.cpp); no data ever leaves your machine
-- **Stronger sandboxing guidance** — documented approaches for running the app in an OS sandbox when opening documents from untrusted sources
-- **Winget support** — `winget install SparshSam.OpenReader`
-
-### Long-Term Vision
-- **Cross-platform desktop support** — native builds for Linux in addition to Windows and macOS
-- **Secure research workspace** — a sandboxed reading environment with isolated rendering and optional network blocking
-- **PDF timeline and version history** — track changes across document revisions
-- **Plugin system** — a lightweight extension API for community-contributed tools
-- **Collaborative annotations (optional, wallet-based)** — share annotations between trusted peers using cryptographic identity
+---
 
 ## Project Structure
 
@@ -259,85 +278,11 @@ sudo pacman -S tesseract tesseract-data-eng
 └── CHANGELOG.md
 ```
 
+---
+
 ## Contributing
 
 Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md) before opening issues or pull requests.
-
-## AI Agent Integration (MCP Server)
-
-OpenReader ships with a built-in [MCP (Model Context Protocol)](https://modelcontextprotocol.io) server that lets AI agents interact with PDFs programmatically. Agents can read, search, compare, merge, split, compress, and index PDFs — all locally, no cloud involved.
-
-### Available Tools (14)
-
-| Tool | Purpose |
-|---|---|
-| `extract_text` | Extract all text from a PDF, per-page |
-| `get_page_text` | Extract text from a single page |
-| `get_metadata` | Get PDF metadata (title, author, pages, size) |
-| `get_page_count` | Get the number of pages |
-| `search_pdf` | Search for text within a single PDF |
-| `compare_pdfs` | Compare two PDFs page-by-page with diff |
-| `merge_pdfs` | Merge multiple PDFs into one |
-| `split_pdf` | Split into individual page files |
-| `extract_pages` | Extract specific pages by range (e.g. `1-3,5,7-9`) |
-| `compress_pdf` | Create a compressed copy |
-| `index_folder` | Build SQLite FTS5 full-text index for a folder |
-| `search_library` | Search across all indexed PDFs (BM25 ranked) |
-| `search_semantic` | TF-IDF meaning-based search across indexed PDFs |
-| `list_indexed_docs` | List all documents in the search index |
-
-### Setup
-
-```bash
-# Install the MCP SDK
-pip install -r requirements-mcp.txt
-
-# For SSE/HTTP transport (optional):
-# pip install starlette uvicorn
-```
-
-### Agent Configuration
-
-**Claude Code, Hermes Agent, or any MCP-compatible agent:**
-
-Add to your agent's MCP server configuration:
-
-```json
-{
-  "mcpServers": {
-    "pdfreader-by-sparsh": {
-      "command": "python",
-      "args": ["-m", "pdfreader_lib.mcp_server"]
-    }
-  }
-}
-```
-
-### Usage
-
-The server runs over stdio by default (standard for AI agents):
-
-```bash
-python -m pdfreader_lib.mcp_server
-```
-
-For HTTP/SSE transport (gateway mode):
-
-```bash
-python -m pdfreader_lib.mcp_server --transport sse --port 8312
-```
-
-### What Agents Can Do
-
-- **Extract text** from PDFs for analysis or summarization
-- **Search** across a folder of PDFs using full-text or semantic search
-- **Compare** document versions and get structured diffs
-- **Merge** multiple PDFs into one document
-- **Split** PDFs by page or extract specific page ranges
-- **Compress** PDFs to reduce file size
-- **Index** entire folders for cross-document search
-
-All operations are local. No data is uploaded anywhere.
 
 ## Tech Stack
 
