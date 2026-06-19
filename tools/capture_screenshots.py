@@ -83,7 +83,7 @@ def main():
         window._open_compare_dialog()
         app.processEvents()
     except Exception:
-        pass
+        pass  # nosec B110 — expected failure if compare dialog unavailable
     shot(window, "merge-split.png", delay_ms=800)
 
     # 6. About dialog — use the real about method
