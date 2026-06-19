@@ -26,13 +26,7 @@ OpenReader is a **local-first PDF utility** that works with AI agents.
 
 Every operation — reading, searching, annotating, compressing, comparing, merging, splitting — runs on your machine. No accounts. No subscriptions. No telemetry. No cloud uploads.
 
-### Three ways to use OpenReader
-
-| If you want to… | Use… |
-|---|---|
-| Open PDFs, search, annotate, merge, split | The desktop GUI |
-| Ask an AI questions about a PDF | The built-in MCP server + any MCP-compatible agent |
-| Automate batch PDF workflows | The MCP server from scripts |
+Use OpenReader directly, from scripts, or through AI agents.
 
 ---
 
