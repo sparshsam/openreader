@@ -6,17 +6,16 @@ OpenReader uses semantic version tags to publish packaged builds.
 
 - `__version__` in `main.py` is the canonical source. Set it to the next release version.
 - Tags must use the format `vMAJOR.MINOR.PATCH`, for example `v1.2.2`.
-- The injected runtime version removes the leading `v`, so `v1.2.2` becomes `__version__ = "1.2.1"` in packaged builds.
+- The injected runtime version removes the leading `v`, so `v1.2.2` becomes `__version__ = "1.2.2"` in packaged builds.
 - CI injects the tag version for release builds via `scripts/inject_version.py`.
 
-## Release Architecture (v1.2.0+)
+## Release Architecture
 
-**Starting with v1.2.0, update detection replaces in-app self-updating.** The app no longer
-downloads or runs installers. Windows distribution is migrating to MSIX/App Installer:
+OpenReader uses **update detection only** — the app never downloads or runs installers.
 
-- **Update detection** — the app queries the GitHub API and opens the releases page
-- **Update application** — handled by Windows App Installer (MSIX) or manual download
-- **Legacy Setup.exe** — retained as a manual installer only; no update detection support
+- **Update detection** — the app queries the GitHub API and opens the releases page in a browser
+- **Update application** — handled by the Microsoft Store (automatic) or manual download
+- **Legacy Setup.exe** — retained as a manual recovery installer only
 
 See [docs/updater-architecture.md](docs/updater-architecture.md) for details.
 
@@ -25,16 +24,16 @@ See [docs/updater-architecture.md](docs/updater-architecture.md) for details.
 The release workflow attaches these assets:
 
 ```text
-OpenReader.msix                    (MSIX package — recommended for v1.2.0+)
-OpenReader-Setup.exe               (legacy Inno Setup installer — manual use only)
+OpenReader.msix                    (MSIX package — recommended for advanced users)
+OpenReader-Setup.exe               (legacy Inno Setup installer — manual recovery)
 OpenReader-Windows.zip             (portable/manual recovery package)
-OpenReader-macOS-Apple-Silicon.zip (macOS Apple Silicon — source-build testing)
-OpenReader-macOS-Intel.zip         (macOS Intel — source-build testing)
+OpenReader-macOS-Apple-Silicon.zip (macOS Apple Silicon — experimental)
+OpenReader-macOS-Intel.zip         (macOS Intel — experimental)
 ```
 
-The MSIX package is built unsigned (requires `MakeAppx.exe` from Windows SDK).
+The MSIX package is unsigned when built on CI (requires `MakeAppx.exe` from Windows SDK).
 GitHub Release MSIX packages require Windows Developer Mode for sideloading.
-The Microsoft Store will sign the production MSIX with its Store identity —
+The Microsoft Store signs the production MSIX with its Store identity —
 no separate code-signing certificate is needed.
 
 ## How to Cut a Release
@@ -95,11 +94,10 @@ curl https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
 
 ## MSIX Signing
 
-The MSIX package is currently unsigned. The distribution plan is:
+The MSIX package is unsigned for GitHub Release builds.
 
-1. **Microsoft Store** — Submit the unsigned MSIX to the Microsoft Store. The Store
-   signs the package automatically with its Store identity. **v1.2.2 is the first
-   Store release candidate.**
+1. **Microsoft Store** — Submission is in certification. The Store signs the
+   package automatically with its Store identity.
 2. **Sideloading** — Unsigned MSIX from GitHub Releases requires Windows
    Developer Mode. Local test-signing scripts are in `packaging/msix/`.
 3. **No self-procured code-signing cert** — The Store handles production signing.

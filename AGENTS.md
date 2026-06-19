@@ -11,11 +11,14 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 ## Release and Update Rules
 
-- The updater depends on GitHub Release assets, not GitHub Actions artifacts.
+- The app detects updates via GitHub API and opens the releases page in a browser. It does not download or install updates.
 - Canonical release assets must keep these exact names:
   - `OpenReader-Windows.zip`
   - `OpenReader-macOS-Apple-Silicon.zip`
   - `OpenReader-macOS-Intel.zip`
+  - `OpenReader.msix` (MSIX package for Store submission/advanced use)
+  - `OpenReader-Setup.exe` (legacy Inno Setup installer)
+- The Microsoft Store identity (`SparshSam.OpenReader`) is frozen — never change.
 - Tag releases with `vMAJOR.MINOR.PATCH`.
 - Packaged builds must inject the tag version into `main.py` via `scripts/inject_version.py`.
 - Source builds may remain `-dev`.
@@ -42,7 +45,7 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 ## Documentation Rules
 
 - README should describe shipped behavior only.
-- Do not overclaim auto-update. It works for packaged builds only when canonical release assets are attached to the latest GitHub Release.
+- OpenReader does not install updates itself. Store installations update automatically; GitHub MSIX installations are manual.
 - Keep Mac signing/Gatekeeper caveats visible until releases are signed and notarized.
 
 ## MCP Server (AI Agent Integration)

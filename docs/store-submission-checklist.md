@@ -3,7 +3,7 @@
 **Target version:** v1.2.2 stable (MSIX version `1.2.2.0`)
 **Store ID:** `9MXDVW2645LL`
 **PFN:** `SparshSam.OpenReader_yh0byntbzd2qw`
-**Status:** 🔜 Ready for submission (privacy policy published)
+**Status:** 🔜 In certification
 **Privacy policy URL:** https://sparshsam.github.io/pdfreader-by-sparsh/privacy/
 **Upload artifact:** `OpenReader.msix` from v1.2.2 GitHub Release (built by release.yml workflow)
 
@@ -247,7 +247,7 @@ Write-Host "Publisher check: $($matches.Count -gt 0 ? 'PASS' : 'FAIL')"
 ## 6. Post-Submission Tasks
 
 - [x] Publish privacy policy URL (published at `https://sparshsam.github.io/pdfreader-by-sparsh/privacy/`)
-- [ ] Prepare Winget manifest for `SparshSam.OpenReader` (optional, medium priority)
+- [ ] Prepare Winget manifest for `SparshSam.OpenReader` — see [winget-preparation.md](winget-preparation.md)
 - [ ] Monitor Partner Center certification report
 - [ ] After acceptance: test Store install on clean Windows VM
 - [ ] After acceptance: test Store upgrade over existing sideloaded installation

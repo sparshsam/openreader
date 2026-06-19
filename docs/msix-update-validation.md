@@ -1,8 +1,8 @@
 # MSIX Update Validation Guide (Archived)
 
 > **ℹ️ Historical record.** MSIX beta validation (beta.5 → beta.6) completed
-> successfully. v1.2.1 is the first Microsoft Store release candidate — Store-managed
-> updates replace sideloaded MSIX update testing.
+> successfully. v1.2.2 is the current stable release. Store-managed
+> updates will replace sideloaded MSIX update testing after Store certification.
 
 **Purpose:** Validate that MSIX updates work correctly for OpenReader (historical).
 

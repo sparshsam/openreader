@@ -2,7 +2,7 @@
 
 Thanks for your interest in improving OpenReader.
 
-This project is source-available for non-commercial use. Contributions are accepted under the same PolyForm Noncommercial License 1.0.0 used by the project.
+This project is free software. Contributions are accepted under the same [GNU AGPLv3](LICENSE) used by the project.
 
 ## Local Setup
 

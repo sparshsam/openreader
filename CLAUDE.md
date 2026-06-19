@@ -1,15 +1,29 @@
-# PDF Reader by Sparsh — Agent Instructions
+# OpenReader — Agent Instructions
 
 ## Overview
 
-Private, local-first desktop PDF tool for reading, annotation, search, diff, and workspace restore.
-Windows primary target; macOS source-build only.
+Privacy-first, local-only desktop PDF utility for Windows.
+macOS experimental; Linux unsupported.
 
 ## Architecture Constraints
 
-1. **Local-first.** No cloud dependency. No network calls beyond the explicit GitHub release update check.
+1. **Local-first.** No cloud dependency. No network calls beyond the optional GitHub release update check (no downloads).
 2. **Privacy by design.** Treat PDFs as local/private user data. Never upload or transmit document content.
-3. **Cross-platform** (Windows primary, macOS secondary).
+3. **Cross-platform** (Windows primary, macOS experimental).
+
+## Distribution and Updates
+
+- **Microsoft Store** (in certification) — automatic updates after approval.
+- **GitHub MSIX** — advanced users, unsigned, requires Developer Mode for sideloading.
+- **Legacy Setup.exe** — manual recovery only.
+- The app detects updates via GitHub API (opens browser). It never downloads or runs installers.
+
+## Frozen Identity — Never Change
+
+- Identity Name: `SparshSam.OpenReader`
+- Publisher: `CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0`
+- PFN: `SparshSam.OpenReader_yh0byntbzd2qw`
+- Store ID: `9MXDVW2645LL`
 
 ## Commands
 
@@ -42,8 +56,8 @@ python -m pytest tests/ -v
   - `OpenReader-Windows.zip`
   - `OpenReader-macOS-Apple-Silicon.zip`
   - `OpenReader-macOS-Intel.zip`
-  - `OpenReader.msix` (MSIX package for beta testing/Store submission)
-  - `OpenReader-Setup.exe` (legacy Inno Setup installer, when published)
+  - `OpenReader.msix` (MSIX package)
+  - `OpenReader-Setup.exe` (legacy installer)
 - MSIX identity (`SparshSam.OpenReader`) is frozen — never change.
 - Tag releases with `vMAJOR.MINOR.PATCH`.
 - Version injected from tag via `scripts/inject_version.py`.
@@ -64,7 +78,7 @@ python -m pytest tests/ -v
 - ARCHITECTURE.md is the canonical architecture reference.
 - VERSIONING.md documents the versioning scheme.
 - Keep CHANGELOG.md updated per Keep a Changelog format.
-- Keep Mac signing/Gatekeeper caveats visible until releases are signed.
+- Keep Mac caveats visible for experimental platform status.
 
 ## Security Rules
 
