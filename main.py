@@ -50,7 +50,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -833,17 +833,17 @@ class PdfReaderWindow(QMainWindow):
         self.page_spin.setToolTip("Jump to page number")
         self.page_count_label = QLabel("/ 0")
 
-        self.zoom_out_button = QPushButton("\u2212")
-        self.zoom_out_button.setFixedWidth(30)
-        self.zoom_out_button.setToolTip("Zoom out (Ctrl+-)")
+        self.zoom_out_button = QPushButton("-")
+        self.zoom_out_button.setFixedWidth(32)
+        self.zoom_out_button.setToolTip("Zoom out (Ctrl+Mouse Wheel Up / Ctrl+-)")
         self.zoom_in_button = QPushButton("+")
-        self.zoom_in_button.setFixedWidth(30)
-        self.zoom_in_button.setToolTip("Zoom in (Ctrl+=)")
+        self.zoom_in_button.setFixedWidth(32)
+        self.zoom_in_button.setToolTip("Zoom in (Ctrl+Mouse Wheel Down / Ctrl+=)")
         self.fit_button = QPushButton("Fit")
         self.fit_button.setCheckable(True)
         self.fit_button.setChecked(True)
-        self.fit_button.setFixedWidth(40)
-        self.fit_button.setToolTip("Fit page to window width (Ctrl+0)")
+        self.fit_button.setFixedWidth(44)
+        self.fit_button.setToolTip("Fit page to window (Ctrl+0)")
         self.copy_button = QPushButton("Copy")
         self.copy_button.setToolTip("Copy selected text (Ctrl+C)")
 
@@ -853,10 +853,11 @@ class PdfReaderWindow(QMainWindow):
         controls.addWidget(QLabel("Pg"))
         controls.addWidget(self.page_spin)
         controls.addWidget(self.page_count_label)
-        controls.addSpacing(4)
+        controls.addSpacing(6)
         controls.addWidget(self.zoom_out_button)
         controls.addWidget(self.zoom_in_button)
         controls.addWidget(self.fit_button)
+        controls.addSpacing(6)
         controls.addWidget(self.copy_button)
 
         # Annotation buttons
@@ -949,6 +950,7 @@ class PdfReaderWindow(QMainWindow):
         self.scroll_area.setWidget(self.empty_state_widget)
         self.scroll_area.setAlignment(Qt.AlignCenter)
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.viewport().installEventFilter(self)
         root.addWidget(self.scroll_area, 1)
 
         self.setCentralWidget(central)
@@ -1040,6 +1042,17 @@ class PdfReaderWindow(QMainWindow):
             self._app_shortcuts.append(shortcut)
 
     def eventFilter(self, obj, event):
+        # Ctrl + Mouse Wheel zoom on the scroll area viewport
+        if (event.type() == QEvent.Wheel
+                and obj is self.scroll_area.viewport()
+                and event.modifiers() & Qt.ControlModifier
+                and self.document is not None):
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in()
+            elif delta < 0:
+                self.zoom_out()
+            return True  # consumed — prevent scrolling
         if event.type() == QEvent.KeyPress and self.isActiveWindow():
             if self._handle_shortcut_key_event(event):
                 return True
@@ -1974,9 +1987,12 @@ class PdfReaderWindow(QMainWindow):
     def _effective_zoom(self, page):
         if not self.fit_to_window:
             return self.zoom
-        viewport_width = max(1, self.scroll_area.viewport().width() - 24)
-        page_width = max(1, page.rect.width)
-        return max(self.MIN_ZOOM, min(self.MAX_ZOOM, viewport_width / page_width))
+        vp_w = max(1, self.scroll_area.viewport().width() - 24)
+        vp_h = max(1, self.scroll_area.viewport().height() - 40)
+        pw = max(1, page.rect.width)
+        ph = max(1, page.rect.height)
+        zoom = min(vp_w / pw, vp_h / ph)
+        return max(self.MIN_ZOOM, min(self.MAX_ZOOM, zoom))
 
     def _validate_render_size(self, page, zoom):
         pixels = int(page.rect.width * zoom) * int(page.rect.height * zoom)

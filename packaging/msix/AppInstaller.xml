@@ -18,7 +18,7 @@
   <MainPackage
     Name="SparshSam.OpenReader"
     Publisher="CN=E6186421-BF8A-47E0-A89C-0F513DFF91C0"
-    Version="1.2.2.0"
+    Version="1.2.3.0"
     ProcessorArchitecture="x64"
     Uri="https://downloads.openreader.app/stable/OpenReader.msix" />
 
