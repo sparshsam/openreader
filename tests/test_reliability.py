@@ -294,12 +294,13 @@ class TestZoomConstants:
 
 class TestZoomUi:
     def test_zoom_buttons_use_clear_text_labels(self):
-        """Zoom buttons must use plain visible text, not obscure unicode or icon glyphs."""
+        """Zoom buttons must use _make_zoom_buttons factory with clear icons and tooltips."""
         import main as m
         src = Path(m.__file__).read_text()
-        assert 'QPushButton("−")' in src or 'QPushButton("-")' in src
-        assert 'QPushButton("+")' in src
-        assert 'QPushButton("Fit")' in src
+        assert "_make_zoom_buttons()" in src
+        assert "Zoom out" in src
+        assert "Zoom in" in src
+        assert "Fit page to window" in src
 
     def test_fit_tooltip_mentions_ctrl0(self):
         import main as m
