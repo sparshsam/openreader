@@ -11,10 +11,10 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/sparshsam/pdfreader-by-sparsh?sort=semver&label=stable%20release"></a>
+  <a href="https://github.com/sparshsam/openreader/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/sparshsam/openreader?sort=semver&label=stable%20release"></a>
   <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-AGPLv3-blue"></a>
-  <a href="https://github.com/sparshsam/pdfreader-by-sparsh/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sparshsam/pdfreader-by-sparsh/ci.yml?label=CI"></a>
-  <a href="#"><img alt="Microsoft Store" src="https://img.shields.io/badge/Store-In%20certification-lightgrey"></a>
+  <a href="https://github.com/sparshsam/openreader/actions/workflows/ci.yml"><img alt="CI" src="https://img.shields.io/github/actions/workflow/status/sparshsam/openreader/ci.yml?label=CI"></a>
+  <a href="https://apps.microsoft.com/detail/9MXDVW2645LL"><img alt="Microsoft Store" src="https://img.shields.io/badge/Microsoft%20Store-Get%20OpenReader-0078D4"></a>
   <a href="#download"><img alt="Windows" src="https://img.shields.io/badge/platform-Windows%2010%2F11-blue"></a>
 </p>
 
@@ -34,13 +34,13 @@ Use OpenReader directly, from scripts, or through AI agents.
 
 ### Microsoft Store (Recommended)
 
-The Store submission is in certification. Once approved, install with one click — automatic updates included.
+OpenReader is **live in the Microsoft Store**.
 
-*Store link will appear here after certification.*
+**Recommended:** Install [OpenReader by Sparsh on Microsoft Store](https://apps.microsoft.com/detail/9MXDVW2645LL).
 
 ### GitHub Releases (Advanced Users)
 
-MSIX packages are available on the [Releases page](https://github.com/sparshsam/pdfreader-by-sparsh/releases).
+For advanced users, MSIX packages remain available on the [GitHub Releases page](https://github.com/sparshsam/openreader/releases).
 
 | Platform | Package | Notes |
 |---|---|---|
@@ -55,7 +55,7 @@ MSIX packages are available on the [Releases page](https://github.com/sparshsam/
 | Platform | Status |
 |---|---|
 | Windows 10/11 | Supported |
-| Microsoft Store | In certification — recommended after approval |
+| Microsoft Store | Live in Microsoft Store |
 | GitHub MSIX | Advanced users |
 | macOS Apple Silicon | Experimental |
 | macOS Intel | Experimental |
@@ -237,8 +237,8 @@ dist\OpenReader\
 macOS packaged builds are **experimental**. To run from source:
 
 ```bash
-git clone https://github.com/sparshsam/pdfreader-by-sparsh.git
-cd pdfreader-by-sparsh
+git clone https://github.com/sparshsam/openreader.git
+cd openreader
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

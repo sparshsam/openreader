@@ -51,7 +51,7 @@ def test_classify_update_available():
     """When remote is newer, outcome is update_available."""
     body = json.dumps({
         "tag_name": "v0.4.0",
-        "html_url": "https://github.com/sparshsam/pdfreader-by-sparsh/releases/tag/v0.4.0",
+        "html_url": "https://github.com/sparshsam/openreader/releases/tag/v0.4.0",
         "body": "Bug fixes.",
     })
     r = PdfReaderWindow._classify_update_response(200, False, "", body, "0.3.3")

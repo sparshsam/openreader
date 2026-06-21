@@ -5,7 +5,7 @@
 **Effective date:** June 18, 2026
 
 See the rendered policy at:
-**[https://sparshsam.github.io/pdfreader-by-sparsh/privacy/](https://sparshsam.github.io/pdfreader-by-sparsh/privacy/)**
+**[https://sparshsam.github.io/openreader/privacy/](https://sparshsam.github.io/openreader/privacy/)**
 
 ---
 
@@ -33,4 +33,4 @@ No third-party analytics or tracking SDKs are embedded. The only external servic
 
 ## Contact
 
-Open an issue on the [GitHub repository](https://github.com/sparshsam/pdfreader-by-sparsh).
+Open an issue on the [GitHub repository](https://github.com/sparshsam/openreader).

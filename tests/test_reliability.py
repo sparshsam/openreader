@@ -62,7 +62,7 @@ class TestVersion:
 
     def test_github_repo_is_correct(self):
         import main as m
-        assert m.GITHUB_REPO == "sparshsam/pdfreader-by-sparsh"
+        assert m.GITHUB_REPO == "sparshsam/openreader"
 
 
 # ---------------------------------------------------------------------------
@@ -144,6 +144,38 @@ class TestShortcutConsistency:
         assert "def _handle_shortcut_key_event" in src
         assert "Qt.Key_W: self._close_current_tab" in src
         assert "Qt.Key_0: self._fit_width_shortcut" in src
+
+
+class TestAboutStoreLink:
+    """Verify the About dialog prefers the Store app with a web fallback."""
+
+    def test_store_link_uses_native_uri_when_available(self, monkeypatch):
+        import main as m
+
+        opened = []
+        monkeypatch.setattr(m.QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True)
+
+        m.PdfReaderWindow._open_store_listing()
+
+        assert opened == ["ms-windows-store://pdp/?productid=9MXDVW2645LL"]
+
+    def test_store_link_falls_back_to_web_listing(self, monkeypatch):
+        import main as m
+
+        opened = []
+
+        def open_url(url):
+            opened.append(url.toString())
+            return len(opened) > 1
+
+        monkeypatch.setattr(m.QDesktopServices, "openUrl", open_url)
+
+        m.PdfReaderWindow._open_store_listing()
+
+        assert opened == [
+            "ms-windows-store://pdp/?productid=9MXDVW2645LL",
+            "https://apps.microsoft.com/detail/9MXDVW2645LL",
+        ]
 
 
 # ---------------------------------------------------------------------------

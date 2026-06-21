@@ -30,8 +30,8 @@ Requirements:
 Clone and build:
 
 ```bash
-git clone https://github.com/sparshsam/pdfreader-by-sparsh.git
-cd pdfreader-by-sparsh
+git clone https://github.com/sparshsam/openreader.git
+cd openreader
 chmod +x scripts/build_macos.sh
 ./scripts/build_macos.sh
 ```

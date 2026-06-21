@@ -8,7 +8,7 @@
 #endif
 #define MyAppVersion AppVersion
 #define MyAppPublisher "Sparsh Sam"
-#define MyAppURL "https://github.com/sparshsam/pdfreader-by-sparsh"
+#define MyAppURL "https://github.com/sparshsam/openreader"
 #define MyAppExeName "OpenReader.exe"
 
 [Setup]

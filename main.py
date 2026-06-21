@@ -51,7 +51,7 @@ from PySide6.QtWidgets import (
 
 
 __version__ = "1.2.2"
-GITHUB_REPO = "sparshsam/pdfreader-by-sparsh"
+GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "***"
@@ -2827,6 +2827,17 @@ class PdfReaderWindow(QMainWindow):
         layout.addSpacing(4)
 
         # Links
+        store_link = QLabel(
+            "<p style='font-size:12px; margin:0;'>"
+            "<a href='ms-windows-store://pdp/?productid=9MXDVW2645LL' "
+            "style='color:#89b4fa;'>Get OpenReader on Microsoft Store</a>"
+            "</p>"
+        )
+        store_link.setOpenExternalLinks(False)
+        store_link.linkActivated.connect(self._open_store_listing)
+        store_link.setAlignment(Qt.AlignCenter)
+        layout.addWidget(store_link)
+
         links = QLabel(
             f"<p style='font-size:12px; line-height:1.8;'>"
             f"<a href='https://github.com/{GITHUB_REPO}' style='color:#89b4fa;'>GitHub Repository</a>"
@@ -2860,6 +2871,13 @@ class PdfReaderWindow(QMainWindow):
         layout.addLayout(btn_layout)
 
         dlg.exec()
+
+    @staticmethod
+    def _open_store_listing(_link=None):
+        """Open the native Store listing, falling back to its web page."""
+        store_uri = QUrl("ms-windows-store://pdp/?productid=9MXDVW2645LL")
+        if not QDesktopServices.openUrl(store_uri):
+            QDesktopServices.openUrl(QUrl("https://apps.microsoft.com/detail/9MXDVW2645LL"))
 
     def _set_app_icon(self):
         """Set window icon from bundled .ico file with exhaustive fallback logging."""
