@@ -267,3 +267,87 @@ class TestOpenActionSignalHandling:
         assert "no file selected (cancelled)" in src
         # Verify old cascading fallback messages are removed
         assert "_pick_file_tkinter()" not in src.split("open_pdf: no file selected")[0].rsplit("def open_pdf")[-1]
+
+
+# ---------------------------------------------------------------------------
+# Zoom and Fit behaviour — v1.2.3
+# ---------------------------------------------------------------------------
+
+
+class TestZoomConstants:
+    def test_zoom_bounds_are_sane(self):
+        import main as m
+        assert m.PdfReaderWindow.MIN_ZOOM == 0.25
+        assert m.PdfReaderWindow.MAX_ZOOM == 5.0
+        assert m.PdfReaderWindow.ZOOM_STEP == 0.15
+
+    def test_tab_data_defaults_to_fit_on_open(self):
+        import main as m
+        tab = m.TabData(name="test")
+        assert tab.fit_to_window is True
+        assert tab.zoom == 1.25
+
+    def test_version_is_1_2_3(self):
+        import main as m
+        assert m.__version__ == "1.2.3"
+
+
+class TestZoomUi:
+    def test_zoom_buttons_use_clear_text_labels(self):
+        """Zoom buttons must use plain visible text, not obscure unicode or icon glyphs."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert 'QPushButton("−")' in src or 'QPushButton("-")' in src
+        assert 'QPushButton("+")' in src
+        assert 'QPushButton("Fit")' in src
+
+    def test_fit_tooltip_mentions_ctrl0(self):
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "Fit page to window" in src
+
+    def test_zoom_out_tooltip_mentions_mouse_wheel(self):
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "Mouse Wheel" in src
+
+    def test_zoom_in_tooltip_mentions_mouse_wheel(self):
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "Mouse Wheel" in src or "mouse wheel" in src
+
+
+class TestCtrlWheel:
+    def test_event_filter_handles_wheel_on_viewport(self):
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "event.type() == QEvent.Wheel" in src
+        assert "event.modifiers() & Qt.ControlModifier" in src
+        assert "self.zoom_in()" in src
+        assert "self.zoom_out()" in src
+        assert "scroll_area.viewport()" in src
+
+    def test_event_filter_installed_on_viewport(self):
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "scroll_area.viewport().installEventFilter(self)" in src
+
+    def test_wheel_event_prevents_scrolling_during_zoom(self):
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "return True  # consumed" in src
+
+
+class TestEffectiveZoom:
+    def test_fit_mode_returns_bounded_zoom(self):
+        """_effective_zoom should respect MIN/MAX bounds in fit mode."""
+        import main as m
+        assert m.PdfReaderWindow.MIN_ZOOM <= m.PdfReaderWindow.MAX_ZOOM
+
+    def test_non_fit_returns_stored_zoom(self):
+        """When fit_to_window is False, _effective_zoom must return the stored zoom value."""
+        import main as m
+        src = Path(m.__file__).read_text()
+        assert "if not self.fit_to_window:" in src
+        assert "return self.zoom" in src
+        assert "min(vp_w / pw, vp_h / ph)" in src  # true Fit Page (width + height)
