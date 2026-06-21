@@ -1,11 +1,27 @@
 # Changelog
 
+## v1.2.4 — Toolbar Icon Redesign — 2026-06-21
+
+- **Version:** Bumped `__version__` to `1.2.4`, MSIX version to `1.2.4.0`.
+- **Changed:** Zoom buttons redesigned from plain text characters to bold QPainter-drawn vector icons — clear bar, cross, and fit-arrow symbols that render crisply at any size or resolution.
+- **Changed:** Annotation buttons (`Copy`, `HL`, `UL`, `ST`, `📝`) replaced with recognizable vector icons — overlapping document pages, highlighter pen, underlined U, strikethrough S, and notepad with pin. The 📝 emoji (reported as "looking like a glue stick") is no longer used.
+- **Fixed:** Zoom buttons now have proper hover/press/checked visual feedback via stylesheet. Annotation buttons get consistent hover/press states.
+- **Fixed:** Missing `QPen` and `QPointF` imports added for QPainter icon drawing.
+
 ## v1.2.3 — Reader UX Polish — 2026-06-20
 
 - **Version:** Bumped `__version__` to `1.2.3`, MSIX version to `1.2.3.0`.
 - **Added:** Default Fit Page on open — all PDFs (normal open, recent files, session restore, new tab) now start in Fit view so the first page fits cleanly inside the document viewport. Uses both width and height constraints for true Fit Page behavior.
 - **Added:** Ctrl+Mouse Wheel zoom — scroll up to zoom in, scroll down to zoom out. Works when the PDF viewer has focus. Page scrolling is suppressed while Ctrl is held.
-- **Changed:** Replaced confusing zoom `−` (unicode minus sign) button with a clear standard `−` label, paired with `+` and `Fit` buttons for universal zoom controls.
+- **Changed:** Zoom buttons redesigned from plain text characters to bold QPainter-drawn vector icons — clear bar, cross, and fit-arrow symbols that render crisply at any size or resolution.
+- **Changed:** Annotation buttons (`Copy`, `HL`, `UL`, `ST`, `📝`) replaced with recognizable vector icons — overlapping document pages, highlighter pen, underlined U, strikethrough S, and notepad with pin. The 📝 emoji (reported as "looking like a glue stick") is no longer used.
+- **Fixed:** Zoom buttons now have proper hover/press/checked visual feedback via stylesheet. Annotation buttons get consistent hover/press states.
+- **Fixed:** Missing `QPen` and `QPointF` imports added for QPainter icon drawing.
+
+- **Version:** Bumped `__version__` to `1.2.3`, MSIX version to `1.2.3.0`.
+- **Added:** Default Fit Page on open — all PDFs (normal open, recent files, session restore, new tab) now start in Fit view so the first page fits cleanly inside the document viewport. Uses both width and height constraints for true Fit Page behavior.
+- **Added:** Ctrl+Mouse Wheel zoom — scroll up to zoom in, scroll down to zoom out. Works when the PDF viewer has focus. Page scrolling is suppressed while Ctrl is held.
+- **Changed:** Added proper `-`, `+`, and `Fit` text labels to zoom buttons for universal zoom controls.
 - **Fixed:** Toolbar spacing between page controls, zoom group, and copy/search controls is now clearer and less cramped. Both light and dark modes render correctly.
 - **Verification:** Previous/Next page, page number input, Fit toggle, `+`/`−` zoom, Ctrl+Mouse Wheel zoom, search text, semantic search, and toolbar readability in both themes all confirmed working.
 

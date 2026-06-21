@@ -1,4 +1,5 @@
 import json
+import math
 import os
 import platform
 import re
@@ -9,8 +10,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtCore import QByteArray, QEvent, QPoint, QPointF, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPen, QPixmap, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QApplication,
@@ -50,7 +51,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.3"
+__version__ = "1.2.4"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -628,6 +629,237 @@ class PdfPageLabel(QLabel):
 
 
 # ---------------------------------------------------------------------------
+# Zoom icon factory
+# ---------------------------------------------------------------------------
+
+
+def _make_zoom_icon(icon_size: int, draw_fn) -> QIcon:
+    """Create a crisp vector icon for toolbar buttons using QPainter."""
+    pixmap = QPixmap(icon_size, icon_size)
+    pixmap.fill(Qt.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    draw_fn(painter, icon_size)
+    painter.end()
+    return QIcon(pixmap)
+
+
+def _make_zoom_buttons() -> tuple[QPushButton, QPushButton, QPushButton]:
+    """Build zoom control buttons with crisp vector icons instead of text."""
+    btn_size = 34
+    line_w = 2.5
+    margin = 7
+
+    # --- Zoom out (-) icon ---
+    def _draw_minus(p: QPainter, s: int):
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(80, 80, 80))
+        y = s // 2
+        p.drawRoundedRect(margin, y - line_w, s - 2 * margin, line_w * 2, 2, 2)
+
+    # --- Zoom in (+) icon ---
+    def _draw_plus(p: QPainter, s: int):
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(80, 80, 80))
+        y = s // 2
+        p.drawRoundedRect(margin, y - line_w, s - 2 * margin, line_w * 2, 2, 2)
+        x = s // 2
+        p.drawRoundedRect(x - line_w, margin, line_w * 2, s - 2 * margin, 2, 2)
+
+    # --- Fit icon (two diagonal arrows pointing inward) ---
+    def _draw_fit(p: QPainter, s: int):
+        p.setPen(QPen(QColor(80, 80, 80), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.setBrush(Qt.NoBrush)
+        m = 8
+        # Top-left arrow
+        p.drawLine(m, s - m, s // 2 - 2, s // 2 - 2)
+        p.drawLine(m, m, s // 2 - 2, s // 2 - 2)
+        p.drawLine(m, m, s // 2 - 2, m)
+        # Bottom-right arrow
+        p.drawLine(s - m, m, s // 2 + 2, s // 2 + 2)
+        p.drawLine(s - m, s - m, s // 2 + 2, s // 2 + 2)
+        p.drawLine(s - m, s - m, s // 2 + 2, s - m)
+
+    # --- Hover/checked variants with accent color ---
+    def _make_hovered(draw_fn):
+        return _make_zoom_icon(btn_size, draw_fn)
+
+    zoom_out_icon = _make_zoom_icon(btn_size, _draw_minus)
+    zoom_in_icon = _make_zoom_icon(btn_size, _draw_plus)
+    fit_icon = _make_zoom_icon(btn_size, _draw_fit)
+
+    zoom_out = QPushButton()
+    zoom_out.setIcon(zoom_out_icon)
+    zoom_out.setIconSize(QSize(btn_size, btn_size))
+    zoom_out.setFixedSize(btn_size + 4, btn_size + 4)
+    zoom_out.setToolTip("Zoom out (Ctrl+Mouse Wheel Up / Ctrl+-)")
+
+    zoom_in = QPushButton()
+    zoom_in.setIcon(zoom_in_icon)
+    zoom_in.setIconSize(QSize(btn_size, btn_size))
+    zoom_in.setFixedSize(btn_size + 4, btn_size + 4)
+    zoom_in.setToolTip("Zoom in (Ctrl+Mouse Wheel Down / Ctrl+=)")
+
+    fit = QPushButton()
+    fit.setIcon(fit_icon)
+    fit.setIconSize(QSize(btn_size, btn_size))
+    fit.setFixedSize(btn_size + 4, btn_size + 4)
+    fit.setCheckable(True)
+    fit.setChecked(True)
+    fit.setToolTip("Fit page to window (Ctrl+0)")
+
+    # Stylesheet for consistent sizing and hover feedback
+    zoom_btn_css = """
+        QPushButton {
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background-color: transparent;
+            padding: 0px;
+        }
+        QPushButton:hover {
+            background-color: rgba(128, 128, 128, 40);
+            border-color: rgba(128, 128, 128, 80);
+        }
+        QPushButton:pressed {
+            background-color: rgba(128, 128, 128, 80);
+        }
+        QPushButton:checked {
+            background-color: rgba(74, 144, 217, 40);
+            border-color: rgba(74, 144, 217, 120);
+        }
+    """
+    zoom_out.setStyleSheet(zoom_btn_css)
+    zoom_in.setStyleSheet(zoom_btn_css)
+    fit.setStyleSheet(zoom_btn_css)
+
+    return zoom_out, zoom_in, fit
+
+
+def _make_tool_icons(icon_size: int):
+    """Build crisp vector icons for annotation toolbar buttons."""
+
+    btn_css = """
+        QPushButton {
+            border: 1px solid transparent;
+            border-radius: 4px;
+            background-color: transparent;
+            padding: 0px;
+        }
+        QPushButton:hover {
+            background-color: rgba(128, 128, 128, 40);
+            border-color: rgba(128, 128, 128, 80);
+        }
+        QPushButton:pressed {
+            background-color: rgba(128, 128, 128, 80);
+        }
+    """
+
+    def _build(draw_fn):
+        pixmap = QPixmap(icon_size, icon_size)
+        pixmap.fill(Qt.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        draw_fn(painter, icon_size)
+        painter.end()
+        return QIcon(pixmap)
+
+    # --- Copy: two overlapping document pages ---
+    def _draw_copy(p: QPainter, s: int):
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        # Back page
+        p.setPen(QPen(QColor(100, 100, 100), 1.5))
+        p.setBrush(QColor(245, 245, 245))
+        p.drawRoundedRect(7, 4, 15, 18, 2, 2)
+        # Front page
+        p.drawRoundedRect(10, 8, 17, 20, 2, 2)
+        # Lines on front page
+        p.setPen(QPen(QColor(140, 140, 140), 1.2))
+        for y in [14, 18, 22]:
+            p.drawLine(14, y, 23, y)
+
+    # --- Highlight: marker pen + highlight bar ---
+    def _draw_highlight(p: QPainter, s: int):
+        # Highlight bar (angled)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(255, 220, 60, 180))
+        bar = QPainterPath()
+        bar.moveTo(7, 25)
+        bar.lineTo(26, 6)
+        bar.lineTo(30, 10)
+        bar.lineTo(11, 29)
+        bar.closeSubpath()
+        p.drawPath(bar)
+        # Pen tip
+        p.setPen(QPen(QColor(60, 60, 60), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(26, 6, 29, 3)
+
+    # --- Underline: "U" with underline ---
+    def _draw_underline(p: QPainter, s: int):
+        p.setPen(QPen(QColor(80, 80, 80), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        # U shape
+        path = QPainterPath()
+        path.moveTo(9, 8)
+        path.cubicTo(9, 8, 9, 24, 17, 24)
+        path.cubicTo(25, 24, 25, 8, 25, 8)
+        p.drawPath(path)
+        # Underline
+        p.drawLine(8, 27, 26, 27)
+
+    # --- Strikethrough: "S" with strike line ---
+    def _draw_strikethrough(p: QPainter, s: int):
+        p.setPen(QPen(QColor(80, 80, 80), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        # S letter
+        path = QPainterPath()
+        path.moveTo(22, 8)
+        path.cubicTo(22, 8, 24, 7, 21, 7)
+        path.cubicTo(14, 7, 10, 18, 17, 18)
+        path.cubicTo(24, 18, 22, 27, 15, 27)
+        path.cubicTo(11, 27, 10, 26, 10, 26)
+        p.drawPath(path)
+        # Strike line
+        p.setPen(QPen(QColor(220, 50, 50), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+        p.drawLine(7, 17, 27, 17)
+
+    # --- Sticky Note: notepad with folded corner ---
+    def _draw_sticky(p: QPainter, s: int):
+        # Notepad body
+        p.setPen(QPen(QColor(100, 100, 100), 1.5))
+        p.setBrush(QColor(255, 250, 200))
+        p.drawRoundedRect(6, 4, 22, 26, 2, 2)
+        # Folded corner
+        fold = QPainterPath()
+        fold.moveTo(22, 4)
+        fold.lineTo(22, 12)
+        fold.lineTo(28, 12)
+        fold.closeSubpath()
+        p.setBrush(QColor(220, 215, 180))
+        p.setPen(QPen(QColor(140, 140, 140), 1))
+        p.drawPath(fold)
+        # Lined paper
+        p.setPen(QPen(QColor(180, 180, 150), 1.2))
+        for y in [15, 19, 23]:
+            p.drawLine(10, y, 21, y)
+        # Pin dot
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor(200, 70, 70))
+        p.drawEllipse(QPointF(s / 2, 6), 2.5, 2.5)
+
+    names = ["copy", "highlight", "underline", "strike", "sticky"]
+    drawers = [_draw_copy, _draw_highlight, _draw_underline, _draw_strikethrough, _draw_sticky]
+
+    buttons = []
+    for name, draw_fn in zip(names, drawers):
+        btn = QPushButton()
+        btn.setIcon(_build(draw_fn))
+        btn.setIconSize(QSize(icon_size, icon_size))
+        btn.setFixedSize(icon_size + 4, icon_size + 4)
+        btn.setStyleSheet(btn_css)
+        buttons.append(btn)
+
+    return buttons  # [copy, highlight, underline, strike, sticky]
+
+
+# ---------------------------------------------------------------------------
 # Main Window
 # ---------------------------------------------------------------------------
 
@@ -833,19 +1065,15 @@ class PdfReaderWindow(QMainWindow):
         self.page_spin.setToolTip("Jump to page number")
         self.page_count_label = QLabel("/ 0")
 
-        self.zoom_out_button = QPushButton("-")
-        self.zoom_out_button.setFixedWidth(32)
-        self.zoom_out_button.setToolTip("Zoom out (Ctrl+Mouse Wheel Up / Ctrl+-)")
-        self.zoom_in_button = QPushButton("+")
-        self.zoom_in_button.setFixedWidth(32)
-        self.zoom_in_button.setToolTip("Zoom in (Ctrl+Mouse Wheel Down / Ctrl+=)")
-        self.fit_button = QPushButton("Fit")
-        self.fit_button.setCheckable(True)
-        self.fit_button.setChecked(True)
-        self.fit_button.setFixedWidth(44)
-        self.fit_button.setToolTip("Fit page to window (Ctrl+0)")
-        self.copy_button = QPushButton("Copy")
+        self.zoom_out_button, self.zoom_in_button, self.fit_button = _make_zoom_buttons()
+        self.copy_button, self.highlight_button, self.underline_button, self.strike_button, self.sticky_button = \
+            _make_tool_icons(34)
         self.copy_button.setToolTip("Copy selected text (Ctrl+C)")
+        self.highlight_button.setToolTip("Highlight selected text")
+        self.underline_button.setToolTip("Underline selected text")
+        self.strike_button.setToolTip("Strikethrough selected text")
+        self.sticky_button.setCheckable(True)
+        self.sticky_button.setToolTip("Place sticky note")
 
         controls.addSpacing(4)
         controls.addWidget(self.prev_button)
@@ -859,22 +1087,6 @@ class PdfReaderWindow(QMainWindow):
         controls.addWidget(self.fit_button)
         controls.addSpacing(6)
         controls.addWidget(self.copy_button)
-
-        # Annotation buttons
-        self.highlight_button = QPushButton("HL")
-        self.highlight_button.setFixedWidth(34)
-        self.highlight_button.setToolTip("Highlight selected text")
-        self.underline_button = QPushButton("UL")
-        self.underline_button.setFixedWidth(34)
-        self.underline_button.setToolTip("Underline selected text")
-        self.strike_button = QPushButton("ST")
-        self.strike_button.setFixedWidth(34)
-        self.strike_button.setToolTip("Strikethrough selected text")
-        self.sticky_button = QPushButton("\U0001f4dd")
-        self.sticky_button.setFixedWidth(34)
-        self.sticky_button.setCheckable(True)
-        self.sticky_button.setToolTip("Place sticky note")
-
         controls.addWidget(self.highlight_button)
         controls.addWidget(self.underline_button)
         controls.addWidget(self.strike_button)
