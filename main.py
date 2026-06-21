@@ -51,7 +51,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.3"
+__version__ = "1.2.4"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10

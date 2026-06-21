@@ -287,9 +287,9 @@ class TestZoomConstants:
         assert tab.fit_to_window is True
         assert tab.zoom == 1.25
 
-    def test_version_is_1_2_3(self):
+    def test_version_is_1_2_4(self):
         import main as m
-        assert m.__version__ == "1.2.3"
+        assert m.__version__ == "1.2.4"
 
 
 class TestZoomUi:
