@@ -3,8 +3,8 @@
 **Target version:** v1.2.2 stable (MSIX version `1.2.2.0`)
 **Store ID:** `9MXDVW2645LL`
 **PFN:** `SparshSam.OpenReader_yh0byntbzd2qw`
-**Status:** 🔜 In certification
-**Privacy policy URL:** https://sparshsam.github.io/pdfreader-by-sparsh/privacy/
+**Status:** ✅ [Live in Microsoft Store](https://apps.microsoft.com/detail/9MXDVW2645LL)
+**Privacy policy URL:** https://sparshsam.github.io/openreader/privacy/
 **Upload artifact:** `OpenReader.msix` from v1.2.2 GitHub Release (built by release.yml workflow)
 
 ---
@@ -92,7 +92,7 @@ Start-Process "OpenReader"
 | App Store icons | `assets\icon-*.png` (44, 71, 150, 310x150, 620x300) | Must match manifest declarations |
 | Screenshots (at least 1) | Capture from running app | 1366×768 or 1920×1080 PNG recommended |
 | Description text | See README overview section | 1–3 paragraphs, no HTML |
-| Privacy policy URL | `https://sparshsam.github.io/pdfreader-by-sparsh/privacy/` | Published via GitHub Pages from repo `docs/` directory |
+| Privacy policy URL | `https://sparshsam.github.io/openreader/privacy/` | Published via GitHub Pages from repo `docs/` directory |
 | Age rating questionnaire | Complete in Partner Center | Desktop app category |
 
 ### 2.2 Store Listing Details
@@ -246,13 +246,13 @@ Write-Host "Publisher check: $($matches.Count -gt 0 ? 'PASS' : 'FAIL')"
 
 ## 6. Post-Submission Tasks
 
-- [x] Publish privacy policy URL (published at `https://sparshsam.github.io/pdfreader-by-sparsh/privacy/`)
-- [ ] Prepare Winget manifest for `SparshSam.OpenReader` — see [winget-preparation.md](winget-preparation.md)
-- [ ] Monitor Partner Center certification report
-- [ ] After acceptance: test Store install on clean Windows VM
-- [ ] After acceptance: test Store upgrade over existing sideloaded installation
-- [ ] Update `README.md` to reflect Store availability
-- [ ] Update `docs/windows-distribution.md` with Store channel details
+- [x] Publish privacy policy URL (published at `https://sparshsam.github.io/openreader/privacy/`)
+- [x] Prepare Winget manifest for `SparshSam.OpenReader` — see [winget-preparation.md](winget-preparation.md)
+- [x] Complete Partner Center certification
+- [ ] Test Store install on clean Windows VM
+- [ ] Test Store upgrade over existing sideloaded installation
+- [x] Update `README.md` to reflect Store availability
+- [x] Update `docs/windows-distribution.md` with Store channel details
 
 ---
 

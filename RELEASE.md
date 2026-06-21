@@ -56,7 +56,7 @@ no separate code-signing certificate is needed.
 
 The app's Help → Check for Updates:
 
-1. Calls `https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest`
+1. Calls `https://api.github.com/repos/sparshsam/openreader/releases/latest`
 2. Reads `tag_name` and compares against `__version__`
 3. If a newer version exists, shows a dialog with release notes
 4. User clicks "Open Releases Page" → browser opens GitHub Releases
@@ -83,21 +83,22 @@ After publishing a tag:
 You can inspect the latest release assets with:
 
 ```bash
-gh release view --repo sparshsam/pdfreader-by-sparsh --json tagName,assets
+gh release view --repo sparshsam/openreader --json tagName,assets
 ```
 
 Or via the same API used by the app:
 
 ```bash
-curl https://api.github.com/repos/sparshsam/pdfreader-by-sparsh/releases/latest
+curl https://api.github.com/repos/sparshsam/openreader/releases/latest
 ```
 
 ## MSIX Signing
 
 The MSIX package is unsigned for GitHub Release builds.
 
-1. **Microsoft Store** — Submission is in certification. The Store signs the
-   package automatically with its Store identity.
+1. **Microsoft Store** — Live at
+   [apps.microsoft.com/detail/9MXDVW2645LL](https://apps.microsoft.com/detail/9MXDVW2645LL).
+   The Store signs the package automatically with its Store identity.
 2. **Sideloading** — Unsigned MSIX from GitHub Releases requires Windows
    Developer Mode. Local test-signing scripts are in `packaging/msix/`.
 3. **No self-procured code-signing cert** — The Store handles production signing.

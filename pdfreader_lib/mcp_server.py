@@ -14,7 +14,7 @@ Usage (SSE transport for HTTP-based gateways):
 Agent configuration (Claude Code, Hermes, etc.):
     {
       "mcpServers": {
-        "pdfreader-by-sparsh": {
+        "openreader": {
           "command": "python",
           "args": ["-m", "pdfreader_lib.mcp_server"]
         }
@@ -578,7 +578,7 @@ TOOLS: list[Tool] = [
 
 async def serve_stdio() -> None:
     """Run the MCP server over stdio transport (standard for AI agents)."""
-    server = Server("pdfreader-by-sparsh")
+    server = Server("openreader")
 
     @server.list_tools()
     async def _list_tools() -> list[Tool]:
@@ -756,7 +756,7 @@ async def serve_sse(host: str = "0.0.0.0", port: int = 8312) -> None:
 
     import uvicorn
 
-    server = Server("pdfreader-by-sparsh")
+    server = Server("openreader")
 
     @server.list_tools()
     async def _list_tools() -> list[Tool]:

@@ -44,7 +44,7 @@ If you are using OpenReader v1.0.0 or v1.0.1 on Windows and see this error when 
 
 **One-time manual recovery** — you need to install v1.0.3 manually, then the updater will work from then on:
 
-1. **Download the installer** from the [v1.0.3 release page](https://github.com/sparshsam/pdfreader-by-sparsh/releases/tag/v1.0.3) — use `OpenReader-Setup.exe`.
+1. **Download the installer** from the [v1.0.3 release page](https://github.com/sparshsam/openreader/releases/tag/v1.0.3) — use `OpenReader-Setup.exe`.
 2. **Close OpenReader** if it is running (File → Quit, or close the window).
 3. **Right-click the installer** and choose **Run as Administrator**.
 4. **Install over the existing version** — use the same install location (`C:\Program Files\OpenReader` by default).

@@ -13,7 +13,7 @@ macOS experimental; Linux unsupported.
 
 ## Distribution and Updates
 
-- **Microsoft Store** (in certification) — automatic updates after approval.
+- **Microsoft Store** (live) — automatic updates through the Store.
 - **GitHub MSIX** — advanced users, unsigned, requires Developer Mode for sideloading.
 - **Legacy Setup.exe** — manual recovery only.
 - The app detects updates via GitHub API (opens browser). It never downloads or runs installers.

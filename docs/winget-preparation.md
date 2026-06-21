@@ -1,91 +1,105 @@
-# Winget Support Preparation
+# Winget Publication
 
-**Status:** 🔜 Not yet published
+**Community repository status:** 🟡 Manifest prepared; Windows validation and PR submission pending
+**Microsoft Store status:** ✅ [Live in Microsoft Store](https://apps.microsoft.com/detail/9MXDVW2645LL)
 
 ## Package Identity
 
 | Field | Value |
 |---|---|
-| Package identifier | `SparshSam.OpenReader` |
+| Community package identifier | `SparshSam.OpenReader` |
+| Microsoft Store product ID | `9MXDVW2645LL` |
 | Package family name | `SparshSam.OpenReader_yh0byntbzd2qw` |
 | Publisher | `Sparsh Sam` |
-| License | AGPL-3.0 |
-| Installer type | MSIX |
+| License | AGPL-3.0-only |
+| Community installer type | Inno Setup |
 
-## Requirements
+The Microsoft Store and Winget community repository are separate sources. The Store
+listing can be installed directly with:
 
-Before submitting to [winget-pkgs](https://github.com/microsoft/winget-pkgs):
+```powershell
+winget install --id 9MXDVW2645LL --source msstore
+```
 
-- [x] GitHub Releases must have predictable asset naming (done — `OpenReader.msix`)
-- [x] Release workflow produces consistent artifacts (done)
-- [ ] **Microsoft Store certification is approved** (blocking — wait for Store approval)
-- [ ] Stable release validation passes a Store-signed installation cycle
-- [ ] Winget manifest is prepared (see below)
-- [ ] Automated PR via winget release workflow is considered
+The `winget-pkgs` schema does not support a Store listing as an installer. The
+community manifest therefore uses the versioned `OpenReader-Setup.exe` release
+asset and exposes the stable `SparshSam.OpenReader` identifier:
 
-## Manifest Structure
+```powershell
+winget install --id SparshSam.OpenReader --exact
+```
+
+The GitHub `OpenReader.msix` is deliberately not used by the community manifest:
+v1.2.2 is unsigned and cannot install on a normal Windows configuration. Store
+certification does not add a signature to the separately published GitHub asset.
+
+## Prepared Manifest
+
+The submit-ready multi-file manifest is tracked at:
 
 ```text
-manifests/
-  s/
-    SparshSam/
-      OpenReader/
-        1.2.2.0.yaml
+packaging/winget/manifests/
+  s/SparshSam/OpenReader/1.2.2/
+    SparshSam.OpenReader.yaml
+    SparshSam.OpenReader.installer.yaml
+    SparshSam.OpenReader.locale.en-US.yaml
 ```
 
-### Manifest Template (prepare, do not submit)
+Verified release metadata:
 
-```yaml
-PackageIdentifier: SparshSam.OpenReader
-PackageVersion: 1.2.2.0
-PackageLocale: en-US
-Publisher: Sparsh Sam
-PublisherUrl: https://github.com/sparshsam
-PublisherSupportUrl: https://github.com/sparshsam/pdfreader-by-sparsh/issues
-Author: Sparsh Sam
-PackageName: OpenReader
-PackageUrl: https://github.com/sparshsam/pdfreader-by-sparsh
-License: AGPL-3.0
-LicenseUrl: https://github.com/sparshsam/pdfreader-by-sparsh/blob/main/LICENSE
-ShortDescription: Privacy-first, local-only PDF utility.
-Moniker: openreader
-Tags:
-  - pdf
-  - reader
-  - privacy
-  - local-first
-InstallerType: msix
-Installers:
-  - Architecture: x64
-    InstallerUrl: https://github.com/sparshsam/pdfreader-by-sparsh/releases/download/v1.2.2/OpenReader.msix
-    InstallerSha256: [REPLACE WITH ACTUAL SHA256]
-PackageFamilyName: SparshSam.OpenReader_yh0byntbzd2qw
-ManifestType: singleton
-ManifestVersion: 1.0.0
+| Field | Value |
+|---|---|
+| Release | `v1.2.2` |
+| Published | 2026-06-18 |
+| Asset | `OpenReader-Setup.exe` |
+| SHA-256 | `2FC3EC8D7439B21379FBB82A7E4E4F5B15B8E32E678B98DDFC9A1743EED359B2` |
+| Inno product code | `{D3A7F9E1-4B2C-4A8F-9E6D-1C5B3A7F9E01}_is1` |
+
+## Validation and Submission
+
+Complete these steps on Windows after the GitHub repository rename is live:
+
+```powershell
+# Confirm no package or open PR already uses the identifier.
+winget search --id SparshSam.OpenReader --exact
+
+# Validate schema and semantics.
+winget validate --manifest .\packaging\winget\manifests\s\SparshSam\OpenReader\1.2.2
+
+# Test an unattended install from the local manifest.
+winget settings --enable LocalManifestFiles
+winget install --manifest .\packaging\winget\manifests\s\SparshSam\OpenReader\1.2.2 --silent
+
+# Submit with winget-create after its GitHub authentication step.
+wingetcreate submit .\packaging\winget\manifests\s\SparshSam\OpenReader\1.2.2
 ```
 
-## Release Checklist Addition
+Before submission, verify that installation succeeds in Windows Sandbox, OpenReader
+launches, version `1.2.2` is shown, `winget list --id SparshSam.OpenReader --exact`
+correlates the installed package, and uninstall succeeds.
 
-Add this step to `RELEASE.md` after the existing validation checklist:
+## Release Checklist
 
-> - [ ] After Store approval and stable release validation, prepare Winget manifest update:
->   1. Fork [winget-pkgs](https://github.com/microsoft/winget-pkgs)
->   2. Create `manifests/s/SparshSam/OpenReader/<version>/`
->   3. Copy manifest template with updated version + SHA256
->   4. Submit PR
+- [x] Stable release asset naming (`OpenReader-Setup.exe`)
+- [x] Stable release workflow
+- [x] Microsoft Store certification approved
+- [x] Multi-file Winget 1.12 manifest prepared
+- [x] Release hashes independently verified
+- [ ] Repository renamed and new release URL confirmed
+- [ ] Local manifest validated with Winget on Windows
+- [ ] Silent install, launch, detection, upgrade, and uninstall tested in Windows Sandbox
+- [ ] Manifest submitted to `microsoft/winget-pkgs`
+- [ ] Submission PR merged and `winget install --id SparshSam.OpenReader --exact` verified
 
-## Versioning
+## Future Releases
 
-Winget uses the MSIX 4-part version string (e.g. `1.2.2.0`), which matches the version
-in `AppxManifest.xml`. Each new release requires a new manifest directory.
+Winget package versions follow the semantic GitHub release version (`1.2.2`), not
+the four-part internal MSIX version (`1.2.2.0`). For each stable release:
 
-## Update Flow
+1. Publish and test `OpenReader-Setup.exe`.
+2. Run `wingetcreate update SparshSam.OpenReader -u <versioned-installer-url>`.
+3. Validate the generated manifest in Windows Sandbox.
+4. Submit one package-version PR to `microsoft/winget-pkgs`.
 
-After initial submission, the winget bot automatically detects new releases and
-opens PRs to update the manifest. No manual submission is needed for subsequent releases.
-
-## Notes
-
-- Do not submit Winget until Store certification is approved.
-- Do not submit Winget before validating a Store-signed installation cycle.
-- The SHA256 hash in the manifest must match the MSIX attached to the GitHub Release.
+Do not assume that Winget will automatically open update PRs. Configure a separate
+release automation only after the first community manifest is merged.

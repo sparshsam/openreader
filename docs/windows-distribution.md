@@ -1,7 +1,7 @@
 # Windows Distribution Strategy
 
 **Version:** 1.2.0+  
-**Status:** MSIX/App Installer migration — Store reserved
+**Status:** Live in Microsoft Store; Winget manifest prepared
 
 ## Overview
 
@@ -9,7 +9,7 @@ OpenReader has migrated from Inno Setup self-updating to **MSIX** — Microsoft'
 modern packaging format — with multiple distribution channels. The app no longer
 downloads or runs installers from within itself; Windows handles updates.
 
-The Microsoft Store submission is currently in certification.
+OpenReader is [live in the Microsoft Store](https://apps.microsoft.com/detail/9MXDVW2645LL).
 
 ## ⚠️ Frozen Identity (MSIX / Microsoft Store)
 
@@ -60,8 +60,7 @@ CI auto-extracts from Git tag and pads to 4 parts: `${tag}.0`
 
 **Store ID:** `9MXDVW2645LL`
 
-OpenReader is currently in Microsoft Store certification. Once approved, users can search for "OpenReader"
-or install directly via:
+Users can search for "OpenReader" in the Microsoft Store or install directly via:
 
 ```
 ms-windows-store://pdp/?productid=9MXDVW2645LL
@@ -95,9 +94,9 @@ is active.
 **Legacy Setup.exe:** Retained for manual recovery. No longer supports in-app
 update triggering. Requires admin rights (UAC).
 
-### Discovery: Winget (Future)
+### Discovery: Winget
 
-**Planned package identifier:** `SparshSam.OpenReader`
+**Package identifier:** `SparshSam.OpenReader`
 
 Once submitted to the [winget-pkgs](https://github.com/microsoft/winget-pkgs)
 community repository:
@@ -107,11 +106,11 @@ winget install SparshSam.OpenReader
 ```
 
 **Winget readiness checklist:**
-- [ ] GitHub Releases must have predictable asset naming (done — `OpenReader.msix`)
-- [ ] Release workflow produces consistent artifacts (done)
-- [ ] Winget manifest: `manifests/s/SparshSam/OpenReader/1.2.0.0.yaml`
-- [ ] Automated PR via winget release workflow (future)
-- [ ] Update process: new release → winget bot auto-PR
+- [x] Predictable release asset naming (`OpenReader-Setup.exe`)
+- [x] Consistent release workflow
+- [x] Multi-file manifest prepared under `packaging/winget/manifests/`
+- [ ] Validate install and uninstall on Windows
+- [ ] Submit the manifest PR to `microsoft/winget-pkgs`
 
 ## MSIX Packaging
 
@@ -169,15 +168,15 @@ An OV or EV code-signing certificate enables sideloading without Developer Mode:
 
 1. **v1.1.x users:** Install OpenReader MSIX alongside existing installation.
    User settings are in `%APPDATA%` (shared across versions).
-2. **New users:** Prefer Microsoft Store when available; otherwise MSIX from
-   GitHub Releases (enable Developer Mode if unsigned).
-3. **Future:** Store exclusively once Store submission is active.
+2. **New users:** Prefer the Microsoft Store; advanced users may use the unsigned
+   GitHub MSIX with Developer Mode enabled.
+3. **Winget users:** Use the Store product ID until the community manifest is merged.
 
 ## Open Items
 
-- [ ] Submit MSIX to Microsoft Store
+- [x] Publish MSIX in Microsoft Store
 - [ ] Procure code-signing certificate (if not using Store exclusively)
 - [ ] Implement App Installer hosting infrastructure
-- [ ] Submit Winget manifest
+- [ ] Submit prepared Winget manifest
 - [ ] Validate Store vs. sideload behavior
 - [ ] End-to-end update flow validation
