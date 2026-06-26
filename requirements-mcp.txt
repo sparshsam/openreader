@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements-mcp.txt
 # Or for SSE/HTTP transport: pip install -r 'requirements-mcp.txt[sse]'
 
-mcp>=1.0.0
+mcp>=1.28.1
 
 # SSE transport extras (optional):
 # pip install starlette uvicorn
