@@ -90,11 +90,23 @@ python -m pytest tests/ -v
 
 ## MCP Server
 
-The repository ships `pdfreader_lib/mcp_server.py` — an MCP server exposing PDF operations as tools for AI agents.
+The repository ships two MCP server entry points:
+
+1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app source.
+2. **`packages/mcp-server/`** — standalone installable package published as `openreader-mcp`. Users install via `pip install openreader-mcp` and run with `python -m openreader_mcp`.
+
+### Standalone package (`packages/mcp-server/`)
+
+- `src/openreader_mcp/server.py` — mirrors `pdfreader_lib/mcp_server.py` but imports from bundled `_search_index` and `_comparison` modules instead of `pdfreader_lib.*`.
+- Update it whenever the original `pdfreader_lib/mcp_server.py` gains new tools or features.
+- `pyproject.toml` defines the pip package metadata.
+
+### Rules
 
 - `pdfreader_lib/mcp_server.py` must stay in sync with `main.py`'s feature set.
 - When adding a new PDF operation to the GUI, add a matching MCP tool.
 - Keep `requirements-mcp.txt` minimal (only `mcp` SDK required for stdio mode).
+- When adding a tool to the bundled server, add it to `packages/mcp-server/` too.
 
 ## Design Playbooks
 

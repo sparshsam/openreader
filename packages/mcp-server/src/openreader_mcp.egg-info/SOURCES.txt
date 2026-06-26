@@ -1,0 +1,13 @@
+README.md
+pyproject.toml
+src/openreader_mcp/__init__.py
+src/openreader_mcp/__main__.py
+src/openreader_mcp/_comparison.py
+src/openreader_mcp/_search_index.py
+src/openreader_mcp/server.py
+src/openreader_mcp.egg-info/PKG-INFO
+src/openreader_mcp.egg-info/SOURCES.txt
+src/openreader_mcp.egg-info/dependency_links.txt
+src/openreader_mcp.egg-info/entry_points.txt
+src/openreader_mcp.egg-info/requires.txt
+src/openreader_mcp.egg-info/top_level.txt

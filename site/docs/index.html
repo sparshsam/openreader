@@ -127,23 +127,18 @@
     <p>Before setting up the MCP server, make sure you have:</p>
     <ul>
       <li><strong>Python 3.10 or newer</strong> installed on your computer (<a href="https://python.org/downloads" style="color: var(--accent);" target="_blank" rel="noopener">download here</a>)</li>
-      <li>The OpenReader repository cloned locally</li>
       <li>An MCP-compatible AI assistant (Claude Desktop, Claude Code, Cursor, or any tool that supports MCP)</li>
     </ul>
+    <p>That&rsquo;s it. No repo to clone, no source code to download — just Python and a one-line pip install.</p>
 
-    <h2>Step 1: Clone the repository</h2>
-    <p>Open a terminal and run:</p>
-    <pre><code>git clone https://github.com/sparshsam/openreader.git
-cd openreader</code></pre>
+    <h2>Step 1: Install the package</h2>
+    <p>Open a terminal and run this one command:</p>
+    <pre><code>pip install openreader-mcp</code></pre>
+    <p>That&rsquo;s it. This installs everything you need &mdash; PyMuPDF for reading PDFs, the MCP SDK, and all 14 tools.</p>
 
-    <h2>Step 2: Install dependencies</h2>
-    <p>Run this command inside the <code>openreader</code> folder:</p>
-    <pre><code>pip install -r requirements.txt mcp</code></pre>
-    <p>This installs PyMuPDF (for reading PDFs), the MCP SDK, and other required libraries.</p>
-
-    <h2>Step 3: Test the server</h2>
+    <h2>Step 2: Test the server</h2>
     <p>Make sure everything works by running the MCP server directly:</p>
-    <pre><code>python -m pdfreader_lib.mcp_server</code></pre>
+    <pre><code>python -m openreader_mcp</code></pre>
     <p>If you see no errors, the server started successfully. Press <strong>Ctrl+C</strong> to stop it &mdash; your AI tool will start the server automatically when needed.</p>
 
     <h2>Step 4: Configure your AI assistant</h2>
@@ -154,7 +149,7 @@ cd openreader</code></pre>
   "mcpServers": {
     "openreader": {
       "command": "python",
-      "args": ["-m", "pdfreader_lib.mcp_server"]
+      "args": ["-m", "openreader_mcp"]
     }
   }
 }</pre>
@@ -166,7 +161,7 @@ cd openreader</code></pre>
   "mcpServers": {
     "openreader": {
       "command": "python",
-      "args": ["-m", "pdfreader_lib.mcp_server"]
+      "args": ["-m", "openreader_mcp"]
     }
   }
 }</pre>
@@ -176,7 +171,7 @@ cd openreader</code></pre>
     <ul>
       <li><strong>Name:</strong> openreader</li>
       <li><strong>Type:</strong> command</li>
-      <li><strong>Command:</strong> <code>python -m pdfreader_lib.mcp_server</code></li>
+      <li><strong>Command:</strong> <code>python -m openreader_mcp</code></li>
     </ul>
 
     <h2>What you can ask your AI</h2>
@@ -218,18 +213,18 @@ cd openreader</code></pre>
     </div>
 
     <div class="card">
-      <h4>"ModuleNotFoundError: No module named 'fitz'"</h4>
-      <p>You haven't installed the dependencies yet. Run <code>pip install -r requirements.txt</code> from inside the <code>openreader</code> folder.</p>
+      <h4>"ModuleNotFoundError: No module named 'openreader_mcp'"</h4>
+      <p>The package isn't installed. Run <code>pip install openreader-mcp</code> to install it.</p>
     </div>
 
     <div class="card">
       <h4>My AI tool says it can't find the MCP server</h4>
-      <p>Make sure <code>python</code> and the openreader folder are both accessible. Try running <code>python -m pdfreader_lib.mcp_server</code> manually first to confirm it works. If you're using a virtual environment, make sure your AI tool also uses it.</p>
+      <p>Make sure <code>python</code> and <code>openreader-mcp</code> are both installed. Try running <code>python -m openreader_mcp</code> manually first to confirm it works. If you're using a virtual environment, make sure your AI tool also uses it.</p>
     </div>
 
     <div class="card">
       <h4>I installed OpenReader from the Microsoft Store</h4>
-      <p>The Store version is a packaged app and doesn't include the MCP server. To use AI features, you need to clone the repository separately as shown above. The MCP server only needs the source code &mdash; it doesn't conflict with the Store app.</p>
+      <p>That's fine! The MCP server is a separate package — just run <code>pip install openreader-mcp</code> and you're good to go. It works independently of the Store app and can read the same PDFs on your computer.</p>
     </div>
 
   </div>
