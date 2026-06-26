@@ -174,7 +174,7 @@
       section.chapter { padding: 140px 0; }
       .features-grid { grid-template-columns: 1fr; gap: 48px; }
       .feature-item { max-width: 100%; }
-      .feature-item .number { font-size: 56px; }
+      
       .trust-strip .strip-inner { gap: 40px; }
       .trust-item .value { font-size: 30px; }
       .cta-section h2 { font-size: 38px; }
@@ -220,188 +220,38 @@
   <section id="features" class="chapter container-wide">
     <h2 class="section-title">Things it does. No fluff.</h2>
     <p class="section-body">Just the stuff you actually need to do with PDFs&mdash;without a subscription or a browser eating your RAM.</p>
+
     <div class="features-grid">
-    </div>
-  </section>
-
-  <section id="mcp" class="mcp-section">
-    <div class="container-wide">
-      <span class="mcp-badge">AI-Native</span>
-      <h2 class="section-title">Let AI read your PDFs for you.</h2>
-      <p>OpenReader has a built-in MCP server that lets AI assistants like Claude, ChatGPT, and Cursor open and work with your PDFs. Ask your AI to <strong>"find the contract clause about refunds"</strong> or <strong>"compare these two PDFs and tell me what changed"</strong>&mdash;the AI reads the files on your computer locally, so nothing is ever uploaded.</p>
-
-      <div class="setup-steps">
-        <div class="step">
-          <div class="step-number">1</div>
-          <div class="step-content">
-            <h4>Install the package</h4>
-            <p>Run this in your terminal — only need to do it once:</p>
-            <code class="inline-code">pip install openreader-mcp</code>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-number">2</div>
-          <div class="step-content">
-            <h4>Tell your AI assistant about it</h4>
-            <p>Copy the prompt below and paste it into your AI chat. The AI will know how to connect to your PDFs.</p>
-          </div>
-        </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="12" y1="9" x2="12" y2="17"/></svg></div>
+        <h3>Read &amp; Mark Up</h3>
+        <p>Highlight, underline, cross out, and add notes on any page. Copy text with formatting. Everything stays on your computer.</p>
       </div>
-
-      <div class="prompt-box">
-        <div class="prompt-box-header">
-          <span>Paste this directly into your AI assistant:</span>
-          <button class="copy-btn" onclick="copyPrompt()">Copy</button>
-        </div>
-        <pre class="prompt-code">You now have access to the OpenReader MCP server, which lets you read, search, compare, and manage PDF files on my local computer.
-
-Here is how to set up the MCP server for your environment:
-
-<code>{
-  "mcpServers": {
-    "openreader": {
-      "command": "python",
-      "args": ["-m", "openreader_mcp"]
-    }
-  }
-}</code>
-
-I installed it with <code>pip install openreader-mcp</code>. My PDFs are on my local filesystem — ask me for file paths when you need to open one.
-
-Available tools:
-- <code>extract_text</code> — read all text from a PDF
-- <code>get_page_text</code> — read one specific page
-- <code>get_metadata</code> — get document info (page count, author, title)
-- <code>search_pdf</code> — find a word or phrase inside a PDF
-- <code>compare_pdfs</code> — show differences between two PDFs
-- <code>merge_pdfs</code> — combine multiple PDFs into one file
-- <code>split_pdf</code> — split a PDF into separate pages
-- <code>extract_pages</code> — pull out specific pages from a PDF
-- <code>compress_pdf</code> — make a PDF file smaller
-- <code>index_folder</code> — build a searchable index of all PDFs in a folder
-- <code>search_library</code> — search across all indexed PDFs at once
-- <code>search_semantic</code> — meaning-based search across indexed PDFs
-- <code>list_indexed_docs</code> — list all PDFs currently in the search index</pre>
+      <div class="feature-item">
+        <div class="feature-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg></div>
+        <h3>Search Inside</h3>
+        <p>Search for any word across your open document. Results show up instantly. No waiting, no loading bars.</p>
       </div>
-
-      <p style="font-size: 17px; margin-top: 24px; max-width: 640px; margin-left: auto; margin-right: auto;">
-        14 tools. All local. No data ever leaves your machine.
-        <a href="/docs" class="accent-link" target="_blank" rel="noopener">Full setup guide <span class="new-tab-icon">&#x2197;</span></a>
-      </p>
-    </div>
-  </section>
-
-  <section class="chapter">
-    <div class="trust-strip"><div class="container-wide"><div class="strip-inner">
-      <div class="trust-item"><span class="value">100%</span><span class="label">Local &amp; Private</span></div>
-      <div class="trust-item"><span class="value">Open Source</span><span class="label">AGPL-3.0 License</span></div>
-      <div class="trust-item"><span class="value">14 Tools</span><span class="label">MCP Server</span></div>
-      <div class="trust-item"><span class="value">Store</span><span class="label">Microsoft Certified</span></div>
-    </div></div></div>
-  </section>
-
-  <section class="cta-section container-wide">
-    <h2>Start reading. Privately.</h2>
-    <p>Download from the Microsoft Store or build from source on GitHub. No sign-up, no subscription&mdash;just a tool that respects your privacy.</p>
-    <div class="cta-group">
-      <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" class="btn btn-primary">Get from Microsoft Store</a>
-      <a href="https://github.com/sparshsam/openreader" target="_blank" class="btn btn-secondary">View on GitHub</a>
-    </div>
-  </section>
-
-  <footer>
-    <div class="brand-line"><strong>OpenReader</strong> &mdash; A private PDF reader. Made by <strong>Sparsh Sam</strong>.</div>
-    <div class="footer-links">
-      <a href="https://github.com/sparshsam/openreader" target="_blank" rel="noopener">GitHub</a>
-      <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" rel="noopener">Microsoft Store</a>
-    </div>
-  </footer>
-
-  <script>
-    function copyPrompt() {
-      var el = document.querySelector('.prompt-code');
-      var text = el.textContent;
-      navigator.clipboard.writeText(text).then(function() {
-        var btn = document.querySelector('.copy-btn');
-        btn.textContent = 'Copied!';
-        btn.classList.add('copied');
-        setTimeout(function() {
-          btn.textContent = 'Copy';
-          btn.classList.remove('copied');
-        }, 2000);
-      });
-    }
-  </script>
-
-</body>
-</html><div class="features-grid">
-        <div class="feature-item">
-          <div class="feature-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/>
-              <polyline points="14 2 14 8 20 8"/>
-              <line x1="8" y1="13" x2="16" y2="13"/>
-              <line x1="12" y1="9" x2="12" y2="17"/>
-            </svg>
-          </div>
-          <h3>Read &amp; Mark Up</h3>
-          <p>Highlight, underline, cross out, and add notes on any page. Copy text with formatting. Everything stays on your computer.</p>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              <line x1="8" y1="11" x2="14" y2="11"/>
-            </svg>
-          </div>
-          <h3>Search Inside</h3>
-          <p>Search for any word across your open document. Results show up instantly. No waiting, no loading bars.</p>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
-              <path d="M10 9h4v6h-4z"/>
-            </svg>
-          </div>
-          <h3>Compare Two PDFs</h3>
-          <p>See exactly what changed between two versions&mdash;word by word, page by page. Great for contracts or draft reviews.</p>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-              <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-              <polyline points="12 6 12 12 16 14"/>
-            </svg>
-          </div>
-          <h3>Pick Up Where You Left Off</h3>
-          <p>Close the app, open it later, and all your documents and highlights are still there. Nothing lost.</p>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <circle cx="12" cy="11" r="2.5"/>
-              <path d="M9 14q0 3 3 5 3-2 3-5"/>
-            </svg>
-          </div>
-          <h3>100% Offline</h3>
-          <p>No internet needed. No account. No cloud uploads. The file never leaves your machine. Ever.</p>
-        </div>
-        <div class="feature-item">
-          <div class="feature-icon">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-              <line x1="8" y1="21" x2="16" y2="21"/>
-              <line x1="12" y1="17" x2="12" y2="21"/>
-            </svg>
-          </div>
-          <h3>Works on Windows &amp; Mac</h3>
-          <p>Native Windows app (Microsoft Store). Experimental on Mac. Built with Python. Free and open source.</p>
-        </div>
-      </div><h3>Search Inside</h3><p>Search for any word across your open document. Results show up instantly. No waiting, no loading bars.</p></div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/><path d="M10 9h4v6h-4z"/></svg></div>
+        <h3>Compare Two PDFs</h3>
+        <p>See exactly what changed between two versions&mdash;word by word, page by page. Great for contracts or draft reviews.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3>Pick Up Where You Left Off</h3>
+        <p>Close the app, open it later, and all your documents and highlights are still there. Nothing lost.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><circle cx="12" cy="11" r="2.5"/><path d="M9 14q0 3 3 5 3-2 3-5"/></svg></div>
+        <h3>100% Offline</h3>
+        <p>No internet needed. No account. No cloud uploads. The file never leaves your machine. Ever.</p>
+      </div>
+      <div class="feature-item">
+        <div class="feature-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+        <h3>Works on Windows &amp; Mac</h3>
+        <p>Native Windows app (Microsoft Store). Experimental on Mac. Built with Python. Free and open source.</p>
+      </div>
     </div>
   </section>
 
