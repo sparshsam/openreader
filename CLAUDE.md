@@ -92,14 +92,14 @@ python -m pytest tests/ -v
 
 The repository ships two MCP server entry points:
 
-1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app source.
-2. **`packages/mcp-server/`** — standalone installable package published as `openreader-mcp`. Users install via `pip install openreader-mcp` and run with `python -m openreader_mcp`.
+1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app source. 14 tools, stdio + SSE transport.
+   - All tool descriptions rewritten as AI-optimized sentences (what, returns, when-to-use).
+   - Error messages are tiered: validation, file-not-found, missing params, unexpected errors.
+   - Tests at `tests/test_mcp_server.py` — 43 tests covering registration, validation, output shape, error handling.
 
-### Standalone package (`packages/mcp-server/`)
-
-- `src/openreader_mcp/server.py` — mirrors `pdfreader_lib/mcp_server.py` but imports from bundled `_search_index` and `_comparison` modules instead of `pdfreader_lib.*`.
-- Update it whenever the original `pdfreader_lib/mcp_server.py` gains new tools or features.
-- `pyproject.toml` defines the pip package metadata.
+2. **`packages/mcp-server/`** — standalone pip package `openreader-mcp`. Install via `pip install openreader-mcp`, run with `python -m openreader_mcp`.
+   - Mirrors the bundled server but imports bundled `_search_index` and `_comparison` modules.
+   - `pyproject.toml` defines metadata. Update whenever `pdfreader_lib/mcp_server.py` gains new tools.
 
 ### Rules
 
@@ -107,10 +107,11 @@ The repository ships two MCP server entry points:
 - When adding a new PDF operation to the GUI, add a matching MCP tool.
 - Keep `requirements-mcp.txt` minimal (only `mcp` SDK required for stdio mode).
 - When adding a tool to the bundled server, add it to `packages/mcp-server/` too.
+- Agent config uses `"args": ["-m", "openreader_mcp"]` (standalone) or `"args": ["-m", "pdfreader_lib.mcp_server"]` (bundled).
 
 ## Design Playbooks
 
-Three canonical playbooks govern all design and architecture decisions for this project and all Kovina apps. They are loaded at `docs/playbooks/`:
+Three canonical playbooks govern all design and architecture decisions. Loaded at `docs/playbooks/`:
 
 | File | What it covers |
 |------|---------------|
@@ -118,23 +119,39 @@ Three canonical playbooks govern all design and architecture decisions for this 
 | `docs/playbooks/DESIGN_PLAYBOOK.md` | Visual design — machine metaphor, color, typography, component rules, buttons, navigation, states |
 | `docs/playbooks/MCP-SERVER-BUILD-GUIDE.md` | MCP server blueprint — SHA-256 token auth, Streamable HTTP, user isolation, tool patterns, testing |
 
-**Every design or architectural decision starts from these playbooks first.** If a playbook covers the case, follow it. If it doesn't, extend the playbook.
+**Every design or architectural decision starts from these playbooks first.**
 
 ## Landing Page
 
-OpenReader has a showcase landing page at **https://reader.kovina.org**, hosted on Cloudflare Pages.
+OpenReader's showcase landing page at **https://reader.kovina.org**, hosted on Cloudflare Pages.
 
-- Source: `site/` directory at repo root
-- Built as static HTML + CSS — no build step
-- Follows the Landing Page archetype from the Architecture Playbook
-- Deploy via Cloudflare Pages dashboard or Wrangler CLI
+- **Source:** `site/` — static HTML + CSS, no build step.
+- **Font:** Huninn (rounded sans-serif), hosted TTF.
+- **Accent:** `#ff255F` (pink/red).
+- **Dark mode toggle:** sun/moon icon at right screen edge, persists to localStorage.
+- **Features:** SVG icons replace numbered list. Hero icon at 512×512px.
+- **Nav:** logo left, links centered, theme toggle far right. Seamless (no border).
+- **Sections:** Hero → Story → Features (SVG icons) → MCP/AI (with copy-paste prompt) → Ribbon (#ff255F filled) → CTA → Footer.
+- **MCP prompt box:** Click-to-copy JSON config users paste to any AI assistant.
+- **Docs page:** `site/docs/index.html` — full MCP setup guide for Claude Code, Desktop, Cursor.
+
+### Deploy
+
+- **Manual:** `npx wrangler pages deploy site/ --project-name reader` (requires `CLOUDFLARE_API_TOKEN`).
+- **Auto:** `.github/workflows/deploy-site.yml` deploys on push to `main` touching `site/`.
+
+## GitHub Repo
+
+- **Website URL:** `https://reader.kovina.org`
+- **Description:** Includes Microsoft Store ID (`9MXDVW2645LL`) for discoverability.
+- **Release page:** v1.2.4 release body has Store link at top + direct download assets below.
 
 ## App Identity Card
 
 | Property | Definition |
 |----------|-----------|
 | Core metaphor | Reading desk / Document workbench |
-| Primary brand color | #2952CC (focus blue) |
+| Primary brand color | #ff255F (accent) |
 | Emotional tone | Focused, calm |
 | Main user action | Read & annotate PDFs |
-| Navigation | Features · Store · GitHub |
+| Navigation | Features · AI Access · Docs · Store · GitHub |
