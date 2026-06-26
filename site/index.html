@@ -7,7 +7,15 @@
   <meta name="description" content="A private PDF reader for your computer. Read, highlight, search, and compare PDFs. No uploads. No accounts. No cloud. Works with AI assistants." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    @font-face {
+      font-family: 'Huninn';
+      src: url('/Huninn-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+  </style>
   <link rel="icon" type="image/svg+xml" href="/openreader-icon.svg" />
   <link rel="apple-touch-icon" href="/openreader-icon.svg" />
   <meta property="og:title" content="OpenReader — Private PDF Reader" />
@@ -26,7 +34,7 @@
       --border-default: rgba(255, 255, 255, 0.06);
       --accent: #ff255f;
       --accent-hover: #ff4777;
-      --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-sans: 'Huninn', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
       --font-mono: ui-monospace, 'SF Mono', monospace;
       --feature-max: 1200px;
     }
