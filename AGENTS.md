@@ -50,11 +50,32 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 ## MCP Server (AI Agent Integration)
 
-The repository ships `pdfreader_lib/mcp_server.py` — an MCP server exposing all PDF operations as tools for AI agents.
+The repository ships two MCP server entry points:
+
+1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app. 14 tools, stdio + SSE transport.
+2. **`packages/mcp-server/`** — standalone pip package `openreader-mcp`. Install via `pip install openreader-mcp`, run with `python -m openreader_mcp`.
+
+**Improvements made (June 2026):**
+- All 14 tool descriptions rewritten as AI-optimized sentences (what it does, what it returns, when to use vs alternatives).
+- Error messages tiered by type: validation errors, file-not-found, missing params, unexpected errors — each tells the agent what to fix.
+- 43 tests added at `tests/test_mcp_server.py` covering registration, input validation, output shape, and error handling.
+- Standalone package created at `packages/mcp-server/` — users install with one `pip install` command, no repo clone needed.
 
 **Maintenance rules:**
 - `pdfreader_lib/mcp_server.py` must stay in sync with the feature set in `main.py`.
-- When adding a new PDF operation to the GUI, add a matching MCP tool in `mcp_server.py`.
+- When adding a new PDF operation to the GUI, add a matching MCP tool.
 - Do not introduce network behavior beyond the existing GitHub release check (update detection only — no download) and MCP transport.
 - The MCP server is optional — it does not affect the desktop GUI or packaged builds.
-- Keep the `requirements-mcp.txt` dependency list minimal (only `mcp` SDK is required for stdio mode).
+- Keep `requirements-mcp.txt` minimal (only `mcp` SDK required for stdio mode).
+- When adding a tool to the bundled server, add it to `packages/mcp-server/` too.
+- Agent config uses `"args": ["-m", "openreader_mcp"]` for standalone, `"args": ["-m", "pdfreader_lib.mcp_server"]` for bundled.
+
+## Landing Page & Docs
+
+OpenReader has a showcase landing page at **https://reader.kovina.org** (Cloudflare Pages).
+
+- **Source:** `site/` — static HTML + CSS. Huninn font, `#ff255F` accent, dark/light toggle.
+- **Features:** Hero → Story → SVG feature icons → MCP/AI section with copy-paste prompt → CTA.
+- **MCP prompt box:** Users click Copy, paste to any AI assistant to set up `python -m openreader_mcp`.
+- **Docs page:** `site/docs/index.html` — full MCP setup guide for Claude Code, Desktop, Cursor.
+- **Deploy:** Auto via `.github/workflows/deploy-site.yml` on push to `main` touching `site/`. Manual via `npx wrangler pages deploy site/ --project-name reader`.
