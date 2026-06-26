@@ -95,3 +95,34 @@ The repository ships `pdfreader_lib/mcp_server.py` — an MCP server exposing PD
 - `pdfreader_lib/mcp_server.py` must stay in sync with `main.py`'s feature set.
 - When adding a new PDF operation to the GUI, add a matching MCP tool.
 - Keep `requirements-mcp.txt` minimal (only `mcp` SDK required for stdio mode).
+
+## Design Playbooks
+
+Three canonical playbooks govern all design and architecture decisions for this project and all Kovina apps. They are loaded at `docs/playbooks/`:
+
+| File | What it covers |
+|------|---------------|
+| `docs/playbooks/PRODUCT_ARCHITECTURE_PLAYBOOK.md` | Structural canvas — spatial system, grids, containers, responsive, layout archetypes, reading tempo, motion |
+| `docs/playbooks/DESIGN_PLAYBOOK.md` | Visual design — machine metaphor, color, typography, component rules, buttons, navigation, states |
+| `docs/playbooks/MCP-SERVER-BUILD-GUIDE.md` | MCP server blueprint — SHA-256 token auth, Streamable HTTP, user isolation, tool patterns, testing |
+
+**Every design or architectural decision starts from these playbooks first.** If a playbook covers the case, follow it. If it doesn't, extend the playbook.
+
+## Landing Page
+
+OpenReader has a showcase landing page at **https://reader.kovina.org**, hosted on Cloudflare Pages.
+
+- Source: `site/` directory at repo root
+- Built as static HTML + CSS — no build step
+- Follows the Landing Page archetype from the Architecture Playbook
+- Deploy via Cloudflare Pages dashboard or Wrangler CLI
+
+## App Identity Card
+
+| Property | Definition |
+|----------|-----------|
+| Core metaphor | Reading desk / Document workbench |
+| Primary brand color | #2952CC (focus blue) |
+| Emotional tone | Focused, calm |
+| Main user action | Read & annotate PDFs |
+| Navigation | Features · Store · GitHub |
