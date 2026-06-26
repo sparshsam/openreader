@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MCP Setup Guide — OpenReader</title>
+  <meta name="description" content="Complete guide to connecting AI assistants to OpenReader's MCP server. Works with Claude, ChatGPT, Cursor, and any MCP-compatible AI." />
+  <style>
+    @font-face {
+      font-family: 'Huninn';
+      src: url('/Huninn-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #000000;
+      --bg-surface: #0d0d0d;
+      --bg-surface-muted: #1a1a1a;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --text-muted: #8a8a8a;
+      --border-default: rgba(255, 255, 255, 0.06);
+      --accent: #ff255f;
+      --accent-hover: #ff4777;
+      --font-sans: 'Huninn', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-mono: ui-monospace, 'SF Mono', monospace;
+      --content-max: 800px;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .page { max-width: var(--content-max); margin: 0 auto; padding: 80px 48px; }
+
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      height: 72px;
+      display: flex; align-items: center; justify-content: center;
+      border-bottom: 1px solid var(--border-default);
+    }
+    nav .nav-inner { width: 100%; max-width: var(--content-max); padding: 0 48px; display: flex; align-items: center; justify-content: space-between; }
+    nav .logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; color: var(--text-primary); text-decoration: none; }
+    nav .logo img { width: 28px; height: 28px; border-radius: 6px; }
+    nav .nav-links { display: flex; gap: 4px; }
+    nav .nav-links a { padding: 8px 20px; border-radius: 9999px; font-size: 14px; font-weight: 600; color: var(--text-secondary); text-decoration: none; transition: background 0.2s, color 0.2s; }
+    nav .nav-links a:hover { background: var(--bg-surface-muted); color: var(--text-primary); }
+
+    h1 { font-size: 52px; font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; }
+    h1 .accent { color: var(--accent); }
+    .subtitle { font-size: 18px; color: var(--text-secondary); margin-bottom: 56px; }
+
+    h2 { font-size: 32px; font-weight: 800; letter-spacing: -0.02em; margin: 56px 0 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border-default); }
+    h3 { font-size: 22px; font-weight: 700; margin: 32px 0 12px; }
+    p { font-size: 16px; color: var(--text-secondary); margin-bottom: 16px; }
+    strong { color: var(--text-primary); }
+
+    .card { background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+    .card h4 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+
+    pre { background: var(--bg-surface-muted); border: 1px solid var(--border-default); border-radius: 12px; padding: 20px; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; color: var(--text-secondary); overflow-x: auto; white-space: pre-wrap; word-break: break-word; margin-bottom: 24px; }
+    code { font-family: var(--font-mono); font-size: 13px; background: var(--bg-surface-muted); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
+    pre code { background: none; padding: 0; color: var(--text-secondary); }
+
+    ul, ol { margin-bottom: 24px; padding-left: 24px; }
+    li { font-size: 16px; color: var(--text-secondary); margin-bottom: 8px; }
+    li strong { color: var(--text-primary); }
+
+    .note { background: var(--bg-surface); border-left: 3px solid var(--accent); border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+    .note p { margin-bottom: 0; font-size: 15px; }
+
+    .tool-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 0; margin-bottom: 24px; border: 1px solid var(--border-default); border-radius: 12px; overflow: hidden; }
+    .tool-item { display: contents; }
+    .tool-name { padding: 12px 16px; background: var(--bg-surface); font-family: var(--font-mono); font-size: 13px; color: var(--accent); border-bottom: 1px solid var(--border-default); }
+    .tool-desc { padding: 12px 16px; font-size: 14px; color: var(--text-secondary); border-bottom: 1px solid var(--border-default); }
+    .tool-item:last-child .tool-name { border-bottom: none; }
+    .tool-item:last-child .tool-desc { border-bottom: none; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--text-muted); text-decoration: none; font-size: 14px; margin-bottom: 32px; transition: color 0.2s; }
+    .back-link:hover { color: var(--text-primary); }
+
+    footer { border-top: 1px solid var(--border-default); padding: 40px 48px; text-align: center; margin-top: 80px; }
+    footer p { font-size: 14px; color: var(--text-muted); margin-bottom: 0; }
+
+    @media (max-width: 767px) {
+      .page { padding: 40px 24px; }
+      nav .nav-inner, nav { padding: 0 24px; }
+      h1 { font-size: 36px; }
+      h2 { font-size: 26px; }
+      .tool-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo"><img src="/openreader-icon.svg" alt="" />OpenReader</a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="https://github.com/sparshsam/openreader" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page">
+
+    <a href="/" class="back-link">&larr; Back to home</a>
+
+    <h1>MCP Server <span class="accent">Setup Guide</span></h1>
+    <p class="subtitle">Connect AI assistants like Claude, ChatGPT, and Cursor to your PDFs &mdash; all locally, all private.</p>
+
+    <div class="note">
+      <p><strong>What is MCP?</strong> MCP (Model Context Protocol) is a standard that lets AI assistants read and work with files on your computer. OpenReader's MCP server gives AI tools access to your PDFs &mdash; search, compare, extract text &mdash; without uploading anything to the cloud.</p>
+    </div>
+
+    <h2>Prerequisites</h2>
+    <p>Before setting up the MCP server, make sure you have:</p>
+    <ul>
+      <li><strong>Python 3.10 or newer</strong> installed on your computer (<a href="https://python.org/downloads" style="color: var(--accent);" target="_blank" rel="noopener">download here</a>)</li>
+      <li>The OpenReader repository cloned locally</li>
+      <li>An MCP-compatible AI assistant (Claude Desktop, Claude Code, Cursor, or any tool that supports MCP)</li>
+    </ul>
+
+    <h2>Step 1: Clone the repository</h2>
+    <p>Open a terminal and run:</p>
+    <pre><code>git clone https://github.com/sparshsam/openreader.git
+cd openreader</code></pre>
+
+    <h2>Step 2: Install dependencies</h2>
+    <p>Run this command inside the <code>openreader</code> folder:</p>
+    <pre><code>pip install -r requirements.txt mcp</code></pre>
+    <p>This installs PyMuPDF (for reading PDFs), the MCP SDK, and other required libraries.</p>
+
+    <h2>Step 3: Test the server</h2>
+    <p>Make sure everything works by running the MCP server directly:</p>
+    <pre><code>python -m pdfreader_lib.mcp_server</code></pre>
+    <p>If you see no errors, the server started successfully. Press <strong>Ctrl+C</strong> to stop it &mdash; your AI tool will start the server automatically when needed.</p>
+
+    <h2>Step 4: Configure your AI assistant</h2>
+
+    <h3>Claude Code</h3>
+    <p>Add this to your project's <code>.claude/settings.local.json</code> file (create it if it doesn't exist):</p>
+    <pre>{
+  "mcpServers": {
+    "openreader": {
+      "command": "python",
+      "args": ["-m", "pdfreader_lib.mcp_server"]
+    }
+  }
+}</pre>
+    <p>Or add it to your global <code>~/.claude/settings.json</code> to make it available in every project.</p>
+
+    <h3>Claude Desktop</h3>
+    <p>Open Claude Desktop settings and find the MCP Servers section. Add a new server with:</p>
+    <pre>{
+  "mcpServers": {
+    "openreader": {
+      "command": "python",
+      "args": ["-m", "pdfreader_lib.mcp_server"]
+    }
+  }
+}</pre>
+
+    <h3>Cursor</h3>
+    <p>Go to <strong>Cursor Settings &rarr; MCP Servers &rarr; Add New Server</strong> and enter:</p>
+    <ul>
+      <li><strong>Name:</strong> openreader</li>
+      <li><strong>Type:</strong> command</li>
+      <li><strong>Command:</strong> <code>python -m pdfreader_lib.mcp_server</code></li>
+    </ul>
+
+    <h2>What you can ask your AI</h2>
+    <p>Once connected, you can ask your AI assistant things like:</p>
+    <ul>
+      <li><strong>"Open my contract PDF and find the termination clause"</strong></li>
+      <li><strong>"Compare these two PDFs and tell me what changed"</strong></li>
+      <li><strong>"Search all my research papers for mentions of machine learning"</strong></li>
+      <li><strong>"Extract pages 3 through 7 into a separate PDF"</strong></li>
+      <li><strong>"Merge these three PDFs into one document"</strong></li>
+      <li><strong>"Compress this PDF to make it smaller"</strong></li>
+    </ul>
+
+    <h2>All available tools</h2>
+    <p>OpenReader's MCP server provides 14 tools for working with PDFs:</p>
+
+    <div class="tool-grid">
+      <div class="tool-item"><div class="tool-name">extract_text</div><div class="tool-desc">Read all text from every page of a PDF</div></div>
+      <div class="tool-item"><div class="tool-name">get_page_text</div><div class="tool-desc">Read text from one specific page (1-indexed)</div></div>
+      <div class="tool-item"><div class="tool-name">get_metadata</div><div class="tool-desc">Get PDF info &mdash; page count, author, title, file size</div></div>
+      <div class="tool-item"><div class="tool-name">get_page_count</div><div class="tool-desc">Quickly check how many pages a PDF has</div></div>
+      <div class="tool-item"><div class="tool-name">search_pdf</div><div class="tool-desc">Find a word or phrase inside a single PDF with context snippets</div></div>
+      <div class="tool-item"><div class="tool-name">compare_pdfs</div><div class="tool-desc">Show word-level and page-level differences between two PDFs</div></div>
+      <div class="tool-item"><div class="tool-name">merge_pdfs</div><div class="tool-desc">Combine multiple PDF files into one document</div></div>
+      <div class="tool-item"><div class="tool-name">split_pdf</div><div class="tool-desc">Split a PDF into separate single-page files</div></div>
+      <div class="tool-item"><div class="tool-name">extract_pages</div><div class="tool-desc">Pull out specific pages using range notation (e.g. "1-3,5,7-9")</div></div>
+      <div class="tool-item"><div class="tool-name">compress_pdf</div><div class="tool-desc">Create a smaller version of a PDF</div></div>
+      <div class="tool-item"><div class="tool-name">index_folder</div><div class="tool-desc">Build a full-text search index of all PDFs in a folder</div></div>
+      <div class="tool-item"><div class="tool-name">search_library</div><div class="tool-desc">Search across all indexed PDFs at once (fast, keyword-based)</div></div>
+      <div class="tool-item"><div class="tool-name">search_semantic</div><div class="tool-desc">Meaning-based search across indexed PDFs (finds related content)</div></div>
+      <div class="tool-item"><div class="tool-name">list_indexed_docs</div><div class="tool-desc">Show all PDFs currently in the search index</div></div>
+    </div>
+
+    <h2>Troubleshooting</h2>
+
+    <div class="card">
+      <h4>"python is not recognized"</h4>
+      <p>Python is not installed or not in your system PATH. <a href="https://python.org/downloads" style="color: var(--accent);" target="_blank" rel="noopener">Download Python</a> and make sure to check "Add Python to PATH" during installation. Restart your terminal after installing.</p>
+    </div>
+
+    <div class="card">
+      <h4>"ModuleNotFoundError: No module named 'fitz'"</h4>
+      <p>You haven't installed the dependencies yet. Run <code>pip install -r requirements.txt</code> from inside the <code>openreader</code> folder.</p>
+    </div>
+
+    <div class="card">
+      <h4>My AI tool says it can't find the MCP server</h4>
+      <p>Make sure <code>python</code> and the openreader folder are both accessible. Try running <code>python -m pdfreader_lib.mcp_server</code> manually first to confirm it works. If you're using a virtual environment, make sure your AI tool also uses it.</p>
+    </div>
+
+    <div class="card">
+      <h4>I installed OpenReader from the Microsoft Store</h4>
+      <p>The Store version is a packaged app and doesn't include the MCP server. To use AI features, you need to clone the repository separately as shown above. The MCP server only needs the source code &mdash; it doesn't conflict with the Store app.</p>
+    </div>
+
+  </div>
+
+  <footer>
+    <p><strong>OpenReader</strong> &mdash; A private PDF reader. Made by Sparsh Sam. <a href="/" style="color: var(--accent); text-decoration: none;">Home</a></p>
+  </footer>
+
+</body>
+</html>

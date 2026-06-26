@@ -119,6 +119,17 @@
     }
     .prompt-code code { display: inline; background: var(--bg-surface-muted); padding: 2px 8px; border-radius: 6px; font-size: 13px; color: var(--accent); }
 
+    .setup-steps { max-width: 700px; margin: 40px auto 0; text-align: left; display: flex; flex-direction: column; gap: 20px; }
+    .step { display: flex; gap: 20px; align-items: flex-start; background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: 16px; padding: 20px; }
+    .step-number { width: 36px; height: 36px; border-radius: 9999px; background: var(--accent); color: #fff; font-size: 16px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .step-content { flex: 1; min-width: 0; }
+    .step-content h4 { font-size: 16px; font-weight: 700; margin-bottom: 6px; color: var(--text-primary); }
+    .step-content p { font-size: 14px; color: var(--text-secondary); margin-bottom: 8px; }
+    .inline-code { display: block; background: var(--bg-surface-muted); padding: 10px 14px; border-radius: 10px; font-family: var(--font-mono); font-size: 13px; color: var(--accent); word-break: break-all; border: 1px solid var(--border-default); }
+    .accent-link { color: var(--accent); text-decoration: underline; }
+    .new-tab-icon { font-size: 14px; display: inline-block; }
+    .new-tab-icon:hover { opacity: 0.8; }
+
     .trust-strip { border-top: 1px solid var(--border-default); border-bottom: 1px solid var(--border-default); padding: 48px 0; }
     .trust-strip .strip-inner { display: flex; gap: 72px; flex-wrap: wrap; justify-content: center; align-items: center; }
     .trust-item { display: flex; flex-direction: column; gap: 4px; text-align: center; }
@@ -180,8 +191,9 @@
       <div class="nav-links">
         <a href="#features">Features</a>
         <a href="#mcp">AI Access</a>
-        <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank">Store</a>
-        <a href="https://github.com/sparshsam/openreader" target="_blank">GitHub</a>
+        <a href="/docs">Docs</a>
+        <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" rel="noopener">Store</a>
+        <a href="https://github.com/sparshsam/openreader" target="_blank" rel="noopener">GitHub</a>
       </div>
     </div>
   </nav>
@@ -192,8 +204,8 @@
       <h1>A PDF reader that<br /><span class="accent">doesn&rsquo;t spy on you.</span></h1>
       <p>OpenReader is a free PDF reader for your computer. Read files, highlight stuff, search for words, compare two documents, and pick up where you left off. Your files stay on your computer. No one sees them. Not even us.</p>
       <div class="cta-group">
-        <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" class="btn btn-primary">Get from Microsoft Store</a>
-        <a href="https://github.com/sparshsam/openreader" target="_blank" class="btn btn-secondary">View on GitHub</a>
+        <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" rel="noopener" class="btn btn-primary">Get from Microsoft Store</a>
+        <a href="https://github.com/sparshsam/openreader" target="_blank" rel="noopener" class="btn btn-secondary">View on GitHub</a>
       </div>
     </div>
   </section>
@@ -221,39 +233,73 @@
     <div class="container-wide">
       <span class="mcp-badge">AI-Native</span>
       <h2 class="section-title">Let AI read your PDFs for you.</h2>
-      <p>OpenReader has a built-in feature that lets AI assistants like Claude, ChatGPT, and Cursor open and work with your PDFs for you. Ask your AI to <strong>"find the contract clause about refunds"</strong> or <strong>"compare these two PDFs and tell me what changed"</strong>&mdash;the AI reads the files on your computer, so you don&rsquo;t have to.</p>
+      <p>OpenReader has a built-in MCP server that lets AI assistants like Claude, ChatGPT, and Cursor open and work with your PDFs. Ask your AI to <strong>"find the contract clause about refunds"</strong> or <strong>"compare these two PDFs and tell me what changed"</strong>&mdash;the AI reads the files on your computer locally, so nothing is ever uploaded.</p>
+
+      <div class="setup-steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h4>Clone the repo</h4>
+            <p>Open a terminal and run this command to download the MCP server source:</p>
+            <code class="inline-code">git clone https://github.com/sparshsam/openreader.git &amp;&amp; cd openreader</code>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h4>Install dependencies</h4>
+            <p>Run this to install Python and the required packages:</p>
+            <code class="inline-code">pip install -r requirements.txt mcp</code>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h4>Copy the prompt below &amp; paste it to your AI</h4>
+            <p>This tells your AI assistant how to connect to your PDFs. Click <strong>Copy</strong>, then paste it into your AI chat.</p>
+          </div>
+        </div>
+      </div>
 
       <div class="prompt-box">
         <div class="prompt-box-header">
-          <span>Copy this and paste it to your AI assistant:</span>
+          <span>Paste this directly into your AI assistant:</span>
           <button class="copy-btn" onclick="copyPrompt()">Copy</button>
         </div>
-        <pre class="prompt-code">Add the OpenReader MCP server to your AI assistant so it can read, search, and compare PDFs on my computer. This runs 100% locally — nothing is uploaded anywhere.
+        <pre class="prompt-code">You now have access to the OpenReader MCP server, which lets you read, search, compare, and manage PDF files on my local computer.
 
-The MCP server command is:
-<code>python -m pdfreader_lib.mcp_server</code>
+Here is how to set up the MCP server for your environment:
 
-The source code is at /path/to/openreader.
+<code>{
+  "mcpServers": {
+    "openreader": {
+      "command": "python",
+      "args": ["-m", "pdfreader_lib.mcp_server"]
+    }
+  }
+}</code>
 
-Tools available:
-- extract_text — get all text from a PDF
-- get_page_text — read one specific page
-- get_metadata — get document info (pages, author, etc.)
-- search_pdf — find text inside a PDF
-- compare_pdfs — show differences between two PDFs
-- merge_pdfs — combine multiple PDFs into one
-- split_pdf — split a PDF into separate pages
-- extract_pages — pull out specific pages
-- compress_pdf — make a PDF smaller
-- index_folder — build a searchable index of all PDFs in a folder
-- search_library — search across all indexed PDFs
-- search_semantic — meaning-based search (finds related stuff even if wording doesn't match)
-- list_indexed_docs — show what PDFs are in the index</pre>
+The server is located at the path where I cloned the openreader repository on my machine. My PDFs are on my local filesystem — ask me for file paths when you need to open one.
+
+Available tools:
+- <code>extract_text</code> — read all text from a PDF
+- <code>get_page_text</code> — read one specific page
+- <code>get_metadata</code> — get document info (page count, author, title)
+- <code>search_pdf</code> — find a word or phrase inside a PDF
+- <code>compare_pdfs</code> — show differences between two PDFs
+- <code>merge_pdfs</code> — combine multiple PDFs into one file
+- <code>split_pdf</code> — split a PDF into separate pages
+- <code>extract_pages</code> — pull out specific pages from a PDF
+- <code>compress_pdf</code> — make a PDF file smaller
+- <code>index_folder</code> — build a searchable index of all PDFs in a folder
+- <code>search_library</code> — search across all indexed PDFs at once
+- <code>search_semantic</code> — meaning-based search across indexed PDFs
+- <code>list_indexed_docs</code> — list all PDFs currently in the search index</pre>
       </div>
 
-      <p style="font-size: 17px; margin-top: 16px; max-width: 640px; margin-left: auto; margin-right: auto;">
+      <p style="font-size: 17px; margin-top: 24px; max-width: 640px; margin-left: auto; margin-right: auto;">
         14 tools. All local. No data ever leaves your machine.
-        <a href="https://github.com/sparshsam/openreader/blob/main/docs/playbooks/MCP-SERVER-BUILD-GUIDE.md" style="color: var(--accent); text-decoration: underline;">Read the technical guide &rarr;</a>
+        <a href="/docs" class="accent-link" target="_blank" rel="noopener">Full setup guide <span class="new-tab-icon">&#x2197;</span></a>
       </p>
     </div>
   </section>
@@ -279,8 +325,8 @@ Tools available:
   <footer>
     <div class="brand-line"><strong>OpenReader</strong> &mdash; A private PDF reader. Made by <strong>Sparsh Sam</strong>.</div>
     <div class="footer-links">
-      <a href="https://github.com/sparshsam/openreader" target="_blank">GitHub</a>
-      <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank">Microsoft Store</a>
+      <a href="https://github.com/sparshsam/openreader" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" rel="noopener">Microsoft Store</a>
     </div>
   </footer>
 
