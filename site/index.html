@@ -239,24 +239,16 @@
         <div class="step">
           <div class="step-number">1</div>
           <div class="step-content">
-            <h4>Clone the repo</h4>
-            <p>Open a terminal and run this command to download the MCP server source:</p>
-            <code class="inline-code">git clone https://github.com/sparshsam/openreader.git &amp;&amp; cd openreader</code>
+            <h4>Install the package</h4>
+            <p>Run this in your terminal — only need to do it once:</p>
+            <code class="inline-code">pip install openreader-mcp</code>
           </div>
         </div>
         <div class="step">
           <div class="step-number">2</div>
           <div class="step-content">
-            <h4>Install dependencies</h4>
-            <p>Run this to install Python and the required packages:</p>
-            <code class="inline-code">pip install -r requirements.txt mcp</code>
-          </div>
-        </div>
-        <div class="step">
-          <div class="step-number">3</div>
-          <div class="step-content">
-            <h4>Copy the prompt below &amp; paste it to your AI</h4>
-            <p>This tells your AI assistant how to connect to your PDFs. Click <strong>Copy</strong>, then paste it into your AI chat.</p>
+            <h4>Tell your AI assistant about it</h4>
+            <p>Copy the prompt below and paste it into your AI chat. The AI will know how to connect to your PDFs.</p>
           </div>
         </div>
       </div>
@@ -274,12 +266,12 @@ Here is how to set up the MCP server for your environment:
   "mcpServers": {
     "openreader": {
       "command": "python",
-      "args": ["-m", "pdfreader_lib.mcp_server"]
+      "args": ["-m", "openreader_mcp"]
     }
   }
 }</code>
 
-The server is located at the path where I cloned the openreader repository on my machine. My PDFs are on my local filesystem — ask me for file paths when you need to open one.
+I installed it with <code>pip install openreader-mcp</code>. My PDFs are on my local filesystem — ask me for file paths when you need to open one.
 
 Available tools:
 - <code>extract_text</code> — read all text from a PDF
