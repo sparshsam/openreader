@@ -23,7 +23,7 @@ if (!(Test-Path -LiteralPath ".\.venv")) {
     --onedir `
     --noupx `
     --name "OpenReader" `
-    --icon ".\assets\pdfreader_by_sparsh.ico" `
+    --icon ".\assets\branding\pdfreader_by_sparsh.ico" `
     main.py
 
 Write-Host "Built dist\OpenReader.exe (version ${version})"

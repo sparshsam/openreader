@@ -140,9 +140,9 @@ def write_macos_iconset(img: Image.Image, output_dir: Path):
 def main():
     parser = argparse.ArgumentParser(description="Create app icon assets from source PNG.")
     parser.add_argument("--source", required=True, help="Path to source PNG (1024x1024 recommended)")
-    parser.add_argument("--ico", default="assets/pdfreader_by_sparsh.ico", help="Output .ico path")
-    parser.add_argument("--msix-dir", default="assets", help="Output directory for MSIX PNGs")
-    parser.add_argument("--macos-iconset", default="assets/AppIcon.iconset", help="Output macOS .iconset dir")
+    parser.add_argument("--ico", default="assets/branding/pdfreader_by_sparsh.ico", help="Output .ico path")
+    parser.add_argument("--msix-dir", default="assets/branding", help="Output directory for MSIX PNGs")
+    parser.add_argument("--macos-iconset", default="assets/branding/AppIcon.iconset", help="Output macOS .iconset dir")
     args = parser.parse_args()
 
     source_path = Path(args.source)
