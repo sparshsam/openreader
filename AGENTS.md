@@ -22,7 +22,7 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 - Tag releases with `vMAJOR.MINOR.PATCH`.
 - Packaged builds must inject the tag version into `main.py` via `scripts/inject_version.py`.
 - Source builds may remain `-dev`.
-- Update `RELEASE.md` if release mechanics change.
+- Update `docs/RELEASE.md` if release mechanics change.
 
 ## Build and Test
 

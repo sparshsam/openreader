@@ -42,3 +42,4 @@ OpenReader-Test-Cert.cer
 Thumbs.db
 .vscode/
 .idea/
+.wrangler
