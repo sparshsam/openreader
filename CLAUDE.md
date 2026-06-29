@@ -62,7 +62,7 @@ python -m pytest tests/ -v
 - Tag releases with `vMAJOR.MINOR.PATCH`.
 - Version injected from tag via `scripts/inject_version.py`.
 - Source builds remain `-dev`.
-- Update `RELEASE.md` if release mechanics change.
+- Update `docs/RELEASE.md` if release mechanics change.
 
 ## Workflow
 
@@ -75,8 +75,8 @@ python -m pytest tests/ -v
 ## Documentation Rules
 
 - README should describe shipped behavior only.
-- ARCHITECTURE.md is the canonical architecture reference.
-- VERSIONING.md documents the versioning scheme.
+- docs/Architecture.md is the canonical architecture reference.
+- docs/VERSIONING.md documents the versioning scheme.
 - Keep CHANGELOG.md updated per Keep a Changelog format.
 - Keep Mac caveats visible for experimental platform status.
 
