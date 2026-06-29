@@ -3113,16 +3113,16 @@ class PdfReaderWindow(QMainWindow):
 
         # 1. Frozen (PyInstaller) standard onedir layout: assets/ next to EXE
         if getattr(sys, "frozen", False):
-            icon_paths.append(Path(sys.executable).parent / "assets" / "pdfreader_by_sparsh.ico")
+            icon_paths.append(Path(sys.executable).parent / "assets" / "branding" / "pdfreader_by_sparsh.ico")
             # 2. _internal/assets/ layout (some PyInstaller configs)
-            icon_paths.append(Path(sys.executable).parent / "_internal" / "assets" / "pdfreader_by_sparsh.ico")
+            icon_paths.append(Path(sys.executable).parent / "_internal" / "assets" / "branding" / "pdfreader_by_sparsh.ico")
 
         # 3. Dev/source build: icon in repo root assets/
-        icon_paths.append(Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico")
+        icon_paths.append(Path(__file__).parent / "assets" / "branding" / "pdfreader_by_sparsh.ico")
 
         # 4. Frozen with MEIPASS (legacy PyInstaller attribute)
         if getattr(sys, "frozen", False) and hasattr(sys, '_MEIPASS'):
-            icon_paths.append(Path(sys._MEIPASS) / "assets" / "pdfreader_by_sparsh.ico")
+            icon_paths.append(Path(sys._MEIPASS) / "assets" / "branding" / "pdfreader_by_sparsh.ico")
 
         # Try each path
         for p in icon_paths:
@@ -3989,7 +3989,7 @@ def main():
     ipc_server.listen(IPC_SERVER_NAME)
 
     # Set app-level icon before window creation for taskbar/Wayland
-    icon_path = Path(__file__).parent / "assets" / "pdfreader_by_sparsh.ico"
+    icon_path = Path(__file__).parent / "assets" / "branding" / "pdfreader_by_sparsh.ico"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
 

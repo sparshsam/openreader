@@ -57,7 +57,7 @@ jobs:
 
       - name: Build executable
         run: |
-          pyinstaller --noconsole --onedir --noupx --name "OpenReader" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --noupx --name "OpenReader" --add-data "assets;assets" --icon ".\assets\branding\pdfreader_by_sparsh.ico" main.py
 
       - name: Determine artifact suffix
         shell: bash

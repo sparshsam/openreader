@@ -35,7 +35,7 @@ jobs:
 
       - name: Build Windows app
         run: |
-          pyinstaller --noconsole --onedir --noupx --name "OpenReader" --add-data "assets;assets" --icon ".\assets\pdfreader_by_sparsh.ico" main.py
+          pyinstaller --noconsole --onedir --noupx --name "OpenReader" --add-data "assets;assets" --icon ".\assets\branding\pdfreader_by_sparsh.ico" main.py
 
       - name: Package Windows ZIP
         run: |
@@ -271,9 +271,9 @@ jobs:
 
       - name: Build macOS app
         run: |
-          QT_QPA_PLATFORM=offscreen python tools/create_icon.py --source assets/app-icon-source.png --macos-iconset assets/AppIcon.iconset
-          iconutil -c icns assets/AppIcon.iconset -o assets/pdfreader_by_sparsh.icns
-          pyinstaller --windowed --onedir --noupx --name "OpenReader" --argv-emulation --icon "assets/pdfreader_by_sparsh.icns" main.py
+          QT_QPA_PLATFORM=offscreen python tools/create_icon.py --source assets/branding/app-icon-source.png --macos-iconset assets/branding/AppIcon.iconset
+          iconutil -c icns assets/branding/AppIcon.iconset -o assets/branding/pdfreader_by_sparsh.icns
+          pyinstaller --windowed --onedir --noupx --name "OpenReader" --argv-emulation --icon "assets/branding/pdfreader_by_sparsh.icns" main.py
 
       - name: Package macOS ZIP
         run: |
