@@ -11,26 +11,26 @@
 </p>
 
 <p align="center">
-  <a href="https://apps.microsoft.com/detail/9MXDVW2645LL"><img alt="Microsoft Store" src="https://img.shields.io/badge/Microsoft%20Store-Get%20OpenReader-ff255f?style=for-the-badge&logo=microsoft&logoColor=white"></a>
-  &nbsp;
-  <a href="https://github.com/sparshsam/openreader/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/sparshsam/openreader?sort=semver&style=for-the-badge&label=Latest%20Release&color=1a1b26"></a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/sparshsam/openreader"><img alt="Source Code" src="https://img.shields.io/badge/Source%20Code-GitHub-ffffff?style=flat-square&logo=github&logoColor=black&labelColor=ffffff"></a>
-  &nbsp;
-  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/AGPLv3-blue?style=flat-square&label=License"></a>
-  &nbsp;
-  <a href="https://github.com/sparshsam/openreader/releases/latest"><img alt="Downloads" src="https://img.shields.io/github/downloads/sparshsam/openreader/total?style=flat-square"></a>
-</p>
-
-<br>
-
-<p align="center">
   <img src="assets/screenshots/reader-main.png" alt="OpenReader reading a PDF" width="880" style="border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.15);">
 </p>
 
-<br>
+<p align="center" style="font-size: 0.95rem; color: #888; margin: 0.75rem 0 1.5rem;">
+  Built for Windows 10 &amp; 11 · 100% Offline · Open Source · AI-ready
+</p>
+
+<p align="center">
+  <strong style="font-size: 1.15rem;">⭐ Get OpenReader</strong>
+</p>
+
+<p align="center">
+  <a href="https://apps.microsoft.com/detail/9MXDVW2645LL"><img alt="Microsoft Store" src="https://img.shields.io/badge/Microsoft%20Store%20(Recommended)-ff255f?style=for-the-badge&logo=microsoft&logoColor=white"></a>
+  &nbsp;
+  <a href="https://github.com/sparshsam/openreader/releases/latest"><img alt="Portable Release" src="https://img.shields.io/badge/Portable%20Release-1a1b26?style=for-the-badge&logo=github&logoColor=white"></a>
+  &nbsp;
+  <a href="https://reader.kovina.org"><img alt="Project Website" src="https://img.shields.io/badge/Project%20Website-000000?style=for-the-badge&logo=googlechrome&logoColor=white"></a>
+  &nbsp;
+  <a href="https://github.com/sparshsam/openreader"><img alt="Source Code" src="https://img.shields.io/badge/Source%20Code-ffffff?style=for-the-badge&logo=github&logoColor=black"></a>
+</p>
 
 ---
 
@@ -47,18 +47,14 @@
 
 ## Features
 
-**Read** — Open PDFs, one-page or continuous scroll, fit-width, zoom, page jump.  
-**Annotate** — Highlight, underline, strikethrough, and sticky notes. Saved as native PDF annotations.  
-**Search** — Full-document keyword search with match count and navigation.  
-**Library search** — Index entire folders with SQLite FTS5 for cross-document BM25-ranked search.  
-**Semantic search** — TF-IDF cosine similarity for meaning-based matching — no external ML dependencies.  
-**Compare** — Side-by-side diff with color-coded changes (red delete, green insert) and structured summary.  
-**Multi-tab** — Open several documents in one window with movable, closeable tabs.  
-**Dark mode** — System-aware dark theme with Auto/Light/Dark toggle.  
-**PDF tools** — Merge, split, extract page ranges, and save compressed copies.  
-**OCR fallback** — Automatic OCR on scanned/image-based pages when Tesseract is available.  
-**Session restore** — Remembers open documents and page positions across restarts.  
-**AI agent integration** — Built-in MCP server with 14 tools for automated PDF workflows.
+| | |
+|---|---|
+| **📖 Read** — Open PDFs, one-page or continuous scroll, fit-width zoom, page jump. | **📝 Annotate** — Highlight, underline, strikethrough, and sticky notes. Saved as native PDF annotations. |
+| **🔍 Search** — Full-document keyword search with match count and navigation. | **📚 Library search** — Index entire folders with SQLite FTS5 for cross-document BM25-ranked search. |
+| **🧠 Semantic search** — TF-IDF cosine similarity — meaning-based matching, no external ML. | **📊 Compare** — Side-by-side diff with color-coded changes and structured summary. |
+| **📑 Multi-tab** — Open several documents in one window with movable tabs. | **🌙 Dark mode** — System-aware theme with Auto/Light/Dark toggle. |
+| **🔧 PDF tools** — Merge, split, extract page ranges, compress. | **👁️ OCR fallback** — Automatic OCR on scanned/image-based pages when Tesseract is available. |
+| **💾 Session restore** — Remembers open documents and page positions across restarts. | **🤖 AI agent integration** — Built-in MCP server with 14 tools for automated PDF workflows. |
 
 ---
 
@@ -88,21 +84,17 @@
 
 ## Design Philosophy
 
+> *"Software should respect your documents. They stay on your computer, under your control."*
+
 OpenReader is built around a single idea: **a PDF reader should feel like a well‑made tool, not a web page.** The interface follows native Windows conventions — real menus, keyboard shortcuts, proper window management — with a refined dark theme (Tokyo Night‑inspired) and a clean light option. Every interaction is immediate, every feature discoverable without tutorials.
 
 The focus is on reading and working with documents, not fighting the interface. Toolbar buttons have clear vector‑drawn icons, tabs are movable, zoom is instant, and the reading view puts your document first.
 
 ---
 
-## Technology
+## Built With
 
-| | |
-|---|---|
-| **Python 3.11+** — Core application logic | **PySide6 (Qt 6)** — Native Windows UI |
-| **PyMuPDF (MuPDF)** — PDF rendering | **SQLite FTS5** — Keyword and full‑text search |
-| **scikit‑learn** — Semantic (TF‑IDF) search | **MCP** — AI agent integration protocol |
-| **PyInstaller** — Windows packaging | **MSIX** — Microsoft Store distribution |
-| **Tesseract** — OCR fallback for scanned pages | |
+🐍 Python &nbsp;&nbsp;·&nbsp;&nbsp; 🪟 Qt 6 &nbsp;&nbsp;·&nbsp;&nbsp; 📄 MuPDF &nbsp;&nbsp;·&nbsp;&nbsp; 🔍 SQLite &nbsp;&nbsp;·&nbsp;&nbsp; 👁️ Tesseract &nbsp;&nbsp;·&nbsp;&nbsp; 🤖 MCP &nbsp;&nbsp;·&nbsp;&nbsp; 📦 PyInstaller &nbsp;&nbsp;·&nbsp;&nbsp; 🏪 MSIX
 
 ---
 
