@@ -72,8 +72,13 @@
       width: 100%; max-width: var(--feature-max); padding: 0 96px;
       position: relative; display: flex; align-items: center; justify-content: center;
     }
-    nav .logo { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 800; color: var(--text-primary); text-decoration: none; letter-spacing: -0.02em; position: absolute; left: 96px; top: 50%; transform: translateY(-50%); }
-    nav .logo img { width: 32px; height: 32px; border-radius: 6px; }
+    nav .logo { display: flex; align-items: center; gap: 6px; color: var(--text-primary); text-decoration: none; position: absolute; left: 96px; top: 50%; transform: translateY(-50%); }
+    nav .logo .logo-icon { width: 28px; height: 28px; border-radius: 6px; }
+    @media (min-width: 768px) { nav .logo .logo-icon { width: 32px; height: 32px; } }
+    nav .logo .logo-text { display: flex; flex-direction: column; line-height: 1.25; }
+    nav .logo .logo-open { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.5; color: var(--text-primary); }
+    nav .logo .logo-product { font-size: 14px; font-weight: 500; margin-top: -2px; color: var(--text-primary); }
+    @media (min-width: 768px) { nav .logo .logo-product { font-size: 15px; } }
     nav .nav-links { display: flex; gap: 4px; align-items: center; }
     nav .nav-links a { padding: 10px 24px; border-radius: 9999px; font-size: 15px; font-weight: 600; color: var(--text-secondary); text-decoration: none; transition: background 0.2s, color 0.2s; }
     nav .nav-links a:hover { background: var(--accent); color: #fff; }
@@ -207,7 +212,13 @@
 
   <nav>
     <div class="nav-inner">
-      <a href="/" class="logo"><img src="/openreader-icon.svg" alt="" />OpenReader</a>
+      <a href="/" class="logo" aria-label="OpenReader home">
+        <img src="/openreader-icon.svg" alt="" class="logo-icon" />
+        <div class="logo-text">
+          <span class="logo-open">OPEN</span>
+          <span class="logo-product">Reader</span>
+        </div>
+      </a>
       <div class="nav-links">
         <a href="#features">Features</a>
         <a href="#mcp">AI Access</a>

@@ -79,3 +79,4 @@ OpenReader has a showcase landing page at **https://reader.kovina.org** (Cloudfl
 - **MCP prompt box:** Users click Copy, paste to any AI assistant to set up `python -m openreader_mcp`.
 - **Docs page:** `site/docs/index.html` — full MCP setup guide for Claude Code, Desktop, Cursor.
 - **Deploy:** Auto via `.github/workflows/deploy-site.yml` on push to `main` touching `site/`. Manual via `npx wrangler pages deploy site/ --project-name reader`.
+- **Branding:** See [docs/BRANDING.md](docs/BRANDING.md) for the Open Product Family branding architecture, header lockup rules, and ecosystem hierarchy.

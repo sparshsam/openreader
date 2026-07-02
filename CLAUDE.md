@@ -121,6 +121,45 @@ Three canonical playbooks govern all design and architecture decisions. Loaded a
 
 **Every design or architectural decision starts from these playbooks first.**
 
+## Branding Architecture
+
+### Hierarchy
+
+```
+KOVINA          Parent ecosystem     → kovina.org/standards/KOVINA_MANIFESTO.md
+  ↓
+OPEN            Product family       → kovina.org/standards/BRAND_GUIDELINES.md
+  ↓
+Reader          Individual product   → docs/BRANDING.md
+```
+
+- **OPEN has no icon.** No symbol, no badge, no monogram. Typography only.
+- The application icon belongs only to OpenReader, never to OPEN.
+- Do not merge the icon into the typography lockup.
+- Do not create a combined logo mark.
+- The header lockup is: `[icon] OPEN / Reader` (stacked, icon on left).
+- Never redesign the header lockup without explicit instruction.
+- Kovina standards are authoritative. OpenReader inherits them.
+- OpenPalette is the canonical reference implementation for the Open Product Family branding.
+- Brand accent: `#ff255F` pink-red.
+- See [docs/BRANDING.md](docs/BRANDING.md) for complete product-specific branding documentation.
+
+### Header Lockup
+
+```html
+<a href="/" class="logo" aria-label="OpenReader home">
+  <img src="/openreader-icon.svg" alt="" class="logo-icon" />
+  <div class="logo-text">
+    <span class="logo-open">OPEN</span>
+    <span class="logo-product">Reader</span>
+  </div>
+</a>
+```
+
+- OPEN: uppercase, bold, 0.06em tracking, muted 50% opacity
+- Reader: title case, medium weight, primary text color
+- Icon: 28px mobile / 32px desktop, 6px border-radius
+
 ## Landing Page
 
 OpenReader's showcase landing page at **https://reader.kovina.org**, hosted on Cloudflare Pages.
