@@ -145,25 +145,6 @@ Copyright &copy; 2026 Sparsh Sam.
 
 ---
 
-## Part of the Open Collection
-
-Open\* is a family of privacy-first, open-source applications. Every app is local-first, respects your data, and is built with care.
-
-| | App | Description | Links |
-|---|---|---|---|
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenReader** | Private PDF tools for your computer. | [Repo](https://github.com/sparshsam/openreader) · [Web](https://reader.kovina.org) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenLedger** | Local-first personal finance ledger. No noise. | [Repo](https://github.com/sparshsam/openledger) · [Web](https://ledger.kovina.org) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenProof** | Privacy-first proof-of-existence for files, onchain. | [Repo](https://github.com/sparshsam/openproof) · [Web](https://proof.kovina.org) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenSend** | Free, ad-free, open-source file sharing between devices. | [Repo](https://github.com/sparshsam/opensend) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenSnap** | Minimal always-on-top screenshot widget for Windows. | [Repo](https://github.com/sparshsam/opensnap) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenJournal** | Privacy-first local activity journal for Windows. | [Repo](https://github.com/sparshsam/openjournal) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenPalette** | Local-first color studio — harmonies, tokens, accessibility. | [Repo](https://github.com/sparshsam/openpalette) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenScrabble** | Multiplayer Scrabble with chat and shared boards. | [Repo](https://github.com/sparshsam/openscrabble) |
-| <img src="assets/icons/openreader.svg" width="28" height="28" alt=""> | **OpenSprout** | Privacy-minded plant care dashboard and watering logs. | [Repo](https://github.com/sparshsam/opensprout) |
-
----
-
-*Last updated: June 2026*
 <br>
 
 ---
@@ -194,10 +175,11 @@ Open\* is a family of privacy-first, open-source applications. Every app is loca
 <p align="center">
   <a href="https://github.com/sparshsam/wordwise">WordWise</a> ·
   <a href="https://github.com/sparshsam/openscrabble">OpenScrabble</a> ·
-  <a href="https://github.com/sparshsam/chess">Chess</a> ·
+  <a href="https://github.com/sparshsam/chess-by-sparsh">Chess by Sparsh</a> ·
   <a href="https://github.com/sparshsam/hisstastic">Hisstastic</a>
 </p>
 
 <p align="center">
   <sub>Minimal, focused tools for everyday tasks.</sub>
 </p>
+
