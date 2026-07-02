@@ -164,3 +164,40 @@ Open\* is a family of privacy-first, open-source applications. Every app is loca
 ---
 
 *Last updated: June 2026*
+<br>
+
+---
+
+<br>
+
+<p align="center">
+  <strong>Part of the Kovina Collection</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sparshsam/openreader">OpenReader</a> ·
+  <a href="https://github.com/sparshsam/openjournal">OpenJournal</a> ·
+  <a href="https://github.com/sparshsam/openledger">OpenLedger</a> ·
+  <a href="https://github.com/sparshsam/opentone">OpenTone</a> ·
+  <a href="https://github.com/sparshsam/openpalette">OpenPalette</a> ·
+  <a href="https://github.com/sparshsam/openconvert">OpenConvert</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sparshsam/opensnap">OpenSnap</a> ·
+  <a href="https://github.com/sparshsam/worldclock-widget">WorldClock Widget</a> ·
+  <a href="https://github.com/sparshsam/openproof">OpenProof</a> ·
+  <a href="https://github.com/sparshsam/opensend">OpenSend</a> ·
+  <a href="https://github.com/sparshsam/opensprout">OpenSprout</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/sparshsam/wordwise">WordWise</a> ·
+  <a href="https://github.com/sparshsam/openscrabble">OpenScrabble</a> ·
+  <a href="https://github.com/sparshsam/chess">Chess</a> ·
+  <a href="https://github.com/sparshsam/hisstastic">Hisstastic</a>
+</p>
+
+<p align="center">
+  <sub>Minimal, focused tools for everyday tasks.</sub>
+</p>
