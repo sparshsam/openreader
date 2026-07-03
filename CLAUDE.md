@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Latest update:** v1.2.5 — Open Product Family branding alignment (2026-07-02)
+**Latest update:** v1.2.5 — Icon pipeline, branding, site deployment (2026-07-03)
 
 Privacy-first, local-only desktop PDF utility for Windows.
 macOS experimental; Linux unsupported.
@@ -12,6 +12,7 @@ macOS experimental; Linux unsupported.
 | Version | Date | Summary |
 |---------|------|---------|
 | v1.2.5 | 2026-07-02 | Open Product Family branding alignment — header lockup, docs/BRANDING.md, icon generation pipeline, dark/light theme icon |
+| v1.2.5 | 2026-07-03 | OpenPalette canonical spec, 155 assets from PNG via Lanczos, RGBA transparency fix, dual-image CSS dark/light transition, reader.kovina.org deployed to Cloudflare Pages |
 | v1.2.4 | 2026-06-28 | (previous release) |
 
 ## Architecture Constraints

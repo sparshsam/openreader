@@ -4,7 +4,7 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 ## Product Boundaries
 
-**Current version:** v1.2.5 (2026-07-02) — Open Product Family branding alignment
+**Current version:** v1.2.5 (2026-07-03) — Icon pipeline, branding docs, site deployment
 
 - Do not add new user-facing PDF features unless the task explicitly asks for them.
 - Do not change the local-first privacy philosophy.
