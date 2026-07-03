@@ -2,8 +2,17 @@
 
 ## Overview
 
+**Latest update:** v1.2.5 — Open Product Family branding alignment (2026-07-02)
+
 Privacy-first, local-only desktop PDF utility for Windows.
 macOS experimental; Linux unsupported.
+
+## Version History
+
+| Version | Date | Summary |
+|---------|------|---------|
+| v1.2.5 | 2026-07-02 | Open Product Family branding alignment — header lockup, docs/BRANDING.md, icon generation pipeline, dark/light theme icon |
+| v1.2.4 | 2026-06-28 | (previous release) |
 
 ## Architecture Constraints
 
@@ -144,6 +153,14 @@ Reader          Individual product   → docs/BRANDING.md
 - Brand accent: `#ff255F` pink-red.
 - See [docs/BRANDING.md](docs/BRANDING.md) for complete product-specific branding documentation.
 
+### Icon Generation Pipeline (v1.2.5)
+
+- **Source art:** `openreader_light_mode.png` (1024x1024 PNG)
+- **Resampling:** Lanczos (high-quality) via `scripts/generate-icons.js`
+- **Total assets:** 155 across all target formats
+- **Formats:** Windows ICO (multi-resolution), MSIX assets, Android adaptive icons, iOS/macOS app icons, Web/PWA favicons (incl. SVG), social OG image (1200x630), GitHub avatar/profile icons, header icon for app chrome
+- **Automation:** GitHub Actions workflow `.github/workflows/generate-icons.yml` runs on icon source change detection
+
 ### Header Lockup
 
 ```html
@@ -159,6 +176,8 @@ Reader          Individual product   → docs/BRANDING.md
 - OPEN: uppercase, bold, 0.06em tracking, muted 50% opacity
 - Reader: title case, medium weight, primary text color
 - Icon: 28px mobile / 32px desktop, 6px border-radius
+- OpenPalette alignment (v1.2.5): product Reader `font-medium -mt-0.5 leading-tight`; icon wrapper `margin-top: -1px` for optical centering against text ascender
+- Themed icon (v1.2.5): CSS `transition: all 0.3s ease` on app chrome icon for dark/light mode switching; same source image for both modes until dark-specific art is created
 
 ## Landing Page
 
@@ -183,7 +202,7 @@ OpenReader's showcase landing page at **https://reader.kovina.org**, hosted on C
 
 - **Website URL:** `https://reader.kovina.org`
 - **Description:** Includes Microsoft Store ID (`9MXDVW2645LL`) for discoverability.
-- **Release page:** v1.2.4 release body has Store link at top + direct download assets below.
+- **Release page:** v1.2.5 release body has Store link at top + direct download assets below.
 
 ## App Identity Card
 
