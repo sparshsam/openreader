@@ -203,7 +203,29 @@ OpenReader's showcase landing page at **https://reader.kovina.org**, hosted on C
 
 - **Website URL:** `https://reader.kovina.org`
 - **Description:** Includes Microsoft Store ID (`9MXDVW2645LL`) for discoverability.
-- **Release page:** v1.2.5 release body has Store link at top + direct download assets below.
+- **Release page:** v1.2.4 release body has Store link at top + direct download assets below.
+
+## Privacy & Legal Pages
+
+The website at **reader.kovina.org** has dedicated legal pages:
+
+| Page | Path | Last Updated |
+|------|------|-------------|
+| Privacy Policy | `site/privacy.html` → `/privacy` | July 2, 2026 |
+| Terms of Service | `site/terms.html` → `/terms` | July 2, 2026 |
+
+Both pages follow the standardised Kovina Privacy & Terms template. Key OpenReader-specific customisations:
+
+- **No cloud / no backup provider** — OpenReader is 100% offline.
+- **Third-party services** — Lists Cloudflare (hosting), Microsoft Store, and GitHub (distribution) with privacy policy links.
+- **Advice disclaimer** — "No Professional Advice" since OpenReader is a PDF tool.
+- **Data deletion** — All local; no cloud data to delete.
+- Footer on all three site pages (`index.html`, `privacy.html`, `terms.html`) includes Privacy + Terms links.
+
+### Update checklist
+- When legal content changes, update both `site/privacy.html` and `site/terms.html`.
+- The "Last updated" date must be updated on every material change.
+- Cloudflare Pages auto-deploys on push to `main` touching `site/`.
 
 ## App Identity Card
 

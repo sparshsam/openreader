@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Service — OpenReader</title>
+  <meta name="description" content="OpenReader terms of service — free, open-source PDF reader software." />
+  <style>
+    @font-face {
+      font-family: 'Huninn';
+      src: url('/Huninn-Regular.ttf') format('truetype');
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+    }
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg-base: #000000;
+      --bg-surface: #0d0d0d;
+      --bg-surface-muted: #1a1a1a;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0a0;
+      --text-muted: #8a8a8a;
+      --border-default: rgba(255, 255, 255, 0.06);
+      --accent: #ff255f;
+      --accent-hover: #ff4777;
+      --font-sans: 'Huninn', 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+      --font-mono: ui-monospace, 'SF Mono', monospace;
+      --content-max: 800px;
+    }
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    .page { max-width: var(--content-max); margin: 0 auto; padding: 80px 48px; }
+    nav {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(0, 0, 0, 0.9);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      height: 72px;
+      display: flex; align-items: center; justify-content: center;
+      border-bottom: 1px solid var(--border-default);
+    }
+    nav .nav-inner { width: 100%; max-width: var(--content-max); padding: 0 48px; display: flex; align-items: center; justify-content: space-between; }
+    nav .logo { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; color: var(--text-primary); text-decoration: none; }
+    nav .logo img { width: 28px; height: 28px; border-radius: 6px; }
+    nav .nav-links { display: flex; gap: 4px; }
+    nav .nav-links a { padding: 8px 20px; border-radius: 9999px; font-size: 14px; font-weight: 600; color: var(--text-secondary); text-decoration: none; transition: background 0.2s, color 0.2s; }
+    nav .nav-links a:hover { background: var(--bg-surface-muted); color: var(--text-primary); }
+    h1 { font-size: 52px; font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 16px; }
+    h1 .accent { color: var(--accent); }
+    .updated { font-size: 14px; color: var(--text-muted); margin-bottom: 48px; }
+    h2 { font-size: 22px; font-weight: 700; margin-top: 40px; margin-bottom: 12px; color: var(--text-primary); }
+    p { font-size: 15px; color: var(--text-secondary); margin-bottom: 16px; }
+    ul { margin: 0 0 16px 20px; }
+    ul li { font-size: 15px; color: var(--text-secondary); margin-bottom: 8px; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { color: var(--accent-hover); text-decoration: underline; }
+    footer { padding: 48px; display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; flex-wrap: wrap; gap: 16px; text-align: center; border-top: 1px solid var(--border-default); }
+    footer .brand-line { font-size: 15px; color: var(--text-secondary); }
+    footer .brand-line strong { color: var(--text-primary); }
+    footer .footer-links { display: flex; gap: 24px; justify-content: center; }
+    footer .footer-links a { font-size: 14px; color: var(--text-muted); text-decoration: none; transition: color 0.2s; }
+    footer .footer-links a:hover { color: var(--accent); }
+    @media (max-width: 768px) {
+      .page { padding: 48px 24px; }
+      h1 { font-size: 32px; }
+      footer { padding: 32px 24px; flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="/" class="logo">
+        <img src="/openreader-icon.svg" alt="OpenReader" width="28" height="28" />
+        OpenReader
+      </a>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/docs">Docs</a>
+        <a href="https://github.com/sparshsam/openreader" target="_blank">GitHub</a>
+      </div>
+    </div>
+  </nav>
+  <div class="page">
+    <h1>Terms of <span class="accent">Service</span></h1>
+    <p class="updated">Last updated: July 2, 2026</p>
+    <section>
+      <h2>Acceptance of Terms</h2>
+      <p>By using OpenReader, you agree to these terms. If you do not agree, do not use the application.</p>
+    </section>
+    <section>
+      <h2>License</h2>
+      <p>OpenReader is free, open-source software released under the <a href="https://www.gnu.org/licenses/agpl-3.0.html" target="_blank" rel="noopener noreferrer">GNU Affero General Public License v3.0 (AGPL-3.0)</a>. You may use, modify, and distribute it under the terms of that license.</p>
+    </section>
+    <section>
+      <h2>No Professional Advice</h2>
+      <p>OpenReader is a tool for reading, annotating, and managing PDF documents. It does not provide professional, legal, medical, or financial advice. You are solely responsible for how you interpret and use the information in your documents.</p>
+    </section>
+    <section>
+      <h2>No Warranty</h2>
+      <p>OpenReader is provided "as is" without warranty of any kind, express or implied. The authors are not liable for any damages arising from its use. You use the software at your own risk.</p>
+    </section>
+    <section>
+      <h2>Data Responsibility</h2>
+      <p>You are responsible for maintaining backups of your PDF files and annotations. OpenReader provides export tools for settings and search indexes, but these are convenience features, not guarantees. The authors are not responsible for data loss resulting from file system errors, failed backups, or user error.</p>
+    </section>
+    <section>
+      <h2>Service Availability</h2>
+      <p>OpenReader runs entirely on your device. No internet connection is required. There is no hosted service to go down. The application is self-contained and does not depend on external infrastructure for core functionality. The optional update check contacts GitHub's public API but is not required for the application to function.</p>
+    </section>
+    <section>
+      <h2>User Conduct</h2>
+      <p>You agree not to use OpenReader for any unlawful purpose or in violation of any applicable laws or regulations.</p>
+    </section>
+    <section>
+      <h2>Changes to Terms</h2>
+      <p>These terms may be updated from time to time. Continued use after changes constitutes acceptance of the revised terms. Material changes will be noted by updating the "Last updated" date.</p>
+    </section>
+    <section>
+      <h2>Contact</h2>
+      <p>For questions about these terms, email <a href="mailto:sparshsam@gmail.com">sparshsam@gmail.com</a>.</p>
+    </section>
+  </div>
+  <footer>
+    <div class="brand-line"><strong>OpenReader</strong> &mdash; A private PDF reader. Made by <strong>Sparsh Sam</strong>.</div>
+    <div class="footer-links">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://github.com/sparshsam/openreader" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://apps.microsoft.com/detail/9MXDVW2645LL" target="_blank" rel="noopener">Microsoft Store</a>
+    </div>
+  </footer>
+</body>
+</html>

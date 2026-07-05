@@ -77,8 +77,11 @@ The repository ships two MCP server entry points:
 OpenReader has a showcase landing page at **https://reader.kovina.org** (Cloudflare Pages).
 
 - **Source:** `site/` — static HTML + CSS. Huninn font, `#ff255F` accent, dark/light toggle.
+- **Pages:** `index.html` (home), `docs/index.html` (MCP setup guide), `privacy.html` (Privacy Policy), `terms.html` (Terms of Service).
+- **Footer:** All pages include links to Privacy, Terms, GitHub, and Microsoft Store.
 - **Features:** Hero → Story → SVG feature icons → MCP/AI section with copy-paste prompt → CTA.
 - **MCP prompt box:** Users click Copy, paste to any AI assistant to set up `python -m openreader_mcp`.
 - **Docs page:** `site/docs/index.html` — full MCP setup guide for Claude Code, Desktop, Cursor.
 - **Deploy:** Auto via `.github/workflows/deploy-site.yml` on push to `main` touching `site/`. Manual via `npx wrangler pages deploy site/ --project-name reader`.
 - **Branding:** See [docs/BRANDING.md](docs/BRANDING.md) for the Open Product Family branding architecture, header lockup rules, and ecosystem hierarchy.
+- **Privacy & Legal:** See `CLAUDE.md` → "Privacy & Legal Pages" for the full reference on legal page content, customisation, and update checklist.
