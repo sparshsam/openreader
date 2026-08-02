@@ -57,6 +57,8 @@ IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
 SETTINGS_RECENT_KEY = "recentFiles"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
+SETTINGS_DEFAULT_PROMPT_KEY = "defaultAppPromptShown"
+SETTINGS_DEFAULT_DONT_ASK_KEY = "defaultAppDontAsk"
 
 # ── Performance timer ─────────────────────────────────────────────────
 
@@ -85,6 +87,9 @@ try:
     HAS_LIB_MODULES = True
 except ImportError:
     HAS_LIB_MODULES = False
+
+# Windows default-app detection (stdlib only; no-op on non-Windows).
+from pdfreader_lib import win_default_apps
 
 
 # ---------------------------------------------------------------------------
@@ -995,6 +1000,9 @@ class PdfReaderWindow(QMainWindow):
         if self._auto_update_check:
             QTimer.singleShot(3000, self.check_for_updates_silent)
 
+        # First-launch default PDF reader prompt (Windows only)
+        QTimer.singleShot(1500, self._maybe_prompt_default_app)
+
         _perf_end(_perf_start_t, "PdfReaderWindow.__init__")
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
 
@@ -1368,6 +1376,12 @@ class PdfReaderWindow(QMainWindow):
         file_save = QAction(self._menu_label("Save PDF", "Ctrl+S"), self)
         file_save.triggered.connect(self._save_document)
         file_menu.addAction(file_save)
+
+        file_menu.addSeparator()
+
+        settings_action = QAction("Settings…", self)
+        settings_action.triggered.connect(self._open_settings_dialog)
+        file_menu.addAction(settings_action)
 
         file_menu.addSeparator()
 
@@ -3558,6 +3572,47 @@ class PdfReaderWindow(QMainWindow):
         dlg.exec()
 
     # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+
+    def _open_settings_dialog(self):
+        dlg = _SettingsDialog(self)
+        dlg.exec()
+
+    def _maybe_prompt_default_app(self):
+        """First-launch prompt to set OpenReader as the default PDF reader."""
+        if not win_default_apps.is_windows():
+            return
+        if self.settings.value(SETTINGS_DEFAULT_DONT_ASK_KEY, False, bool):
+            return
+        if self.settings.value(SETTINGS_DEFAULT_PROMPT_KEY, False, bool):
+            return
+        is_default, _ = win_default_apps.default_app_owner()
+        if is_default:
+            return
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Default PDF Reader")
+        box.setText(
+            "OpenReader isn't your default PDF reader.\n\n"
+            "Set it as the default to open PDFs from File Explorer with "
+            "OpenReader?"
+        )
+        set_btn = box.addButton("Set as Default", QMessageBox.AcceptRole)
+        _ = box.addButton("Maybe Later", QMessageBox.RejectRole)
+        dont_ask_btn = box.addButton("Do Not Ask Again", QMessageBox.DestructiveRole)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked == set_btn:
+            self.settings.setValue(SETTINGS_DEFAULT_PROMPT_KEY, True)
+            win_default_apps.open_default_apps_settings()
+        elif clicked == dont_ask_btn:
+            self.settings.setValue(SETTINGS_DEFAULT_PROMPT_KEY, True)
+            self.settings.setValue(SETTINGS_DEFAULT_DONT_ASK_KEY, True)
+        # "Maybe Later" — no-op; re-prompts on the next launch.
+
+    # ------------------------------------------------------------------
     # Semantic Search (integrated with search bar)
     # ------------------------------------------------------------------
 
@@ -3643,6 +3698,107 @@ class PdfReaderWindow(QMainWindow):
                 self.current_page = min(r.page - 1, self.document.page_count - 1)
                 self.render_page()
                 self.statusBar().showMessage(f"Opened: {r.filename} — page {r.page}", 5000)
+
+
+# ---------------------------------------------------------------------------
+# Settings Dialog
+# ---------------------------------------------------------------------------
+
+class _SettingsDialog(QDialog):
+    """Application settings — Default Apps (Updates section added in v1.2.7)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.resize(520, 340)
+
+        layout = QVBoxLayout(self)
+
+        # ── Files / Default Apps ──
+        files_group = QGroupBox("Files / Default Apps")
+        files_layout = QVBoxLayout(files_group)
+
+        self.default_label = QLabel()
+        self.default_label.setTextFormat(Qt.RichText)
+        self.default_label.setWordWrap(True)
+        files_layout.addWidget(self.default_label)
+
+        self.set_default_button = QPushButton("Set OpenReader as Default PDF Reader")
+        self.set_default_button.setToolTip(
+            "Opens the Windows Default Apps page. "
+            "Windows keeps the final confirmation."
+        )
+        self.set_default_button.clicked.connect(self._open_default_apps)
+        files_layout.addWidget(self.set_default_button)
+
+        refresh_button = QPushButton("Refresh Status")
+        refresh_button.clicked.connect(self._refresh)
+        files_layout.addWidget(refresh_button)
+
+        self.recovery_label = QLabel()
+        self.recovery_label.setTextFormat(Qt.RichText)
+        self.recovery_label.setWordWrap(True)
+        self.recovery_label.setStyleSheet("color: #b04040;")
+        files_layout.addWidget(self.recovery_label)
+
+        layout.addWidget(files_group)
+
+        # ── Close ──
+        close_btn = QPushButton("Close")
+        close_btn.setFixedWidth(100)
+        close_btn.clicked.connect(self.accept)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+        self._refresh()
+
+    @staticmethod
+    def _esc(text: str) -> str:
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def _refresh(self):
+        if not win_default_apps.is_windows():
+            self.default_label.setText(
+                "<b>Default PDF handling</b> is only configurable on Windows."
+            )
+            self.set_default_button.setEnabled(False)
+            self.recovery_label.hide()
+            return
+
+        is_default, progid = win_default_apps.default_app_owner()
+        if is_default:
+            label = "<b>Current default for PDF:</b> OpenReader"
+        elif progid:
+            name = win_default_apps.friendly_app_name(progid) or progid
+            label = f"<b>Current default for PDF:</b> {self._esc(name)}"
+        else:
+            label = (
+                "<b>Current default for PDF:</b> not detected — Windows has not "
+                "chosen a handler, or the setting couldn't be read."
+            )
+        self.default_label.setText(label)
+
+        if win_default_apps.association_registered():
+            self.recovery_label.hide()
+        else:
+            self.recovery_label.setText(
+                "<b>OpenReader's PDF association isn't fully registered.</b> "
+                "Reinstall OpenReader, or for Store installs use "
+                "Settings → Apps → Installed apps → OpenReader → Advanced options → "
+                "Repair."
+            )
+            self.recovery_label.show()
+
+    def _open_default_apps(self):
+        if not win_default_apps.open_default_apps_settings():
+            QMessageBox.warning(
+                self,
+                "Default Apps",
+                "Couldn't open the Windows Default Apps page. "
+                "Open it manually: Settings → Apps → Default apps.",
+            )
 
 
 # ---------------------------------------------------------------------------
