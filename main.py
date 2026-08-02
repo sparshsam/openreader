@@ -7,6 +7,7 @@ import sys
 import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import fitz
@@ -51,7 +52,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.4"
+__version__ = "1.2.7"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -59,6 +60,20 @@ SETTINGS_RECENT_KEY = "recentFiles"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
 SETTINGS_DEFAULT_PROMPT_KEY = "defaultAppPromptShown"
 SETTINGS_DEFAULT_DONT_ASK_KEY = "defaultAppDontAsk"
+SETTINGS_UPDATE_SKIP_KEY = "updateSkipVersion"
+SETTINGS_UPDATE_LAST_CHECKED_KEY = "updateLastChecked"
+
+
+def should_suppress_silent_notify(result: dict, skip_version: str | None) -> bool:
+    """True when a silent update check should not re-notify about a release.
+
+    Suppression is exact-tag equality against the version the user skipped —
+    a newer release still notifies.
+    """
+    if result.get("outcome") != "update_available":
+        return False
+    latest = result.get("latest_tag")
+    return bool(latest) and bool(skip_version) and latest == skip_version
 
 # ── Performance timer ─────────────────────────────────────────────────
 
@@ -90,6 +105,9 @@ except ImportError:
 
 # Windows default-app detection (stdlib only; no-op on non-Windows).
 from pdfreader_lib import win_default_apps
+
+# Install-source detection for channel-aware updates (stdlib only).
+from pdfreader_lib import install_source
 
 
 # ---------------------------------------------------------------------------
@@ -984,6 +1002,7 @@ class PdfReaderWindow(QMainWindow):
 
         self._log_update(f"app_launch: version={__version__}")
         self._auto_update_check = self.settings.value(SETTINGS_AUTO_UPDATE_KEY, True, bool)
+        self._install_source = install_source.detect_install_source()
 
         self._build_ui()
         self._build_actions()
@@ -3182,6 +3201,9 @@ class PdfReaderWindow(QMainWindow):
 
     def check_for_updates_silent(self):
         """Silent update check — no user-visible feedback unless update is found."""
+        if self._is_store():
+            # Updates are managed by the Microsoft Store; don't hit GitHub.
+            return
         self._update_nam_silent = QNetworkAccessManager(self)
         self._update_nam_silent.finished.connect(self._on_silent_update_reply)
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
@@ -3199,6 +3221,10 @@ class PdfReaderWindow(QMainWindow):
         )
         reply.deleteLater()
         if result["outcome"] == "update_available":
+            skip_version = self.settings.value(SETTINGS_UPDATE_SKIP_KEY, "")
+            if should_suppress_silent_notify(result, skip_version):
+                self._log_update("update_check=skipped_by_user_preference")
+                return
             self.statusBar().showMessage(result["message"], 10000)
 
     # ------------------------------------------------------------------
@@ -3258,6 +3284,10 @@ class PdfReaderWindow(QMainWindow):
     @staticmethod
     def _is_packaged():
         return getattr(sys, "frozen", False)
+
+    def _is_store(self):
+        """True when installed as an MSIX/Store package (updates via Store)."""
+        return self._install_source == install_source.STORE_MSIX
 
     @staticmethod
     def _updater_temp_dir():
@@ -3375,6 +3405,12 @@ class PdfReaderWindow(QMainWindow):
         return result
 
     def check_for_updates(self):
+        if self._is_store():
+            dlg = _SoftwareUpdatesDialog(self, mode="store", current_version=__version__)
+            dlg.exec()
+            if dlg.action == "open_store":
+                self._open_store_listing()
+            return
         self.update_action.setEnabled(False)
         self.statusBar().showMessage("Checking for updates...")
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
@@ -3402,65 +3438,51 @@ class PdfReaderWindow(QMainWindow):
         self._log_update(f"update_check=outcome={result['outcome']}")
         self._log_update(f"update_check=latest_tag={result['latest_tag']}")
         self._log_update(f"update_check=current_version={__version__}")
-
-        if result["outcome"] in ("network_error", "http_error", "json_error"):
-            self.statusBar().showMessage(result["message"], 5000)
-            reply.deleteLater()
-            return
-
         reply.deleteLater()
 
-        # Already on latest version
-        if result["outcome"] == "already_latest":
-            QMessageBox.information(
-                self,
-                "Up to Date",
-                f"You're already running the latest version of OpenReader (v{__version__}).",
-            )
-            self.statusBar().showMessage(result["message"], 5000)
+        # Record when an interactive check last ran.
+        self.settings.setValue(
+            SETTINGS_UPDATE_LAST_CHECKED_KEY, datetime.now().isoformat()
+        )
+
+        if result["outcome"] in ("network_error", "http_error", "json_error"):
+            dlg = _SoftwareUpdatesDialog(self, mode="offline", message=result["message"])
+            dlg.exec()
+            if dlg.action == "try_again":
+                self.check_for_updates()
             return
 
-        # Update available \u2014 open releases page in browser
-        latest_tag = result["latest_tag"]
-        data = result["data"]
-        current_version = self._parse_version(__version__)
+        if result["outcome"] == "already_latest":
+            dlg = _SoftwareUpdatesDialog(self, mode="already_latest", current_version=__version__)
+            dlg.exec()
+            return
 
+        # Update available
+        data = result["data"]
+        latest_tag = result["latest_tag"]
         release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
         release_notes = (data.get("body") or "")[:500]
+        last_checked = self.settings.value(SETTINGS_UPDATE_LAST_CHECKED_KEY, "")
 
-        msg = (
-            f"<h3>Update Available</h3>"
-            f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> \u2192 <b>{latest_tag}</b></p>"
-            "<hr>"
-            "<p>PDFReader no longer installs updates from within the app.</p>"
-            "<p>Please download the latest version from the GitHub releases page "
-            "and install it using the MSIX App Installer (Windows) or "
-            "the legacy Setup.exe.</p>"
+        dlg = _SoftwareUpdatesDialog(
+            self,
+            mode="update_available",
+            current_version=__version__,
+            latest_tag=latest_tag,
+            release_url=release_url,
+            release_notes=release_notes,
+            last_checked=last_checked,
         )
-        if release_notes:
-            msg += f"<hr><pre style='white-space:pre-wrap'>{release_notes}</pre>"
+        dlg.exec()
 
-        btn = QMessageBox(self)
-        btn.setWindowTitle("Update Available")
-        btn.setTextFormat(Qt.RichText)
-        btn.setText(msg)
-
-        open_button = btn.addButton("Open Releases Page", QMessageBox.AcceptRole)
-        skip_button = btn.addButton("Skip This Version", QMessageBox.RejectRole)
-        _ = btn.addButton("Later", QMessageBox.DestructiveRole)
-
-        btn.exec()
-
-        if btn.clickedButton() == skip_button:
-            self.statusBar().showMessage("Update skipped", 3000)
-            return
-
-        if btn.clickedButton() == open_button:
+        if dlg.action == "open_releases":
             import webbrowser
             webbrowser.open(release_url)
-            self.statusBar().showMessage(
-                "Opening releases page in your browser.", 5000
-            )
+            self.statusBar().showMessage("Opening releases page in your browser.", 5000)
+        elif dlg.action == "skip":
+            self.settings.setValue(SETTINGS_UPDATE_SKIP_KEY, latest_tag)
+            self._log_update(f"update_check=skipped_version={latest_tag}")
+            self.statusBar().showMessage("Update skipped for this version", 3000)
 
     # Workspace Session Restoration
     # ------------------------------------------------------------------
@@ -3799,6 +3821,112 @@ class _SettingsDialog(QDialog):
                 "Couldn't open the Windows Default Apps page. "
                 "Open it manually: Settings → Apps → Default apps.",
             )
+
+
+# ---------------------------------------------------------------------------
+# Software Updates Dialog
+# ---------------------------------------------------------------------------
+
+class _SoftwareUpdatesDialog(QDialog):
+    """Channel-aware Software Updates dialog (v1.2.7).
+
+    ``mode`` selects the content and buttons:
+
+      - ``store``           — Store-managed message + Open Microsoft Store.
+      - ``update_available`` — current → latest, release notes, Open Releases
+                               Page / Skip This Version / Later.
+      - ``already_latest``   — up-to-date confirmation.
+      - ``offline``          — clean error message + Try Again.
+
+    After ``exec()``, ``self.action`` is one of ``open_store``,
+    ``open_releases``, ``skip``, ``try_again``, or ``close``.
+    """
+
+    def __init__(
+        self,
+        parent,
+        mode,
+        *,
+        current_version=None,
+        latest_tag=None,
+        release_url=None,
+        release_notes=None,
+        message=None,
+        last_checked=None,
+    ):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.action = "close"
+        self.setWindowTitle("Software Updates")
+        self.resize(480, 360)
+
+        layout = QVBoxLayout(self)
+
+        heading = QLabel()
+        heading.setTextFormat(Qt.RichText)
+        heading.setWordWrap(True)
+        layout.addWidget(heading)
+
+        body = QLabel()
+        body.setTextFormat(Qt.RichText)
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        if mode == "update_available" and release_notes:
+            notes = QLabel(f"<pre style='white-space:pre-wrap'>{release_notes}</pre>")
+            notes.setTextFormat(Qt.RichText)
+            notes.setWordWrap(True)
+            layout.addWidget(notes)
+
+        if last_checked:
+            stamp = QLabel(f"<i>Last checked: {last_checked}</i>")
+            stamp.setTextFormat(Qt.RichText)
+            stamp.setWordWrap(True)
+            layout.addWidget(stamp)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        layout.addLayout(buttons)
+
+        if mode == "store":
+            heading.setText("<h3>Updates are managed by the Microsoft Store</h3>")
+            body.setText(
+                f"You're running OpenReader <b>v{current_version}</b>.<br><br>"
+                "Updates for Store installs are delivered automatically by the "
+                "Microsoft Store. To check for updates, open the Store listing."
+            )
+            self._add(buttons, "Open Microsoft Store", "open_store")
+            self._add(buttons, "Close", "close")
+        elif mode == "update_available":
+            heading.setText("<h3>Update Available</h3>")
+            body.setText(
+                f"You're running <b>v{current_version}</b> &rarr; "
+                f"<b>{latest_tag}</b> is available."
+            )
+            self._add(buttons, "Open Releases Page", "open_releases")
+            self._add(buttons, "Skip This Version", "skip")
+            self._add(buttons, "Later", "close")
+        elif mode == "already_latest":
+            heading.setText("<h3>Up to Date</h3>")
+            body.setText(
+                f"You're already running the latest version of OpenReader "
+                f"(v{current_version})."
+            )
+            self._add(buttons, "Close", "close")
+        else:  # offline / error
+            heading.setText("<h3>Couldn't Check for Updates</h3>")
+            body.setText(message or "An error occurred while checking for updates.")
+            self._add(buttons, "Try Again", "try_again")
+            self._add(buttons, "Close", "close")
+
+    def _add(self, layout, label, action):
+        btn = QPushButton(label)
+        btn.clicked.connect(lambda: self._finish(action))
+        layout.addWidget(btn)
+
+    def _finish(self, action):
+        self.action = action
+        self.accept()
 
 
 # ---------------------------------------------------------------------------

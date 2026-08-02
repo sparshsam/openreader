@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Latest update:** v1.2.5 — Icon pipeline, branding, site deployment (2026-07-03)
+**Latest update:** v1.2.7 — Store-aware updates, default-reader UX, Windows file associations (2026-08-02)
 
 Privacy-first, local-only desktop PDF utility for Windows.
 macOS experimental; Linux unsupported.
@@ -11,8 +11,11 @@ macOS experimental; Linux unsupported.
 
 | Version | Date | Summary |
 |---------|------|---------|
-| v1.2.5 | 2026-07-02 | Open Product Family branding alignment — header lockup, docs/BRANDING.md, icon generation pipeline, dark/light theme icon |
+| v1.2.7 | 2026-08-02 | Store-aware updates — install-source detection, channel-aware Software Updates dialog, persisted skip + last-checked |
+| v1.2.6 | 2026-08-02 | Default Reader Experience — Windows UserChoice detection, Settings dialog, first-launch default prompt |
+| v1.2.5 | 2026-08-02 | Windows File Association Fix — MSIX `.pdf` association, ChangesAssociations, single-source version injector, changelog cleanup |
 | v1.2.5 | 2026-07-03 | OpenPalette canonical spec, 155 assets from PNG via Lanczos, RGBA transparency fix, dual-image CSS dark/light transition, reader.kovina.org deployed to Cloudflare Pages |
+| v1.2.5 | 2026-07-02 | Open Product Family branding alignment — header lockup, docs/BRANDING.md, icon generation pipeline, dark/light theme icon |
 | v1.2.4 | 2026-06-28 | (previous release) |
 
 ## Architecture Constraints

@@ -10,10 +10,17 @@ OpenReader follows [Semantic Versioning 2.0](https://semver.org/):
 
 ## Current Version
 
-The current version is tracked in the `__version__` variable in `main.py`.
+`__version__` in `main.py` is the canonical source of truth. All other version
+sources are derived from it by `scripts/inject_version.py`, which rewrites
+`main.py`, `packages/mcp-server/pyproject.toml`, the MCP `egg-info/PKG-INFO`,
+and both MSIX manifests (`AppxManifest.xml` / `AppInstaller.xml`, 4-part form)
+in one pass.
 
-- **Source builds** — update `__version__` in `main.py` to match the target release.
-- **Packaged releases** — the version can be overridden from the Git tag during the CI release workflow (see `scripts/inject_version.py`).
+- **Source builds** — set `__version__` in `main.py` to the target release,
+  then run `python scripts/inject_version.py X.Y.Z`.
+- **Packaged releases** — CI injects the tag version via
+  `scripts/inject_version.py`; MSIX manifests are only rewritten for strict
+  semver versions (dev/test builds bump code/MCP sources only).
 
 ## Tag Format
 

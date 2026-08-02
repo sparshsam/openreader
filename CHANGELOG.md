@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.2.5 — File Association & Branding — 2026-08-02
+
+- **Version:** Bumped `__version__` to `1.2.5`, MSIX version to `1.2.5.0`; aligned the MCP package, packaging manifests, and release configuration to a single version source. `scripts/inject_version.py` now propagates the version to `main.py`, `packages/mcp-server/pyproject.toml`, and both MSIX manifests.
+- **Added:** `.pdf` file-type association registered in the MSIX manifest (`windows.fileTypeAssociation`) — a Store/MSIX install now appears under **Open with** and **Default apps** with the OpenReader name and icon. The legacy installer sets `ChangesAssociations=yes` so Windows refreshes its association cache.
+- **Branding:** Open Product Family alignment — OPEN/Reader header lockup, dark/light themed header icon, OpenPalette canonical spec, 155 icon assets regenerated from the source PNG via Lanczos with RGBA transparency fix, and reader.kovina.org deployed to Cloudflare Pages.
+- **Fixed:** Recent-files were persisted under an accidental `***` settings key — migrated to `recentFiles`, with automatic upgrade for existing users.
+- **Verification:** Packaging validation test asserts the MSIX `.pdf` association, frozen identity, and version alignment across manifest/appinstaller/MCP package.
+
+## v1.2.7 — Store-Aware Updates — 2026-08-02
+
+- **Added:** Install-source detection (`pdfreader_lib/install_source.py`) — source, MSIX/Store, Setup.exe, or portable ZIP.
+- **Changed:** Store/MSIX installs no longer query GitHub — updates are shown as managed by the Microsoft Store with an **Open Microsoft Store** button. GitHub installs keep release detection with current + latest versions shown.
+- **Added:** Proper **Software Updates** dialog (replaces the inline message box) with channel-aware content: Store-managed info, release notes, and a clean offline/error state with **Try Again**.
+- **Fixed:** "Skip This Version" now persists (`updateSkipVersion`) so the same release isn't re-announced; interactive checks record `updateLastChecked`.
+- **Verification:** 11 unit tests for channel detection and skip gating; full suite green (the two stale README/subprocess tests were updated to match current behaviour).
+
+## v1.2.6 — Default Reader Experience — 2026-08-02
+
+- **Added:** Detect whether OpenReader is the current default PDF handler by reading Windows' `UserChoice` ProgID (`pdfreader_lib/win_default_apps.py`) — ownership resolved via the AppUserModelId for MSIX installs and the `OpenReaderPDF` ProgID for the legacy installer.
+- **Added:** Settings dialog (**File → Settings…**) with a Files / Default Apps section — shows the current PDF default, a "Set OpenReader as Default PDF Reader" button that opens the Windows Default Apps page (Windows keeps the final confirmation; OpenReader never writes the default), and a recovery message when the association isn't fully registered.
+- **Added:** First-launch prompt to set OpenReader as the default — Set as default / Maybe later / Do not ask again, persisted in QSettings.
+- **Verification:** 12 unit tests covering Inno and MSIX detection, non-Windows neutrality, friendly-name lookup, and the Default Apps launcher.
+
 ## v1.2.4 — Toolbar Icon Redesign — 2026-06-21
 
 - **Version:** Bumped `__version__` to `1.2.4`, MSIX version to `1.2.4.0`.
@@ -9,14 +32,6 @@
 - **Fixed:** Missing `QPen` and `QPointF` imports added for QPainter icon drawing.
 
 ## v1.2.3 — Reader UX Polish — 2026-06-20
-
-- **Version:** Bumped `__version__` to `1.2.3`, MSIX version to `1.2.3.0`.
-- **Added:** Default Fit Page on open — all PDFs (normal open, recent files, session restore, new tab) now start in Fit view so the first page fits cleanly inside the document viewport. Uses both width and height constraints for true Fit Page behavior.
-- **Added:** Ctrl+Mouse Wheel zoom — scroll up to zoom in, scroll down to zoom out. Works when the PDF viewer has focus. Page scrolling is suppressed while Ctrl is held.
-- **Changed:** Zoom buttons redesigned from plain text characters to bold QPainter-drawn vector icons — clear bar, cross, and fit-arrow symbols that render crisply at any size or resolution.
-- **Changed:** Annotation buttons (`Copy`, `HL`, `UL`, `ST`, `📝`) replaced with recognizable vector icons — overlapping document pages, highlighter pen, underlined U, strikethrough S, and notepad with pin. The 📝 emoji (reported as "looking like a glue stick") is no longer used.
-- **Fixed:** Zoom buttons now have proper hover/press/checked visual feedback via stylesheet. Annotation buttons get consistent hover/press states.
-- **Fixed:** Missing `QPen` and `QPointF` imports added for QPainter icon drawing.
 
 - **Version:** Bumped `__version__` to `1.2.3`, MSIX version to `1.2.3.0`.
 - **Added:** Default Fit Page on open — all PDFs (normal open, recent files, session restore, new tab) now start in Fit view so the first page fits cleanly inside the document viewport. Uses both width and height constraints for true Fit Page behavior.
@@ -169,6 +184,8 @@
 - **Windows installer publisher docs** — README now explains "Unknown Publisher" warning and that code-signing requires an EV certificate.
 - **9 new regression tests** — 28 total, all passing. Covers: re-entrant open guard, blank tab, session checkbox, compress guard, post-update verification, unsigned publisher docs, clean cancel message.
 
+## v1.1.0 — MCP Server Release — 2026-06-16
+
 - **Version:** Bumped `__version__` to `1.1.0-dev`.
 - **MCP server** (`pdfreader_lib/mcp_server.py`) — new Model Context Protocol server exposing 14 PDF operations as tools for AI agents:
   - **Reading:** `extract_text`, `get_page_text`, `get_metadata`, `get_page_count`
@@ -182,6 +199,8 @@
 - **AGENTS.md:** Maintenance rules for the MCP server.
 - **Roadmap:** v1.1.0 marked as current. v1.1.0-plan.md updated to note MCP server shipped; visual polish items deferred to v1.2.0.
 - All operations are local. No cloud dependencies, no code changes to the existing GUI.
+
+## v1.0.6 — Windows Installed-App Verification — 2026-06-15
 
 - **Version:** Bumped `__version__` to `1.0.6-dev`.
 - **Branch:** `windows-installed-app-verification-v1.0.6`

@@ -89,15 +89,16 @@ class TestTempFileSecurity:
 
 
 class TestSubprocessSafety:
-    def test_subprocess_only_for_update(self):
-        """Only the updater should use subprocess."""
+    def test_no_subprocess_spawning(self):
+        """The app never spawns subprocesses (self-update was removed).
+
+        Update detection now opens a browser/Store page instead of shelling out.
+        """
         src = Path(__file__).resolve().parent.parent / "main.py"
         content = src.read_text()
-        # subprocess should only appear in updater methods
-        # Count occurrences - should be very few and all in updater
-        count = content.count("subprocess.Popen")
-        assert count >= 1, "subprocess should be used for updater"
-        assert count <= 3, f"Too many subprocess.Popen calls ({count}); review for safety"
+        assert "subprocess.Popen" not in content
+        assert "subprocess.run" not in content
+        assert "subprocess.call" not in content
 
     def test_all_subprocess_has_nosec_comment(self):
         """Every subprocess.Popen call should have # nosec comment."""

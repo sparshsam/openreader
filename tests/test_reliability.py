@@ -254,11 +254,11 @@ class TestOpenActionSignalHandling:
         assert "Compression was not beneficial" in src
         assert "unlink(missing_ok=True)" in src
 
-    def test_unsigned_publisher_doc_added(self):
-        """README should document the unsigned 'Unknown Publisher' status."""
+    def test_distribution_channels_documented(self):
+        """README should document the Store and GitHub distribution channels."""
         readme = (Path(ROOT) / "README.md").read_text()
-        assert 'Unknown Publisher' in readme
-        assert 'code-signing' in readme
+        assert "apps.microsoft.com/detail/9MXDVW2645LL" in readme
+        assert "github.com/sparshsam/openreader/releases" in readme
 
     def test_open_pdf_cancelled_message_is_clean(self):
         """Cancel should show exactly one clean message, not cascading fallback messages."""
@@ -287,9 +287,9 @@ class TestZoomConstants:
         assert tab.fit_to_window is True
         assert tab.zoom == 1.25
 
-    def test_version_is_1_2_4(self):
+    def test_version_is_1_2_7(self):
         import main as m
-        assert m.__version__ == "1.2.4"
+        assert m.__version__ == "1.2.7"
 
 
 class TestZoomUi:
