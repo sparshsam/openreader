@@ -13,9 +13,11 @@
     - A code-signing certificate (.pfx) for package signing (or use Store signing)
 
     Usage:
-      .\build-msix.ps1 -ExeDir "..\dist\OpenReader" -Version "1.2.0.0"
+      .\build-msix.ps1 -ExeDir "..\dist\OpenReader" [-Version "1.2.5.0"]
 
     Optional:
+      -Version  4-part MSIX version. Defaults to the version declared in
+                AppxManifest.xml (kept in sync by scripts/inject_version.py).
       -PfxPath ".\certificate.pfx" -PfxPassword "password"
 
     The script generates:
@@ -36,7 +38,7 @@ param(
     [string]$ExeDir,
 
     [Parameter(Mandatory = $false)]
-    [string]$Version = "1.2.0.0",
+    [string]$Version = "",
 
     [Parameter(Mandatory = $false)]
     [string]$PfxPath = "",
@@ -55,6 +57,21 @@ $ScriptDir = Split-Path -Parent $PSCommandPath
 if (-not (Test-Path $ExeDir)) {
     Write-Error "ExeDir '$ExeDir' not found. Run PyInstaller first."
     exit 1
+}
+
+# Default the version to the one declared in AppxManifest.xml so it never
+# drifts from the checked-in source (kept in sync by inject_version.py).
+if (-not $Version) {
+    $defaultManifest = Join-Path $ScriptDir "AppxManifest.xml"
+    if (Test-Path $defaultManifest) {
+        $defaultXml = New-Object System.Xml.XmlDocument
+        $defaultXml.Load($defaultManifest)
+        $Version = $defaultXml.Package.Identity.Version
+        Write-Host "Using version from AppxManifest.xml: $Version" -ForegroundColor Cyan
+    } else {
+        Write-Error "AppxManifest.xml not found and -Version not provided."
+        exit 1
+    }
 }
 
 # --- Locate MakeAppx.exe ---

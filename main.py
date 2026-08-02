@@ -55,7 +55,7 @@ __version__ = "1.2.4"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
-SETTINGS_RECENT_KEY = "***"
+SETTINGS_RECENT_KEY = "recentFiles"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
 
 # ── Performance timer ─────────────────────────────────────────────────
@@ -1532,10 +1532,23 @@ class PdfReaderWindow(QMainWindow):
     def _load_recent_files(self) -> list[str]:
         raw = self.settings.value(SETTINGS_RECENT_KEY, [])
         if raw is None:
-            return []
+            raw = []
         if isinstance(raw, str):
             raw = [raw]
-        return [p for p in raw if p and Path(p).exists()]
+        recents = [p for p in raw if p and Path(p).exists()]
+
+        # Migrate recents stored under the old key that was accidentally
+        # named "***" (v1.2.4 and earlier) so users keep their history.
+        if not recents and self.settings.contains("***"):
+            legacy = self.settings.value("***", [])
+            if isinstance(legacy, str):
+                legacy = [legacy]
+            recents = [p for p in legacy if p and Path(p).exists()]
+            if recents:
+                self.settings.setValue(SETTINGS_RECENT_KEY, recents)
+            self.settings.remove("***")
+
+        return recents
 
     def _save_recent_files(self):
         self.settings.setValue(SETTINGS_RECENT_KEY, self._recent_files)

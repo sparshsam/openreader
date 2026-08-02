@@ -62,6 +62,18 @@
           Square71x71Logo="assets\icon-71x71.png" />
         <uap:SplashScreen Image="assets\icon-620x300.png" />
       </uap:VisualElements>
+
+      <Extensions>
+        <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="openreader">
+            <uap:DisplayName>PDF Document</uap:DisplayName>
+            <uap:Logo>assets\icon-44x44.png</uap:Logo>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.pdf</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+      </Extensions>
     </Application>
   </Applications>
 
