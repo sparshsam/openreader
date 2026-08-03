@@ -3,10 +3,25 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# Inject version from latest git tag directly into main.py
-VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "0.0.0-dev")
-VERSION="${VERSION#v}"
-python3 scripts/inject_version.py "$VERSION"
+# Version precedence:
+#   1. Explicit override (BUILD_VERSION env)
+#   2. Exact tag on HEAD (git describe --exact-match)
+#   3. Authoritative source version already in main.py
+# Never fall back to an older Git tag or 0.0.0-dev, which would silently
+# regress the embedded application version.
+VERSION="${BUILD_VERSION:-}"
+if [ -z "$VERSION" ]; then
+  TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || true)
+  if [ -n "$TAG" ]; then
+    VERSION="${TAG#v}"
+  fi
+fi
+if [ -n "$VERSION" ]; then
+  python3 scripts/inject_version.py "$VERSION"
+else
+  VERSION=$(python3 scripts/inject_version.py --source-version)
+  echo "Using source version: $VERSION (no build override or exact tag)"
+fi
 
 if ! command -v python3 >/dev/null 2>&1; then
   echo "python3 is required. Install Python 3.11 or newer from https://www.python.org/downloads/macos/."

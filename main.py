@@ -7,6 +7,7 @@ import sys
 import tempfile
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 import fitz
@@ -51,12 +52,28 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.4"
+__version__ = "1.2.7"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
-SETTINGS_RECENT_KEY = "***"
+SETTINGS_RECENT_KEY = "recentFiles"
 SETTINGS_AUTO_UPDATE_KEY = "autoCheckUpdates"
+SETTINGS_DEFAULT_PROMPT_KEY = "defaultAppPromptShown"
+SETTINGS_DEFAULT_DONT_ASK_KEY = "defaultAppDontAsk"
+SETTINGS_UPDATE_SKIP_KEY = "updateSkipVersion"
+SETTINGS_UPDATE_LAST_CHECKED_KEY = "updateLastChecked"
+
+
+def should_suppress_silent_notify(result: dict, skip_version: str | None) -> bool:
+    """True when a silent update check should not re-notify about a release.
+
+    Suppression is exact-tag equality against the version the user skipped —
+    a newer release still notifies.
+    """
+    if result.get("outcome") != "update_available":
+        return False
+    latest = result.get("latest_tag")
+    return bool(latest) and bool(skip_version) and latest == skip_version
 
 # ── Performance timer ─────────────────────────────────────────────────
 
@@ -85,6 +102,12 @@ try:
     HAS_LIB_MODULES = True
 except ImportError:
     HAS_LIB_MODULES = False
+
+# Windows default-app detection (stdlib only; no-op on non-Windows).
+from pdfreader_lib import win_default_apps
+
+# Install-source detection for channel-aware updates (stdlib only).
+from pdfreader_lib import install_source
 
 
 # ---------------------------------------------------------------------------
@@ -979,6 +1002,7 @@ class PdfReaderWindow(QMainWindow):
 
         self._log_update(f"app_launch: version={__version__}")
         self._auto_update_check = self.settings.value(SETTINGS_AUTO_UPDATE_KEY, True, bool)
+        self._install_source = install_source.detect_install_source()
 
         self._build_ui()
         self._build_actions()
@@ -994,6 +1018,9 @@ class PdfReaderWindow(QMainWindow):
         # Auto-update check on launch
         if self._auto_update_check:
             QTimer.singleShot(3000, self.check_for_updates_silent)
+
+        # First-launch default PDF reader prompt (Windows only)
+        QTimer.singleShot(1500, self._maybe_prompt_default_app)
 
         _perf_end(_perf_start_t, "PdfReaderWindow.__init__")
         QApplication.styleHints().colorSchemeChanged.connect(self._on_system_theme_change)
@@ -1371,6 +1398,12 @@ class PdfReaderWindow(QMainWindow):
 
         file_menu.addSeparator()
 
+        settings_action = QAction("Settings…", self)
+        settings_action.triggered.connect(self._open_settings_dialog)
+        file_menu.addAction(settings_action)
+
+        file_menu.addSeparator()
+
         quit_action = QAction("Quit", self)
         quit_action.setShortcut(QKeySequence.Quit)
         quit_action.triggered.connect(self.close)
@@ -1532,10 +1565,23 @@ class PdfReaderWindow(QMainWindow):
     def _load_recent_files(self) -> list[str]:
         raw = self.settings.value(SETTINGS_RECENT_KEY, [])
         if raw is None:
-            return []
+            raw = []
         if isinstance(raw, str):
             raw = [raw]
-        return [p for p in raw if p and Path(p).exists()]
+        recents = [p for p in raw if p and Path(p).exists()]
+
+        # Migrate recents stored under the old key that was accidentally
+        # named "***" (v1.2.4 and earlier) so users keep their history.
+        if not recents and self.settings.contains("***"):
+            legacy = self.settings.value("***", [])
+            if isinstance(legacy, str):
+                legacy = [legacy]
+            recents = [p for p in legacy if p and Path(p).exists()]
+            if recents:
+                self.settings.setValue(SETTINGS_RECENT_KEY, recents)
+            self.settings.remove("***")
+
+        return recents
 
     def _save_recent_files(self):
         self.settings.setValue(SETTINGS_RECENT_KEY, self._recent_files)
@@ -3155,6 +3201,9 @@ class PdfReaderWindow(QMainWindow):
 
     def check_for_updates_silent(self):
         """Silent update check — no user-visible feedback unless update is found."""
+        if self._is_store():
+            # Updates are managed by the Microsoft Store; don't hit GitHub.
+            return
         self._update_nam_silent = QNetworkAccessManager(self)
         self._update_nam_silent.finished.connect(self._on_silent_update_reply)
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
@@ -3172,6 +3221,10 @@ class PdfReaderWindow(QMainWindow):
         )
         reply.deleteLater()
         if result["outcome"] == "update_available":
+            skip_version = self.settings.value(SETTINGS_UPDATE_SKIP_KEY, "")
+            if should_suppress_silent_notify(result, skip_version):
+                self._log_update("update_check=skipped_by_user_preference")
+                return
             self.statusBar().showMessage(result["message"], 10000)
 
     # ------------------------------------------------------------------
@@ -3231,6 +3284,10 @@ class PdfReaderWindow(QMainWindow):
     @staticmethod
     def _is_packaged():
         return getattr(sys, "frozen", False)
+
+    def _is_store(self):
+        """True when installed as an MSIX/Store package (updates via Store)."""
+        return self._install_source == install_source.STORE_MSIX
 
     @staticmethod
     def _updater_temp_dir():
@@ -3348,6 +3405,12 @@ class PdfReaderWindow(QMainWindow):
         return result
 
     def check_for_updates(self):
+        if self._is_store():
+            dlg = _SoftwareUpdatesDialog(self, mode="store", current_version=__version__)
+            dlg.exec()
+            if dlg.action == "open_store":
+                self._open_store_listing()
+            return
         self.update_action.setEnabled(False)
         self.statusBar().showMessage("Checking for updates...")
         url = QUrl(f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest")
@@ -3375,65 +3438,51 @@ class PdfReaderWindow(QMainWindow):
         self._log_update(f"update_check=outcome={result['outcome']}")
         self._log_update(f"update_check=latest_tag={result['latest_tag']}")
         self._log_update(f"update_check=current_version={__version__}")
-
-        if result["outcome"] in ("network_error", "http_error", "json_error"):
-            self.statusBar().showMessage(result["message"], 5000)
-            reply.deleteLater()
-            return
-
         reply.deleteLater()
 
-        # Already on latest version
-        if result["outcome"] == "already_latest":
-            QMessageBox.information(
-                self,
-                "Up to Date",
-                f"You're already running the latest version of OpenReader (v{__version__}).",
-            )
-            self.statusBar().showMessage(result["message"], 5000)
+        # Record when an interactive check last ran.
+        self.settings.setValue(
+            SETTINGS_UPDATE_LAST_CHECKED_KEY, datetime.now().isoformat()
+        )
+
+        if result["outcome"] in ("network_error", "http_error", "json_error"):
+            dlg = _SoftwareUpdatesDialog(self, mode="offline", message=result["message"])
+            dlg.exec()
+            if dlg.action == "try_again":
+                self.check_for_updates()
             return
 
-        # Update available \u2014 open releases page in browser
-        latest_tag = result["latest_tag"]
-        data = result["data"]
-        current_version = self._parse_version(__version__)
+        if result["outcome"] == "already_latest":
+            dlg = _SoftwareUpdatesDialog(self, mode="already_latest", current_version=__version__)
+            dlg.exec()
+            return
 
+        # Update available
+        data = result["data"]
+        latest_tag = result["latest_tag"]
         release_url = data.get("html_url", f"https://github.com/{GITHUB_REPO}/releases")
         release_notes = (data.get("body") or "")[:500]
+        last_checked = self.settings.value(SETTINGS_UPDATE_LAST_CHECKED_KEY, "")
 
-        msg = (
-            f"<h3>Update Available</h3>"
-            f"<p><b>v{'.'.join(str(x) for x in current_version)}</b> \u2192 <b>{latest_tag}</b></p>"
-            "<hr>"
-            "<p>PDFReader no longer installs updates from within the app.</p>"
-            "<p>Please download the latest version from the GitHub releases page "
-            "and install it using the MSIX App Installer (Windows) or "
-            "the legacy Setup.exe.</p>"
+        dlg = _SoftwareUpdatesDialog(
+            self,
+            mode="update_available",
+            current_version=__version__,
+            latest_tag=latest_tag,
+            release_url=release_url,
+            release_notes=release_notes,
+            last_checked=last_checked,
         )
-        if release_notes:
-            msg += f"<hr><pre style='white-space:pre-wrap'>{release_notes}</pre>"
+        dlg.exec()
 
-        btn = QMessageBox(self)
-        btn.setWindowTitle("Update Available")
-        btn.setTextFormat(Qt.RichText)
-        btn.setText(msg)
-
-        open_button = btn.addButton("Open Releases Page", QMessageBox.AcceptRole)
-        skip_button = btn.addButton("Skip This Version", QMessageBox.RejectRole)
-        _ = btn.addButton("Later", QMessageBox.DestructiveRole)
-
-        btn.exec()
-
-        if btn.clickedButton() == skip_button:
-            self.statusBar().showMessage("Update skipped", 3000)
-            return
-
-        if btn.clickedButton() == open_button:
+        if dlg.action == "open_releases":
             import webbrowser
             webbrowser.open(release_url)
-            self.statusBar().showMessage(
-                "Opening releases page in your browser.", 5000
-            )
+            self.statusBar().showMessage("Opening releases page in your browser.", 5000)
+        elif dlg.action == "skip":
+            self.settings.setValue(SETTINGS_UPDATE_SKIP_KEY, latest_tag)
+            self._log_update(f"update_check=skipped_version={latest_tag}")
+            self.statusBar().showMessage("Update skipped for this version", 3000)
 
     # Workspace Session Restoration
     # ------------------------------------------------------------------
@@ -3545,6 +3594,47 @@ class PdfReaderWindow(QMainWindow):
         dlg.exec()
 
     # ------------------------------------------------------------------
+    # Settings
+    # ------------------------------------------------------------------
+
+    def _open_settings_dialog(self):
+        dlg = _SettingsDialog(self)
+        dlg.exec()
+
+    def _maybe_prompt_default_app(self):
+        """First-launch prompt to set OpenReader as the default PDF reader."""
+        if not win_default_apps.is_windows():
+            return
+        if self.settings.value(SETTINGS_DEFAULT_DONT_ASK_KEY, False, bool):
+            return
+        if self.settings.value(SETTINGS_DEFAULT_PROMPT_KEY, False, bool):
+            return
+        is_default, _ = win_default_apps.default_app_owner()
+        if is_default:
+            return
+
+        box = QMessageBox(self)
+        box.setWindowTitle("Default PDF Reader")
+        box.setText(
+            "OpenReader isn't your default PDF reader.\n\n"
+            "Set it as the default to open PDFs from File Explorer with "
+            "OpenReader?"
+        )
+        set_btn = box.addButton("Set as Default", QMessageBox.AcceptRole)
+        _ = box.addButton("Maybe Later", QMessageBox.RejectRole)
+        dont_ask_btn = box.addButton("Do Not Ask Again", QMessageBox.DestructiveRole)
+        box.exec()
+
+        clicked = box.clickedButton()
+        if clicked == set_btn:
+            self.settings.setValue(SETTINGS_DEFAULT_PROMPT_KEY, True)
+            win_default_apps.open_default_apps_settings()
+        elif clicked == dont_ask_btn:
+            self.settings.setValue(SETTINGS_DEFAULT_PROMPT_KEY, True)
+            self.settings.setValue(SETTINGS_DEFAULT_DONT_ASK_KEY, True)
+        # "Maybe Later" — no-op; re-prompts on the next launch.
+
+    # ------------------------------------------------------------------
     # Semantic Search (integrated with search bar)
     # ------------------------------------------------------------------
 
@@ -3630,6 +3720,228 @@ class PdfReaderWindow(QMainWindow):
                 self.current_page = min(r.page - 1, self.document.page_count - 1)
                 self.render_page()
                 self.statusBar().showMessage(f"Opened: {r.filename} — page {r.page}", 5000)
+
+
+# ---------------------------------------------------------------------------
+# Settings Dialog
+# ---------------------------------------------------------------------------
+
+class _SettingsDialog(QDialog):
+    """Application settings — Default Apps (Updates section added in v1.2.7)."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Settings")
+        self.resize(520, 340)
+
+        layout = QVBoxLayout(self)
+
+        # ── Files / Default Apps ──
+        files_group = QGroupBox("Files / Default Apps")
+        files_layout = QVBoxLayout(files_group)
+
+        self.default_label = QLabel()
+        self.default_label.setTextFormat(Qt.RichText)
+        self.default_label.setWordWrap(True)
+        files_layout.addWidget(self.default_label)
+
+        self.set_default_button = QPushButton("Set OpenReader as Default PDF Reader")
+        self.set_default_button.setToolTip(
+            "Opens the Windows Default Apps page. "
+            "Windows keeps the final confirmation."
+        )
+        self.set_default_button.clicked.connect(self._open_default_apps)
+        files_layout.addWidget(self.set_default_button)
+
+        refresh_button = QPushButton("Refresh Status")
+        refresh_button.clicked.connect(self._refresh)
+        files_layout.addWidget(refresh_button)
+
+        self.recovery_label = QLabel()
+        self.recovery_label.setTextFormat(Qt.RichText)
+        self.recovery_label.setWordWrap(True)
+        self.recovery_label.setStyleSheet("color: #b04040;")
+        files_layout.addWidget(self.recovery_label)
+
+        layout.addWidget(files_group)
+
+        # ── Close ──
+        close_btn = QPushButton("Close")
+        close_btn.setFixedWidth(100)
+        close_btn.clicked.connect(self.accept)
+        btn_layout = QHBoxLayout()
+        btn_layout.addStretch()
+        btn_layout.addWidget(close_btn)
+        layout.addLayout(btn_layout)
+
+        self._refresh()
+
+    @staticmethod
+    def _esc(text: str) -> str:
+        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+    def _refresh(self):
+        if not win_default_apps.is_windows():
+            self.default_label.setText(
+                "<b>Default PDF handling</b> is only configurable on Windows."
+            )
+            self.set_default_button.setEnabled(False)
+            self.recovery_label.hide()
+            return
+
+        is_default, progid = win_default_apps.default_app_owner()
+
+        if is_default:
+            label = (
+                "<b>OpenReader is the default PDF reader.</b><br>"
+                "PDFs open in OpenReader from File Explorer."
+            )
+            self.set_default_button.setText("Open Default Apps")
+            self.set_default_button.setToolTip(
+                "Open the Windows Default Apps page to manage PDF handling."
+            )
+        else:
+            self.set_default_button.setText("Set OpenReader as Default PDF Reader")
+            self.set_default_button.setToolTip(
+                "Opens the Windows Default Apps page. "
+                "Windows keeps the final confirmation."
+            )
+            if progid:
+                name = win_default_apps.friendly_app_name(progid) or progid
+                label = f"<b>Current default for PDF:</b> {self._esc(name)}"
+            else:
+                label = (
+                    "<b>Current default for PDF:</b> not detected — Windows has not "
+                    "chosen a handler, or the setting couldn't be read."
+                )
+        self.default_label.setText(label)
+
+        # Recovery only when OpenReader is neither the default nor registered.
+        if is_default or win_default_apps.association_registered():
+            self.recovery_label.hide()
+        else:
+            self.recovery_label.setText(
+                "<b>OpenReader's PDF association isn't fully registered.</b> "
+                "Reinstall OpenReader, or for Store installs use "
+                "Settings → Apps → Installed apps → OpenReader → Advanced options → "
+                "Repair."
+            )
+            self.recovery_label.show()
+
+    def _open_default_apps(self):
+        if not win_default_apps.open_default_apps_settings():
+            QMessageBox.warning(
+                self,
+                "Default Apps",
+                "Couldn't open the Windows Default Apps page. "
+                "Open it manually: Settings → Apps → Default apps.",
+            )
+
+
+# ---------------------------------------------------------------------------
+# Software Updates Dialog
+# ---------------------------------------------------------------------------
+
+class _SoftwareUpdatesDialog(QDialog):
+    """Channel-aware Software Updates dialog (v1.2.7).
+
+    ``mode`` selects the content and buttons:
+
+      - ``store``           — Store-managed message + Open Microsoft Store.
+      - ``update_available`` — current → latest, release notes, Open Releases
+                               Page / Skip This Version / Later.
+      - ``already_latest``   — up-to-date confirmation.
+      - ``offline``          — clean error message + Try Again.
+
+    After ``exec()``, ``self.action`` is one of ``open_store``,
+    ``open_releases``, ``skip``, ``try_again``, or ``close``.
+    """
+
+    def __init__(
+        self,
+        parent,
+        mode,
+        *,
+        current_version=None,
+        latest_tag=None,
+        release_url=None,
+        release_notes=None,
+        message=None,
+        last_checked=None,
+    ):
+        super().__init__(parent)
+        self.parent_window = parent
+        self.action = "close"
+        self.setWindowTitle("Software Updates")
+        self.resize(480, 360)
+
+        layout = QVBoxLayout(self)
+
+        heading = QLabel()
+        heading.setTextFormat(Qt.RichText)
+        heading.setWordWrap(True)
+        layout.addWidget(heading)
+
+        body = QLabel()
+        body.setTextFormat(Qt.RichText)
+        body.setWordWrap(True)
+        layout.addWidget(body)
+
+        if mode == "update_available" and release_notes:
+            notes = QLabel(f"<pre style='white-space:pre-wrap'>{release_notes}</pre>")
+            notes.setTextFormat(Qt.RichText)
+            notes.setWordWrap(True)
+            layout.addWidget(notes)
+
+        if last_checked:
+            stamp = QLabel(f"<i>Last checked: {last_checked}</i>")
+            stamp.setTextFormat(Qt.RichText)
+            stamp.setWordWrap(True)
+            layout.addWidget(stamp)
+
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        layout.addLayout(buttons)
+
+        if mode == "store":
+            heading.setText("<h3>Updates are managed by the Microsoft Store</h3>")
+            body.setText(
+                f"You're running OpenReader <b>v{current_version}</b>.<br><br>"
+                "Updates for Store installs are delivered automatically by the "
+                "Microsoft Store. To check for updates, open the Store listing."
+            )
+            self._add(buttons, "Open Microsoft Store", "open_store")
+            self._add(buttons, "Close", "close")
+        elif mode == "update_available":
+            heading.setText("<h3>Update Available</h3>")
+            body.setText(
+                f"You're running <b>v{current_version}</b> &rarr; "
+                f"<b>{latest_tag}</b> is available."
+            )
+            self._add(buttons, "Open Releases Page", "open_releases")
+            self._add(buttons, "Skip This Version", "skip")
+            self._add(buttons, "Later", "close")
+        elif mode == "already_latest":
+            heading.setText("<h3>Up to Date</h3>")
+            body.setText(
+                f"You're already running the latest version of OpenReader "
+                f"(v{current_version})."
+            )
+            self._add(buttons, "Close", "close")
+        else:  # offline / error
+            heading.setText("<h3>Couldn't Check for Updates</h3>")
+            body.setText(message or "An error occurred while checking for updates.")
+            self._add(buttons, "Try Again", "try_again")
+            self._add(buttons, "Close", "close")
+
+    def _add(self, layout, label, action):
+        btn = QPushButton(label)
+        btn.clicked.connect(lambda: self._finish(action))
+        layout.addWidget(btn)
+
+    def _finish(self, action):
+        self.action = action
+        self.accept()
 
 
 # ---------------------------------------------------------------------------
@@ -3951,6 +4263,17 @@ class _CompareDialog(QDialog):
 # Entry Point
 # ---------------------------------------------------------------------------
 
+def filter_pdf_paths(args: list[str]) -> list[str]:
+    """Return the subset of CLI args that look like PDF file paths.
+
+    Windows passes a quoted ``%1`` for file activations, so a path survives
+    intact even with spaces, parentheses, or non-ASCII characters. The IPC
+    hand-off serializes these as JSON (Unicode-safe). Only the ``.pdf`` suffix
+    is matched here; existence is checked by the callers.
+    """
+    return [a for a in args if Path(a).suffix.lower() == ".pdf"]
+
+
 def _try_send_to_existing_instance(file_paths: list[str]) -> bool:
     """Send file paths to a running instance via QLocalSocket. Returns True if sent."""
     if not file_paths:
@@ -3978,7 +4301,7 @@ def main():
     app.setOrganizationName("Sparsh Sam")
 
     # ---- Single-instance IPC: route file opens to existing window ----
-    pdf_paths = [a for a in sys.argv[1:] if Path(a).suffix.lower() == ".pdf"]
+    pdf_paths = filter_pdf_paths(sys.argv[1:])
     if pdf_paths and _try_send_to_existing_instance(pdf_paths):
         # Paths routed to existing instance — exit this one
         sys.exit(0)

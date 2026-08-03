@@ -27,6 +27,7 @@ OpenReader-Test-Cert.cer
 .env
 .env.*
 !.env.example
+test-builds/
 *.log
 *.pem
 *.key

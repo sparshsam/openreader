@@ -2,14 +2,27 @@ $ErrorActionPreference = "Stop"
 
 Set-Location -Path (Split-Path -Parent $PSScriptRoot)
 
-# Inject version from latest git tag directly into main.py
-$version = "0.0.0-dev"
-$tag = git describe --tags --abbrev=0 2>$null
-if ($tag) {
-    $version = $tag -replace '^v', ''
+# Version precedence:
+#   1. Explicit override (BUILD_VERSION env)
+#   2. Exact tag on HEAD (git describe --exact-match)
+#   3. Authoritative source version already in main.py
+# Never fall back to an older Git tag or 0.0.0-dev, which would silently
+# regress the embedded application version.
+$version = $env:BUILD_VERSION
+if (-not $version) {
+    $tag = git describe --tags --exact-match HEAD 2>$null
+    if ($tag) {
+        $version = $tag -replace '^v', ''
+    }
 }
-python scripts/inject_version.py $version
-Write-Host "Injected version: $version"
+
+if ($version) {
+    python scripts/inject_version.py $version
+    Write-Host "Injected version: $version"
+} else {
+    $version = python scripts/inject_version.py --source-version
+    Write-Host "Using source version: $version (no build override or exact tag)"
+}
 
 if (!(Test-Path -LiteralPath ".\.venv")) {
     python -m venv .venv

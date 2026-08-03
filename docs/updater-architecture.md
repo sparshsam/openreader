@@ -1,7 +1,7 @@
 # Updater Architecture
 
-**Version:** 1.2.0+  
-**Status:** Self-update removed — MSIX/App Installer adopted
+**Version:** 1.2.7  
+**Status:** Self-update removed — MSIX/App Installer adopted; channel-aware update detection (v1.2.7)
 
 ## History
 
@@ -99,10 +99,13 @@ The app retains update **detection** but not update **application**:
 |--------|---------|-----------|
 | `_parse_version` | Parse semver tags for comparison | ✅ |
 | `_classify_update_response` | Classify GitHub API responses | ✅ |
-| `check_for_updates_silent` | Background check on launch | ✅ (show status bar only) |
-| `check_for_updates` | Interactive Help → Check for Updates | ✅ (opens browser only) |
-| `_on_update_check_reply` | Handle API response, show dialog | ✅ (opens releases page) |
+| `check_for_updates_silent` | Background check on launch | ✅ (skipped for Store installs) |
+| `check_for_updates` | Interactive Help → Check for Updates | ✅ (Store → Store dialog; GitHub → releases) |
+| `_on_update_check_reply` | Handle API response, show Software Updates dialog | ✅ (v1.2.7) |
 | `_log_update` | Log update diagnostics | ✅ |
+| `install_source.detect_install_source` | Detect MSIX / Setup.exe / portable / source (via `GetCurrentPackageFamilyName`) | ✅ (v1.2.7) |
+| `_SoftwareUpdatesDialog` | Channel-aware update dialog | ✅ (v1.2.7) |
+| `should_suppress_silent_notify` | Skip re-notification for a skipped release | ✅ (v1.2.7) |
 | All download/apply methods | — | ❌ Removed (~611 lines) |
 
 ### 2. MSIX Packaging (packaging/msix/)
@@ -125,9 +128,11 @@ to the GitHub Release as `OpenReader.msix`.
 
 ### Manual Update Check
 1. Help → Check for Updates
-2. If newer → dialog with "Open Releases Page"
-3. Browser opens GitHub Releases
-4. User downloads and installs
+2. **Store install:** Software Updates dialog → "Updates are managed by the
+   Microsoft Store" → *Open Microsoft Store* (no GitHub request).
+3. **GitHub install:** if newer → dialog with current → latest, release notes,
+   *Skip This Version* (persisted) / *Open Releases Page* / *Later*.
+4. Browser opens GitHub Releases; user downloads and installs.
 
 ### Future: Automatic Updates
 Once Store submission is active or App Installer is deployed:
@@ -141,7 +146,9 @@ Once Store submission is active or App Installer is deployed:
 - **No UAC elevation** — the app never requests admin rights for updates
 - **No self-replacement** — the app never overwrites its own files
 - **Windows-managed updates** — MSIX packages are validated by Windows
-- **GitHub API only** — the only network request is the update check
+- **GitHub API only (non-Store)** — the only network request is the update
+  check, and Store/MSIX installs make no update-related network calls at all
+  (v1.2.7)
 
 ## Limitations
 

@@ -31,21 +31,20 @@ jobs:
       - name: Inject version
         shell: bash
         run: |
-          # Version priority:
-          # 1. Manual input from workflow_dispatch
-          # 2. Git tag (tagged push)
-          # 3. Branch name (non-main branches = test build)
-          # 4. Fallback
+          # Version precedence:
+          #   1. Explicit workflow/build version (workflow_dispatch input)
+          #   2. Exact Git tag (tagged push)
+          #   3. Authoritative source version from main.py + "-test" marker
+          # Ordinary branch builds must never regress the embedded version to
+          # an older Git tag or 0.0.0-dev.
 
           if [[ -n "${{ github.event.inputs.version_override }}" ]]; then
             VERSION="${{ github.event.inputs.version_override }}"
           elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
-          elif [[ "${GITHUB_REF_NAME}" != "main" ]]; then
-            BRANCH="${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}"
-            VERSION="${BRANCH//\//-}-test"
           else
-            VERSION="0.0.0-dev"
+            SOURCE_VERSION="$(python scripts/inject_version.py --source-version)"
+            VERSION="${SOURCE_VERSION}-test"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           python scripts/inject_version.py "$VERSION"

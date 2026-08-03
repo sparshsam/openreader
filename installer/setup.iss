@@ -42,6 +42,10 @@ AlwaysShowDirOnReadyPage=yes
 CloseApplications=force
 AppMutex=OpenReader
 
+; Refresh the Windows file-association cache after install/uninstall
+; so the .pdf → OpenReaderPDF registration is picked up promptly.
+ChangesAssociations=yes
+
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 

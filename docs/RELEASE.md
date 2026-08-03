@@ -5,9 +5,22 @@ OpenReader uses semantic version tags to publish packaged builds.
 ## Version Source of Truth
 
 - `__version__` in `main.py` is the canonical source. Set it to the next release version.
+- `scripts/inject_version.py` propagates the version to every canonical source so
+  they stay in lockstep: `main.py`, `packages/mcp-server/pyproject.toml`,
+  `packages/mcp-server/src/openreader_mcp.egg-info/PKG-INFO`, and both MSIX
+  manifests (`AppxManifest.xml` / `AppInstaller.xml`, mapped to a 4-part
+  version). Run `python scripts/inject_version.py X.Y.Z` after bumping `main.py`.
+- MSIX manifests are only rewritten for strict semver versions; dev/test builds
+  (`-dev`, `-test`) bump the code/MCP sources but leave the manifests to CI.
 - Tags must use the format `vMAJOR.MINOR.PATCH`, for example `v1.2.2`.
-- The injected runtime version removes the leading `v`, so `v1.2.2` becomes `__version__ = "1.2.2"` in packaged builds.
 - CI injects the tag version for release builds via `scripts/inject_version.py`.
+- **Build version precedence** (local `scripts/build_windows.ps1`,
+  `scripts/build_macos.sh`, and the CI `build-windows.yml` workflow):
+  1. explicit workflow/build version (`version_override` / `BUILD_VERSION`)
+  2. exact Git tag on HEAD (`git describe --exact-match`)
+  3. authoritative source version from `main.py` `__version__`
+  Ordinary branch builds never regress the embedded version to an older Git
+  tag or `0.0.0-dev`; CI test builds append `-test` to the source version.
 
 ## Release Architecture
 
@@ -54,16 +67,23 @@ no separate code-signing certificate is needed.
 
 ## Update Detection
 
-The app's Help → Check for Updates:
+Update behaviour is channel-aware (v1.2.7). `pdfreader_lib/install_source.py`
+detects how OpenReader was installed:
 
-1. Calls `https://api.github.com/repos/sparshsam/openreader/releases/latest`
-2. Reads `tag_name` and compares against `__version__`
-3. If a newer version exists, shows a dialog with release notes
-4. User clicks "Open Releases Page" → browser opens GitHub Releases
-5. User downloads the MSIX (or Setup.exe) and installs manually
+- **MSIX / Microsoft Store** — the app never calls GitHub. Help → Check for
+  Updates shows the Software Updates dialog ("Updates are managed by the
+  Microsoft Store") with an *Open Microsoft Store* button.
+- **Setup.exe / portable ZIP** — the app queries GitHub:
+  1. Calls `https://api.github.com/repos/sparshsam/openreader/releases/latest`
+  2. Reads `tag_name` and compares against `__version__`
+  3. If newer, shows the Software Updates dialog with current → latest, release
+     notes, and a last-checked timestamp
+  4. *Skip This Version* persists (`updateSkipVersion`) so the same release
+     isn't re-announced; *Open Releases Page* opens GitHub Releases
+- **Source** — no auto-update; developers `git pull` and rebuild.
 
 Source builds usually run with a `-dev` version and are not the primary update
-target. Developers should update source builds with `git pull` and rebuild locally.
+target.
 
 ## Validation Checklist
 
