@@ -3790,19 +3790,34 @@ class _SettingsDialog(QDialog):
             return
 
         is_default, progid = win_default_apps.default_app_owner()
+
         if is_default:
-            label = "<b>Current default for PDF:</b> OpenReader"
-        elif progid:
-            name = win_default_apps.friendly_app_name(progid) or progid
-            label = f"<b>Current default for PDF:</b> {self._esc(name)}"
-        else:
             label = (
-                "<b>Current default for PDF:</b> not detected — Windows has not "
-                "chosen a handler, or the setting couldn't be read."
+                "<b>OpenReader is the default PDF reader.</b><br>"
+                "PDFs open in OpenReader from File Explorer."
             )
+            self.set_default_button.setText("Open Default Apps")
+            self.set_default_button.setToolTip(
+                "Open the Windows Default Apps page to manage PDF handling."
+            )
+        else:
+            self.set_default_button.setText("Set OpenReader as Default PDF Reader")
+            self.set_default_button.setToolTip(
+                "Opens the Windows Default Apps page. "
+                "Windows keeps the final confirmation."
+            )
+            if progid:
+                name = win_default_apps.friendly_app_name(progid) or progid
+                label = f"<b>Current default for PDF:</b> {self._esc(name)}"
+            else:
+                label = (
+                    "<b>Current default for PDF:</b> not detected — Windows has not "
+                    "chosen a handler, or the setting couldn't be read."
+                )
         self.default_label.setText(label)
 
-        if win_default_apps.association_registered():
+        # Recovery only when OpenReader is neither the default nor registered.
+        if is_default or win_default_apps.association_registered():
             self.recovery_label.hide()
         else:
             self.recovery_label.setText(
@@ -4248,6 +4263,17 @@ class _CompareDialog(QDialog):
 # Entry Point
 # ---------------------------------------------------------------------------
 
+def filter_pdf_paths(args: list[str]) -> list[str]:
+    """Return the subset of CLI args that look like PDF file paths.
+
+    Windows passes a quoted ``%1`` for file activations, so a path survives
+    intact even with spaces, parentheses, or non-ASCII characters. The IPC
+    hand-off serializes these as JSON (Unicode-safe). Only the ``.pdf`` suffix
+    is matched here; existence is checked by the callers.
+    """
+    return [a for a in args if Path(a).suffix.lower() == ".pdf"]
+
+
 def _try_send_to_existing_instance(file_paths: list[str]) -> bool:
     """Send file paths to a running instance via QLocalSocket. Returns True if sent."""
     if not file_paths:
@@ -4275,7 +4301,7 @@ def main():
     app.setOrganizationName("Sparsh Sam")
 
     # ---- Single-instance IPC: route file opens to existing window ----
-    pdf_paths = [a for a in sys.argv[1:] if Path(a).suffix.lower() == ".pdf"]
+    pdf_paths = filter_pdf_paths(sys.argv[1:])
     if pdf_paths and _try_send_to_existing_instance(pdf_paths):
         # Paths routed to existing instance — exit this one
         sys.exit(0)
