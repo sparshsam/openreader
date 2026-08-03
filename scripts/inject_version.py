@@ -80,6 +80,15 @@ def _rewrite(path: str, pattern: str, replacement: str) -> bool:
 
 
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "--source-version":
+        # Print the authoritative version already in main.py without modifying
+        # anything. Build scripts use this instead of an inline regex so they
+        # never regress the embedded version to an older Git tag or 0.0.0-dev.
+        src = (ROOT / "main.py").read_text(encoding="utf-8")
+        match = re.search(r'__version__ = "([^"]+)"', src)
+        print(match.group(1) if match else "0.0.0-dev")
+        return
+
     version = sys.argv[1] if len(sys.argv) > 1 else "0.0.0-dev"
     strict = bool(SEMVER.match(version))
 

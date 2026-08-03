@@ -43,7 +43,7 @@ jobs:
           elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
           else
-            SOURCE_VERSION="$(python3 -c "import re;m=re.search(r'__version__ = \"([^\"]+)\"',open('main.py').read());print(m.group(1) if m else '0.0.0-dev')")"
+            SOURCE_VERSION="$(python scripts/inject_version.py --source-version)"
             VERSION="${SOURCE_VERSION}-test"
           fi
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"

@@ -19,7 +19,7 @@ fi
 if [ -n "$VERSION" ]; then
   python3 scripts/inject_version.py "$VERSION"
 else
-  VERSION=$(python3 -c "import re;m=re.search(r'__version__ = \"([^\"]+)\"',open('main.py').read());print(m.group(1) if m else '0.0.0-dev')")
+  VERSION=$(python3 scripts/inject_version.py --source-version)
   echo "Using source version: $VERSION (no build override or exact tag)"
 fi
 

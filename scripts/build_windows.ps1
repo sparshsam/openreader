@@ -20,14 +20,7 @@ if ($version) {
     python scripts/inject_version.py $version
     Write-Host "Injected version: $version"
 } else {
-    $match = [regex]::Match(
-        (Get-Content -LiteralPath "main.py" -Raw), '__version__ = "([^"]+)"'
-    )
-    if ($match.Success) {
-        $version = $match.Groups[1].Value
-    } else {
-        $version = "0.0.0-dev"
-    }
+    $version = python scripts/inject_version.py --source-version
     Write-Host "Using source version: $version (no build override or exact tag)"
 }
 
