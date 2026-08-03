@@ -119,12 +119,10 @@ jobs:
         run: |
           $ErrorActionPreference = "Stop"
 
-          # Only build MSIX for real release versions, not dev/test builds
-          $buildVersion = "$env:VERSION"
-          if ($buildVersion -eq "0.0.0-dev" -or $buildVersion -like "*-test") {
-            Write-Host "Skipping MSIX build for dev/test version: $buildVersion"
-            exit 0
-          }
+          # Build the MSIX on every run (dev/test too) so the full packaging
+          # path is validated by CI without publishing a release. Test builds
+          # produce OpenReader-test.msix, attached to the workflow artifact.
+          # A missing MakeAppx.exe is the only reason to skip.
 
           # Locate MakeAppx.exe from Windows SDK
           $makeAppx = Get-Command "MakeAppx.exe" -ErrorAction SilentlyContinue
