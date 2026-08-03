@@ -10,18 +10,20 @@
 
 ## v1.2.7 — Store-Aware Updates — 2026-08-02
 
-- **Added:** Install-source detection (`pdfreader_lib/install_source.py`) — source, MSIX/Store, Setup.exe, or portable ZIP.
+- **Added:** Install-source detection (`pdfreader_lib/install_source.py`) — source, MSIX/Store, Setup.exe, or portable ZIP. Packaged execution is detected via the Windows package API (`GetCurrentPackageFamilyName`), with the `WindowsApps` path as a fallback.
 - **Changed:** Store/MSIX installs no longer query GitHub — updates are shown as managed by the Microsoft Store with an **Open Microsoft Store** button. GitHub installs keep release detection with current + latest versions shown.
 - **Added:** Proper **Software Updates** dialog (replaces the inline message box) with channel-aware content: Store-managed info, release notes, and a clean offline/error state with **Try Again**.
 - **Fixed:** "Skip This Version" now persists (`updateSkipVersion`) so the same release isn't re-announced; interactive checks record `updateLastChecked`.
-- **Verification:** 11 unit tests for channel detection and skip gating; full suite green (the two stale README/subprocess tests were updated to match current behaviour).
+- **Fixed:** Build scripts no longer regress the embedded version to an older Git tag — precedence is explicit build version → exact Git tag → authoritative source `__version__` (`scripts/build_windows.ps1`, `scripts/build_macos.sh`, `.github/workflows/build-windows.yml`).
+- **Verification:** Channel detection, skip gating, and semantic-version safety (including `1.2.7-test` vs `1.2.4`/`1.2.7`/`1.2.8`); full suite green.
 
 ## v1.2.6 — Default Reader Experience — 2026-08-02
 
 - **Added:** Detect whether OpenReader is the current default PDF handler by reading Windows' `UserChoice` ProgID (`pdfreader_lib/win_default_apps.py`) — ownership resolved via the AppUserModelId for MSIX installs and the `OpenReaderPDF` ProgID for the legacy installer.
 - **Added:** Settings dialog (**File → Settings…**) with a Files / Default Apps section — shows the current PDF default, a "Set OpenReader as Default PDF Reader" button that opens the Windows Default Apps page (Windows keeps the final confirmation; OpenReader never writes the default), and a recovery message when the association isn't fully registered.
 - **Added:** First-launch prompt to set OpenReader as the default — Set as default / Maybe later / Do not ask again, persisted in QSettings.
-- **Verification:** 12 unit tests covering Inno and MSIX detection, non-Windows neutrality, friendly-name lookup, and the Default Apps launcher.
+- **Fixed:** Default-handler detection now resolves ProgIDs across both `HKCU` and `HKLM` — an admin Inno install registers `OpenReaderPDF` under `HKLM\Software\Classes`, so the Settings recovery warning no longer appears when OpenReader is already the default. Ownership is verified via the registered open command and the AppUserModelId, not a single hardcoded ProgID. When OpenReader is the default, Settings shows a confirmation and the action becomes the neutral **Open Default Apps**.
+- **Verification:** 15 unit tests covering Inno (HKCU and HKLM), MSIX (AUMID in either hive), shell-command resolution, another app, unknown/missing, unresolved entries, friendly-name lookup, and non-Windows neutrality.
 
 ## v1.2.4 — Toolbar Icon Redesign — 2026-06-21
 

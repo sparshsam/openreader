@@ -103,7 +103,7 @@ The app retains update **detection** but not update **application**:
 | `check_for_updates` | Interactive Help → Check for Updates | ✅ (Store → Store dialog; GitHub → releases) |
 | `_on_update_check_reply` | Handle API response, show Software Updates dialog | ✅ (v1.2.7) |
 | `_log_update` | Log update diagnostics | ✅ |
-| `install_source.detect_install_source` | Detect MSIX / Setup.exe / portable / source | ✅ (v1.2.7) |
+| `install_source.detect_install_source` | Detect MSIX / Setup.exe / portable / source (via `GetCurrentPackageFamilyName`) | ✅ (v1.2.7) |
 | `_SoftwareUpdatesDialog` | Channel-aware update dialog | ✅ (v1.2.7) |
 | `should_suppress_silent_notify` | Skip re-notification for a skipped release | ✅ (v1.2.7) |
 | All download/apply methods | — | ❌ Removed (~611 lines) |
