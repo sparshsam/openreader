@@ -38,22 +38,24 @@ def make_png_rect(img: Image.Image, width: int, height: int) -> Image.Image:
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    source_path = root / "assets" / "pdfreader_by_sparsh.ico"
     output_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else root / "assets"
 
-    # Load from .ico or find source PNG
-    if source_path.exists():
-        img = Image.open(source_path)
-        # .ico loads first frame; get full size
-        img = img.convert("RGBA")
-    else:
-        # Fallback: try a source PNG
-        png_path = root / "assets" / "icon-150x150.png"
-        if png_path.exists():
-            img = Image.open(png_path).convert("RGBA")
-        else:
-            print("ERROR: No source icon found. Run tools/create_icon.py first.")
-            sys.exit(1)
+    # Source icon lives under assets/ or assets/branding/ (moved during the
+    # v1.2.5 asset restructuring). Try both locations so MSIX builds keep
+    # working regardless of layout. Prefer the .ico, fall back to a PNG.
+    img = None
+    for icon_dir in (root / "assets", root / "assets" / "branding"):
+        ico = icon_dir / "pdfreader_by_sparsh.ico"
+        if ico.exists():
+            img = Image.open(ico).convert("RGBA")
+            break
+        png = icon_dir / "icon-150x150.png"
+        if png.exists():
+            img = Image.open(png).convert("RGBA")
+            break
+    if img is None:
+        print("ERROR: No source icon found. Run tools/create_icon.py first.")
+        sys.exit(1)
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
