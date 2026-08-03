@@ -14,6 +14,13 @@ OpenReader uses semantic version tags to publish packaged builds.
   (`-dev`, `-test`) bump the code/MCP sources but leave the manifests to CI.
 - Tags must use the format `vMAJOR.MINOR.PATCH`, for example `v1.2.2`.
 - CI injects the tag version for release builds via `scripts/inject_version.py`.
+- **Build version precedence** (local `scripts/build_windows.ps1`,
+  `scripts/build_macos.sh`, and the CI `build-windows.yml` workflow):
+  1. explicit workflow/build version (`version_override` / `BUILD_VERSION`)
+  2. exact Git tag on HEAD (`git describe --exact-match`)
+  3. authoritative source version from `main.py` `__version__`
+  Ordinary branch builds never regress the embedded version to an older Git
+  tag or `0.0.0-dev`; CI test builds append `-test` to the source version.
 
 ## Release Architecture
 
