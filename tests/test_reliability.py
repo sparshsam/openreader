@@ -287,17 +287,18 @@ class TestZoomConstants:
         assert tab.fit_to_window is True
         assert tab.zoom == 1.25
 
-    def test_version_is_1_2_7(self):
+    def test_version_is_1_2_8(self):
         import main as m
-        assert m.__version__ == "1.2.7"
+        assert m.__version__ == "1.2.8"
 
 
 class TestZoomUi:
-    def test_zoom_buttons_use_clear_text_labels(self):
-        """Zoom buttons must use _make_zoom_buttons factory with clear icons and tooltips."""
+    def test_zoom_buttons_use_vector_icons_with_tooltips(self):
+        """Zoom controls render from the shared vector icon system."""
         import main as m
         src = Path(m.__file__).read_text()
-        assert "_make_zoom_buttons()" in src
+        assert "_make_toolbar_icon" in src
+        assert "_TOOLBAR_ICONS" in src
         assert "Zoom out" in src
         assert "Zoom in" in src
         assert "Fit page to window" in src

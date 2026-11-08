@@ -115,6 +115,10 @@ The focus is on reading and working with documents, not fighting the interface. 
 
 | Release | Date | Milestone |
 |---------|------|-----------|
+| **v1.2.8** | Nov 2026 | Continuous scrolling rebuilt on a virtualized full-document layout; unified Fluent toolbar and light/dark redesign |
+| **v1.2.7** | Aug 2026 | Store-aware updates — install-source detection, channel-aware update dialog |
+| **v1.2.6** | Aug 2026 | Default reader experience — Windows default-app detection and settings |
+| **v1.2.5** | Aug 2026 | Windows file association (`windows.fileTypeAssociation`) and single-source versioning |
 | **v1.2.4** | Jun 2026 | Toolbar icon redesign — all buttons use QPainter vector icons |
 | **v1.2.3** | Jun 2026 | Reader UX polish — Fit Page on open, Ctrl+Mouse Wheel zoom |
 | **v1.2.2** | Jun 2026 | Store submission fix — XML DOM patching, CI validation |
