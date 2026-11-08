@@ -12,7 +12,7 @@ authors = [{ name = "Sparsh Sam" }]
 requires-python = ">=3.10"
 dependencies = [
     "PyMuPDF>=1.23.0",
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2",
 ]
 keywords = ["pdf", "mcp", "ai", "claude", "chatgpt", "llm"]
 

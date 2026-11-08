@@ -11,7 +11,7 @@ Keywords: pdf,mcp,ai,claude,chatgpt,llm
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: PyMuPDF>=1.23.0
-Requires-Dist: mcp>=1.0.0
+Requires-Dist: mcp>=1.0.0,<2
 
 # openreader-mcp
 
