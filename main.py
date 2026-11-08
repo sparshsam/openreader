@@ -1318,7 +1318,8 @@ class PdfReaderWindow(QMainWindow):
         _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
-        self.resize(1000, 800)
+        self.resize(1100, 820)
+        self.setMinimumSize(720, 480)
 
         # ---- IPC server for single-instance tab routing ----
         self._ipc_server = ipc_server
