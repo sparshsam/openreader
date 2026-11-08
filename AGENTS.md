@@ -4,7 +4,7 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 ## Product Boundaries
 
-**Current version:** v1.2.7 (2026-08-02) — Store-aware updates, default-reader UX, Windows file associations
+**Current version:** v1.2.8 (2026-11-08) — virtualized continuous scrolling and the unified Fluent toolbar
 
 - Do not add new user-facing PDF features unless the task explicitly asks for them.
 - Do not change the local-first privacy philosophy.

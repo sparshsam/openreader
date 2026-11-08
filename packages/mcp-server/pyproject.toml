@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openreader-mcp"
-version = "1.2.7"
+version = "1.2.8"
 description = "AI assistant tools for PDFs — read, search, compare, merge, split, compress, and index PDFs locally."
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
@@ -12,7 +12,7 @@ authors = [{ name = "Sparsh Sam" }]
 requires-python = ">=3.10"
 dependencies = [
     "PyMuPDF>=1.23.0",
-    "mcp>=1.0.0",
+    "mcp>=1.0.0,<2",
 ]
 keywords = ["pdf", "mcp", "ai", "claude", "chatgpt", "llm"]
 

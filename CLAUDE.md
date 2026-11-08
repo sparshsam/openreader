@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Latest update:** v1.2.7 — Store-aware updates, default-reader UX, Windows file associations (2026-08-02)
+**Latest update:** v1.2.8 — virtualized continuous scrolling, unified Fluent toolbar, light/dark redesign (2026-11-08)
 
 Privacy-first, local-only desktop PDF utility for Windows.
 macOS experimental; Linux unsupported.
@@ -11,6 +11,7 @@ macOS experimental; Linux unsupported.
 
 | Version | Date | Summary |
 |---------|------|---------|
+| v1.2.8 | 2026-11-08 | Continuous scrolling rebuilt as a virtualized full-document layout; unified 44 px Fluent toolbar with vector icons; light/dark chrome redesign; tab page-controls fix |
 | v1.2.7 | 2026-08-02 | Store-aware updates — install-source detection, channel-aware Software Updates dialog, persisted skip + last-checked |
 | v1.2.6 | 2026-08-02 | Default Reader Experience — Windows UserChoice detection, Settings dialog, first-launch default prompt |
 | v1.2.5 | 2026-08-02 | Windows File Association Fix — MSIX `.pdf` association, ChangesAssociations, single-source version injector, changelog cleanup |

@@ -4,7 +4,7 @@ The MSIX package cannot be produced or signed locally: production signing uses
 the Microsoft Store identity (no self-procured code-signing certificate), and
 the Windows SDK `MakeAppx.exe`/Store signing pipeline runs in Partner Center.
 This checklist covers the Store-specific validation that must happen **after**
-the `v1.2.7` MSIX is submitted and signed by the Store.
+the `v1.2.8` MSIX is submitted and signed by the Store.
 
 Frozen identity (do not alter):
 | Field | Value |
@@ -16,7 +16,7 @@ Frozen identity (do not alter):
 
 ## On a clean Windows machine, after Store install
 
-- [ ] Install from the Microsoft Store; app launches and reports **v1.2.7** (Help → About).
+- [ ] Install from the Microsoft Store; app launches and reports **v1.2.8** (Help → About).
 - [ ] `Get-AppxPackage` shows the package with the frozen identity and PFN.
 - [ ] The process runs with a package identity — install-source detection
       reports the Store channel (no GitHub request on launch; Help → Check for
@@ -41,7 +41,22 @@ Frozen identity (do not alter):
 - [ ] First-launch prompt: **Set as default** opens Default Apps; **Do not ask
       again** persists across launches.
 
-### Updates (v1.2.7)
+### Continuous reading & toolbar (v1.2.8)
+- [ ] Open a 50+ page PDF; scroll from page 1 to the final page and back
+      without using navigation. Every page remains reachable and the page
+      indicator follows the viewport.
+- [ ] Next/Previous, the page box, and search-result jumps scroll directly to
+      the requested page without removing access to other pages.
+- [ ] Zoom (`−`/`+`, Fit, Ctrl+mouse-wheel) keeps the reading position and the
+      live zoom percentage updated.
+- [ ] The single toolbar shows file/page/zoom/annotation/search groups; the
+      search field, match navigation, and zoom percentage fit without overflow
+      at the default window size.
+- [ ] Light and dark themes render the toolbar, tabs, menus, scrollbars, and
+      empty state correctly.
+- [ ] Switching tabs updates the page counter and page range (`/ N`).
+
+### Updates (v1.2.7+)
 - [ ] Store install never queries `api.github.com` (silent launch check and
       Help → Check for Updates both use the Store channel).
 - [ ] **Open Microsoft Store** button opens the Store listing.

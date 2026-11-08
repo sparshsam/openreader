@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openreader-mcp
-Version: 1.2.7
+Version: 1.2.8
 Summary: AI assistant tools for PDFs — read, search, compare, merge, split, compress, and index PDFs locally.
 Author: Sparsh Sam
 License: AGPL-3.0-or-later
@@ -11,7 +11,7 @@ Keywords: pdf,mcp,ai,claude,chatgpt,llm
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: PyMuPDF>=1.23.0
-Requires-Dist: mcp>=1.0.0
+Requires-Dist: mcp>=1.0.0,<2
 
 # openreader-mcp
 

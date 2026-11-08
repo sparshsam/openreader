@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.2.8 — Continuous Reading & Toolbar Redesign — 2026-11-08
+
+- **Fixed (continuous scrolling):** The continuous view no longer renders a sliding window around the current page. Every page now gets a correctly sized placeholder in one persistent document layout, so the scrollbar spans the whole PDF — a 76-page document exposes all 76 pages instead of roughly six. Pixmaps are rendered lazily for the viewport plus a small overscan and released once they leave the cache window, so memory stays bounded for very long documents.
+- **Fixed (navigation):** Next/Previous, the page box, search results, and semantic-search jumps scroll directly to the target page without rebuilding the layout or discarding pages already scrolled past. Scrolling updates the page indicator, zoom changes preserve the reader's position, and small and large documents behave identically.
+- **Fixed:** Removed a `NameError: name '_t' is not defined` at the end of `_render_continuous` that fired on every continuous render in v1.2.7.
+- **Changed (toolbar):** Replaced the two stacked control rows and Windows 98-era styling with a single 44 px Fluent-style command bar. File, page, zoom, annotation, and search actions are grouped and separated; icons are vector-drawn at a consistent 18 px inside 32 px targets; the zoom percentage is shown live; the page control is a compact `N / total` counter; and search is an integrated field with previous/next match controls and a semantic toggle.
+- **Changed (themes):** Rewrote the light and dark stylesheets around a shared neutral palette with the OpenReader accent — pill tabs, hairline separators, themed scrollbars, menus, status bar, and empty state. Toolbar icons and the empty-state glyph are regenerated when the theme changes.
+- **Fixed (tabs):** Switching tabs now refreshes the page counter and page-box range to the newly active document. The tab strip hides when no documents are open.
+- **Accessibility:** Every icon-only toolbar button has an accessible name and a tooltip; all existing keyboard shortcuts are unchanged.
+- **Verification:** New continuous-scrolling regression suite (full-document range, scroll indicator, navigation persistence, jump-to-page, zoom retention, virtualization, small documents) and toolbar/UI suite (icon consistency, theme recoloring, shortcuts, navigation, zoom, annotations, search, multi-tab, mode toggle). Full suite: 160 passed, 18 skipped.
+
 ## v1.2.5 — File Association & Branding — 2026-08-02
 
 - **Version:** Bumped `__version__` to `1.2.5`, MSIX version to `1.2.5.0`; aligned the MCP package, packaging manifests, and release configuration to a single version source. `scripts/inject_version.py` now propagates the version to `main.py`, `packages/mcp-server/pyproject.toml`, and both MSIX manifests.

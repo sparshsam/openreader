@@ -54,16 +54,22 @@ no separate code-signing certificate is needed.
 1. Make sure `main` is green in GitHub Actions.
 2. Update `CHANGELOG.md`.
 3. Commit all release notes/docs changes.
-4. Create and push a semantic version tag:
+4. Create and push an **annotated** semantic version tag:
 
    ```bash
-   git tag v1.2.2
-   git push origin v1.2.2
+   git tag -a v1.2.8 -m "OpenReader v1.2.8"
+   git push origin v1.2.8
    ```
 
-5. GitHub Actions runs `.github/workflows/release.yml`.
-6. The workflow builds Windows (MSIX + Setup.exe + ZIP), macOS Apple Silicon, and macOS Intel packages.
-7. The workflow creates the GitHub Release and attaches all assets.
+5. Pushing the tag runs `.github/workflows/release.yml` in **build-only** mode. The workflow builds and uploads Windows (MSIX + Setup.exe + ZIP), macOS Apple Silicon, and macOS Intel packages as workflow artifacts; it does **not** create the GitHub Release.
+6. Verify the artifacts on the tag run: `OpenReader.msix` identity/version, `OpenReader-Setup.exe`, and the ZIPs. The MSIX is mandatory — the workflow fails if `MakeAppx.exe` is unavailable or the MSIX is missing.
+7. Publish explicitly from the verified tag:
+
+   ```bash
+   gh workflow run release.yml --ref vX.Y.Z -f publish=true
+   ```
+
+   The manual run rebuilds the packages and its `publish` job creates the GitHub Release with every artifact attached.
 
 ## Update Detection
 

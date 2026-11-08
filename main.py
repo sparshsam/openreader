@@ -11,17 +11,17 @@ from datetime import datetime
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QEvent, QPoint, QPointF, QRect, QSettings, QSize, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPen, QPixmap, QShortcut
+from PySide6.QtCore import QByteArray, QEvent, QPoint, QPointF, QRect, QRectF, QSettings, QSize, QTimer, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPalette, QPen, QPixmap, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
+    QAbstractSpinBox,
     QApplication,
     QCheckBox,
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QFrame,
-    QGraphicsOpacityEffect,
     QGroupBox,
     QHBoxLayout,
     QInputDialog,
@@ -52,7 +52,7 @@ from PySide6.QtWidgets import (
 )
 
 
-__version__ = "1.2.7"
+__version__ = "1.2.8"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -141,433 +141,758 @@ class TabData:
 # ---------------------------------------------------------------------------
 
 LIGHT_STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #f5f5f5;
-    color: #1a1a1a;
+/* OpenReader — Fluent light theme */
+QMainWindow, QDialog {
+    background-color: #f3f3f5;
+    color: #1b1b1f;
+}
+QWidget {
+    color: #1b1b1f;
 }
 QMainWindow::separator {
-    background-color: #d0d0d0;
+    background-color: #e4e4e8;
+    width: 1px;
+    height: 1px;
 }
-QPushButton {
+QMenuBar {
+    background-color: #fbfbfc;
+    color: #1b1b1f;
+    border: none;
+    border-bottom: 1px solid #e8e8ec;
+    padding: 2px 6px;
+    spacing: 2px;
+}
+QMenuBar::item {
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: transparent;
+}
+QMenuBar::item:selected {
+    background-color: rgba(0, 0, 0, 0.06);
+}
+QMenu {
     background-color: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #c8c8c8;
-    padding: 4px 14px;
-    border-radius: 4px;
-    min-height: 22px;
+    color: #1b1b1f;
+    border: 1px solid #e2e2e6;
+    border-radius: 8px;
+    padding: 5px;
 }
-QPushButton:hover {
-    background-color: #e8e8e8;
-    border-color: #a0a0a0;
+QMenu::item {
+    padding: 7px 28px 7px 14px;
+    border-radius: 5px;
 }
-QPushButton:pressed {
-    background-color: #d0d0d0;
+QMenu::item:selected {
+    background-color: rgba(0, 0, 0, 0.06);
 }
-QPushButton:checked {
-    background-color: #4a90d9;
-    color: #ffffff;
-    border-color: #357abd;
+QMenu::item:disabled {
+    color: #a1a2a9;
 }
-QPushButton:disabled {
-    background-color: #e8e8e8;
-    color: #a0a0a0;
-    border-color: #e0e0e0;
+QMenu::separator {
+    height: 1px;
+    background-color: #ececef;
+    margin: 5px 8px;
 }
-QLineEdit {
-    background-color: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #c8c8c8;
-    padding: 4px 6px;
-    border-radius: 4px;
-    selection-background-color: #4a90d9;
+QToolBar#MainToolbar {
+    background-color: #fbfbfc;
+    border: none;
+    border-bottom: 1px solid #e8e8ec;
+    padding: 6px;
+    spacing: 3px;
+}
+QToolBar#MainToolbar::separator {
+    width: 1px;
+    background-color: #e6e6ea;
+    margin: 7px 7px;
+}
+QToolBar#MainToolbar::extension {
+    background: transparent;
+    border: none;
+}
+QToolBar#MainToolbar QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0px;
+}
+QToolBar#MainToolbar QToolButton:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+QToolBar#MainToolbar QToolButton:pressed {
+    background-color: rgba(0, 0, 0, 0.09);
+}
+QToolBar#MainToolbar QToolButton:checked {
+    background-color: rgba(255, 37, 95, 0.10);
+    border-color: rgba(255, 37, 95, 0.30);
+}
+QToolBar#MainToolbar QToolButton:disabled,
+QToolBar#MainToolbar QToolButton:checked:disabled {
+    background: transparent;
+    border-color: transparent;
+}
+QSpinBox#PageSpin {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 3px 2px;
+    color: #1b1b1f;
+    font-weight: 600;
+    selection-background-color: #ff255f;
     selection-color: #ffffff;
 }
-QLineEdit:focus {
-    border-color: #4a90d9;
-}
-QSpinBox {
+QSpinBox#PageSpin:hover {
     background-color: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #c8c8c8;
-    padding: 4px;
-    border-radius: 4px;
+    border-color: #e2e2e6;
 }
-QSpinBox:focus {
-    border-color: #4a90d9;
+QSpinBox#PageSpin:focus {
+    background-color: #ffffff;
+    border-color: #ff255f;
 }
-QSpinBox::up-button, QSpinBox::down-button {
-    background-color: #e8e8e8;
-    border: none;
-    width: 18px;
+QLabel#PageCount, QLabel#ZoomLabel, QLabel#SearchCount {
+    color: #6e6f76;
+    font-size: 12px;
+    font-weight: 500;
 }
-QLabel {
-    color: #1a1a1a;
-    background-color: transparent;
+QLineEdit#SearchInput {
+    background-color: #ffffff;
+    color: #1b1b1f;
+    border: 1px solid #e2e2e6;
+    border-radius: 6px;
+    padding: 4px 8px;
+    min-height: 22px;
+    selection-background-color: #ff255f;
+    selection-color: #ffffff;
 }
-QStatusBar {
-    background-color: #e8e8e8;
-    color: #666666;
-    border-top: 1px solid #d0d0d0;
+QLineEdit#SearchInput:focus {
+    border-color: #ff255f;
 }
-QScrollArea {
-    background-color: #e0e0e0;
-    border: none;
+QToolBar#MainToolbar QToolButton#SemanticToggle {
+    color: #6e6f76;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0px 10px;
+    min-height: 24px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
 }
-#TabStrip {
-    background-color: #e0e0e0;
-    border-bottom: 1px solid #d0d0d0;
+QToolBar#MainToolbar QToolButton#SemanticToggle:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+QToolBar#MainToolbar QToolButton#SemanticToggle:checked {
+    background-color: rgba(255, 37, 95, 0.10);
+    border-color: rgba(255, 37, 95, 0.30);
+    color: #1b1b1f;
+}
+QToolBar#MainToolbar QToolButton#SemanticToggle:disabled {
+    color: #aaabb2;
+}
+QTabBar {
+    background: transparent;
 }
 QTabBar::tab {
-    background-color: #e0e0e0;
-    color: #666666;
-    padding: 6px 16px 6px 18px;
-    border: none;
-    border-right: 1px solid #d0d0d0;
-    min-height: 24px;
+    background: transparent;
+    color: #6e6f76;
+    padding: 5px 14px;
+    margin: 5px 3px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    min-height: 18px;
 }
 QTabBar::tab:selected {
-    background-color: #f5f5f5;
-    color: #1a1a1a;
-    border-bottom: 2px solid #4a90d9;
+    background-color: #ffffff;
+    color: #1b1b1f;
+    border-color: #e2e2e6;
 }
 QTabBar::tab:hover:!selected {
-    background-color: #d8d8d8;
-    color: #1a1a1a;
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #1b1b1f;
+}
+#TabStrip {
+    background-color: #f3f3f5;
+    border-bottom: 1px solid #e8e8ec;
 }
 QToolButton#NewTabButton {
     background-color: transparent;
-    color: #666666;
     border: 1px solid transparent;
-    border-radius: 3px;
-}
-QToolButton#NewTabButton {
-    font-size: 16px;
-    font-weight: 400;
-    margin: 0px 8px 0px 4px;
+    border-radius: 6px;
+    padding: 0px;
 }
 QToolButton#NewTabButton:hover {
-    background-color: #d6d6d6;
-    border-color: transparent;
-    color: #1a1a1a;
+    background-color: rgba(0, 0, 0, 0.05);
 }
 QToolButton#TabCloseButton {
     background-color: transparent;
     border: none;
-    border-radius: 4px;
-    color: #6b7280;
-    font-size: 17px;
-    font-weight: 400;
+    border-radius: 5px;
+    color: #7b7c83;
+    font-size: 15px;
+    font-weight: 500;
     padding: 0px;
 }
 QToolButton#TabCloseButton:hover {
-    background-color: #e05252;
-    color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.08);
+    color: #1b1b1f;
 }
 QToolButton#TabCloseButton:pressed {
-    background-color: #c83f3f;
-    color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.12);
 }
-QMenuBar {
-    background-color: #e8e8e8;
-    color: #1a1a1a;
-    border-bottom: 1px solid #d0d0d0;
-    padding: 2px;
-}
-QMenuBar::item {
-    padding: 4px 10px;
-    background-color: transparent;
-    border-radius: 4px;
-}
-QMenuBar::item:selected {
-    background-color: #d0d0d0;
-}
-QMenu {
+QPushButton {
     background-color: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #c8c8c8;
+    color: #1b1b1f;
+    border: 1px solid #dfe0e4;
+    padding: 5px 14px;
+    border-radius: 6px;
+    min-height: 22px;
+}
+QPushButton:hover {
+    background-color: #f6f6f8;
+    border-color: #cfd0d5;
+}
+QPushButton:pressed {
+    background-color: #ececef;
+}
+QPushButton:default {
+    background-color: #ff255f;
+    color: #ffffff;
+    border-color: #ff255f;
+}
+QPushButton:default:hover {
+    background-color: #f01650;
+    border-color: #f01650;
+}
+QPushButton:checked {
+    background-color: rgba(255, 37, 95, 0.10);
+    color: #1b1b1f;
+    border-color: rgba(255, 37, 95, 0.30);
+}
+QPushButton:disabled {
+    background-color: #f2f2f4;
+    color: #aaabb2;
+    border-color: #e8e8ec;
+}
+QPushButton#OpenEmptyButton {
+    background-color: #ff255f;
+    color: #ffffff;
+    border: none;
+    border-radius: 7px;
+    padding: 9px 22px;
+    font-weight: 600;
+}
+QPushButton#OpenEmptyButton:hover {
+    background-color: #f01650;
+}
+QPushButton#OpenEmptyButton:pressed {
+    background-color: #d90f47;
+}
+QLineEdit {
+    background-color: #ffffff;
+    color: #1b1b1f;
+    border: 1px solid #dfe0e4;
+    padding: 5px 8px;
+    border-radius: 6px;
+    selection-background-color: #ff255f;
+    selection-color: #ffffff;
+}
+QLineEdit:focus {
+    border-color: #ff255f;
+}
+QSpinBox {
+    background-color: #ffffff;
+    color: #1b1b1f;
+    border: 1px solid #dfe0e4;
     padding: 4px;
+    border-radius: 6px;
 }
-QMenu::item {
-    padding: 6px 28px 6px 20px;
-    border-radius: 4px;
+QSpinBox:focus {
+    border-color: #ff255f;
 }
-QMenu::item:selected {
-    background-color: #4a90d9;
-    color: #ffffff;
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #f1f1f3;
+    border: none;
+    width: 18px;
 }
-QMenu::item:disabled {
-    color: #a0a0a0;
+QLabel {
+    color: #1b1b1f;
+    background-color: transparent;
 }
-QMenu::separator {
-    height: 1px;
-    background-color: #d0d0d0;
-    margin: 4px 8px;
+QLabel#EmptyTitle {
+    color: #1b1b1f;
+    font-size: 19px;
+    font-weight: 600;
 }
-QProgressDialog {
+QLabel#EmptySubtitle {
+    color: #6e6f76;
+    font-size: 13px;
+}
+QLabel#PdfPage, QLabel#ContinuousPage {
     background-color: #ffffff;
-    color: #1a1a1a;
-    border: 1px solid #c8c8c8;
+    border: 1px solid #d8d8dc;
 }
-QMessageBox {
-    background-color: #f5f5f5;
-    color: #1a1a1a;
+QStatusBar {
+    background-color: #fbfbfc;
+    color: #6e6f76;
+    border-top: 1px solid #e8e8ec;
+    padding: 2px 8px;
 }
-QMessageBox QLabel {
-    color: #1a1a1a;
-}
-QMessageBox QPushButton {
-    min-width: 80px;
-}
-QInputDialog {
-    background-color: #f5f5f5;
-    color: #1a1a1a;
-}
-QScrollBar:horizontal {
-    background-color: #e0e0e0;
-    height: 10px;
+QScrollArea {
+    background-color: #ececee;
     border: none;
 }
-QScrollBar::handle:horizontal {
-    background-color: #b0b0b0;
-    border-radius: 5px;
-    min-width: 30px;
-}
-QScrollBar::handle:horizontal:hover {
-    background-color: #909090;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0px;
+QWidget#ContinuousDocument, QWidget#DocumentViewport {
+    background-color: #ececee;
 }
 QScrollBar:vertical {
-    background-color: #e0e0e0;
-    width: 10px;
-    border: none;
+    background: transparent;
+    width: 12px;
+    margin: 2px;
 }
 QScrollBar::handle:vertical {
-    background-color: #b0b0b0;
-    border-radius: 5px;
-    min-height: 30px;
+    background-color: #c4c5ca;
+    border-radius: 4px;
+    min-height: 36px;
+    margin: 0px 2px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: #909090;
+    background-color: #a8a9af;
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+QScrollBar:horizontal {
+    background: transparent;
+    height: 12px;
+    margin: 2px;
+}
+QScrollBar::handle:horizontal {
+    background-color: #c4c5ca;
+    border-radius: 4px;
+    min-width: 36px;
+    margin: 2px 0px;
+}
+QScrollBar::handle:horizontal:hover {
+    background-color: #a8a9af;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0px;
     height: 0px;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+QProgressDialog {
+    background-color: #f3f3f5;
+    color: #1b1b1f;
+}
+QMessageBox {
+    background-color: #f3f3f5;
+    color: #1b1b1f;
+}
+QMessageBox QLabel {
+    color: #1b1b1f;
+}
+QMessageBox QPushButton {
+    min-width: 84px;
+}
+QInputDialog {
+    background-color: #f3f3f5;
+    color: #1b1b1f;
+}
+QGroupBox {
+    background-color: #ffffff;
+    border: 1px solid #e2e2e6;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding: 14px 12px 12px 12px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0px 4px;
+    color: #6e6f76;
+    font-size: 12px;
+    font-weight: 600;
+}
+QToolTip {
+    background-color: #2b2b31;
+    color: #ffffff;
+    border: 1px solid #3a3a42;
+    border-radius: 6px;
+    padding: 5px 8px;
 }
 """
 
 DARK_STYLESHEET = """
-QMainWindow, QWidget {
-    background-color: #1a1b26;
-    color: #c0caf5;
+/* OpenReader — Fluent dark theme */
+QMainWindow, QDialog {
+    background-color: #1a1b1e;
+    color: #ececed;
+}
+QWidget {
+    color: #ececed;
 }
 QMainWindow::separator {
-    background-color: #292e42;
+    background-color: #2b2c31;
+    width: 1px;
+    height: 1px;
 }
-QPushButton {
-    background-color: #24283b;
-    color: #c0caf5;
-    border: 1px solid #3b4261;
-    padding: 4px 14px;
-    border-radius: 4px;
+QMenuBar {
+    background-color: #222327;
+    color: #ececed;
+    border: none;
+    border-bottom: 1px solid #2b2c31;
+    padding: 2px 6px;
+    spacing: 2px;
+}
+QMenuBar::item {
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: transparent;
+}
+QMenuBar::item:selected {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+QMenu {
+    background-color: #26272c;
+    color: #ececed;
+    border: 1px solid #35363c;
+    border-radius: 8px;
+    padding: 5px;
+}
+QMenu::item {
+    padding: 7px 28px 7px 14px;
+    border-radius: 5px;
+}
+QMenu::item:selected {
+    background-color: rgba(255, 255, 255, 0.07);
+}
+QMenu::item:disabled {
+    color: #6a6b73;
+}
+QMenu::separator {
+    height: 1px;
+    background-color: #35363c;
+    margin: 5px 8px;
+}
+QToolBar#MainToolbar {
+    background-color: #222327;
+    border: none;
+    border-bottom: 1px solid #2b2c31;
+    padding: 6px;
+    spacing: 3px;
+}
+QToolBar#MainToolbar::separator {
+    width: 1px;
+    background-color: #34353b;
+    margin: 7px 7px;
+}
+QToolBar#MainToolbar::extension {
+    background: transparent;
+    border: none;
+}
+QToolBar#MainToolbar QToolButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 0px;
+}
+QToolBar#MainToolbar QToolButton:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+QToolBar#MainToolbar QToolButton:pressed {
+    background-color: rgba(255, 255, 255, 0.10);
+}
+QToolBar#MainToolbar QToolButton:checked {
+    background-color: rgba(255, 77, 122, 0.14);
+    border-color: rgba(255, 77, 122, 0.40);
+}
+QToolBar#MainToolbar QToolButton:disabled,
+QToolBar#MainToolbar QToolButton:checked:disabled {
+    background: transparent;
+    border-color: transparent;
+}
+QSpinBox#PageSpin {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 3px 2px;
+    color: #ececed;
+    font-weight: 600;
+    selection-background-color: #ff4d7a;
+    selection-color: #1a1b1e;
+}
+QSpinBox#PageSpin:hover {
+    background-color: #2a2b30;
+    border-color: #34353b;
+}
+QSpinBox#PageSpin:focus {
+    background-color: #2a2b30;
+    border-color: #ff4d7a;
+}
+QLabel#PageCount, QLabel#ZoomLabel, QLabel#SearchCount {
+    color: #9b9ca4;
+    font-size: 12px;
+    font-weight: 500;
+}
+QLineEdit#SearchInput {
+    background-color: #2a2b30;
+    color: #ececed;
+    border: 1px solid #34353b;
+    border-radius: 6px;
+    padding: 4px 8px;
     min-height: 22px;
+    selection-background-color: #ff4d7a;
+    selection-color: #1a1b1e;
 }
-QPushButton:hover {
-    background-color: #33467c;
-    border-color: #565f89;
+QLineEdit#SearchInput:focus {
+    border-color: #ff4d7a;
 }
-QPushButton:pressed {
-    background-color: #414868;
+QToolBar#MainToolbar QToolButton#SemanticToggle {
+    color: #9b9ca4;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 0px 10px;
+    min-height: 24px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
 }
-QPushButton:checked {
-    background-color: #7aa2f7;
-    color: #1a1b26;
-    border-color: #7aa2f7;
+QToolBar#MainToolbar QToolButton#SemanticToggle:hover {
+    background-color: rgba(255, 255, 255, 0.06);
 }
-QPushButton:disabled {
-    background-color: #1a1b26;
-    color: #3b4261;
-    border-color: #24283b;
+QToolBar#MainToolbar QToolButton#SemanticToggle:checked {
+    background-color: rgba(255, 77, 122, 0.14);
+    border-color: rgba(255, 77, 122, 0.40);
+    color: #ececed;
 }
-QLineEdit {
-    background-color: #24283b;
-    color: #c0caf5;
-    border: 1px solid #3b4261;
-    padding: 4px 6px;
-    border-radius: 4px;
-    selection-background-color: #7aa2f7;
-    selection-color: #1a1b26;
+QToolBar#MainToolbar QToolButton#SemanticToggle:disabled {
+    color: #55565e;
 }
-QLineEdit:focus {
-    border-color: #7aa2f7;
-}
-QSpinBox {
-    background-color: #24283b;
-    color: #c0caf5;
-    border: 1px solid #3b4261;
-    padding: 4px;
-    border-radius: 4px;
-}
-QSpinBox:focus {
-    border-color: #7aa2f7;
-}
-QSpinBox::up-button, QSpinBox::down-button {
-    background-color: #3b4261;
-    border: none;
-    width: 18px;
-}
-QLabel {
-    color: #c0caf5;
-    background-color: transparent;
-}
-QStatusBar {
-    background-color: #13141f;
-    color: #565f89;
-    border-top: 1px solid #292e42;
-}
-QScrollArea {
-    background-color: #1a1b26;
-    border: none;
-}
-#TabStrip {
-    background-color: #13141f;
-    border-bottom: 1px solid #292e42;
+QTabBar {
+    background: transparent;
 }
 QTabBar::tab {
-    background-color: #13141f;
-    color: #565f89;
-    padding: 6px 16px 6px 18px;
-    border: none;
-    border-right: 1px solid #292e42;
-    min-height: 24px;
+    background: transparent;
+    color: #9b9ca4;
+    padding: 5px 14px;
+    margin: 5px 3px;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    min-height: 18px;
 }
 QTabBar::tab:selected {
-    background-color: #1a1b26;
-    color: #7aa2f7;
-    border-bottom: 2px solid #7aa2f7;
+    background-color: #2a2b30;
+    color: #ececed;
+    border-color: #35363c;
 }
 QTabBar::tab:hover:!selected {
-    background-color: #292e42;
-    color: #c0caf5;
+    background-color: rgba(255, 255, 255, 0.06);
+    color: #ececed;
+}
+#TabStrip {
+    background-color: #1a1b1e;
+    border-bottom: 1px solid #2b2c31;
 }
 QToolButton#NewTabButton {
     background-color: transparent;
-    color: #8b93b5;
     border: 1px solid transparent;
-    border-radius: 3px;
-}
-QToolButton#NewTabButton {
-    font-size: 16px;
-    font-weight: 400;
-    margin: 0px 8px 0px 4px;
+    border-radius: 6px;
+    padding: 0px;
 }
 QToolButton#NewTabButton:hover {
-    background-color: #292e42;
-    border-color: transparent;
-    color: #c0caf5;
+    background-color: rgba(255, 255, 255, 0.06);
 }
 QToolButton#TabCloseButton {
     background-color: transparent;
     border: none;
-    border-radius: 4px;
-    color: #7d86a9;
-    font-size: 17px;
-    font-weight: 400;
+    border-radius: 5px;
+    color: #8b8c94;
+    font-size: 15px;
+    font-weight: 500;
     padding: 0px;
 }
 QToolButton#TabCloseButton:hover {
-    background-color: #e05252;
-    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.09);
+    color: #ececed;
 }
 QToolButton#TabCloseButton:pressed {
-    background-color: #c83f3f;
-    color: #ffffff;
+    background-color: rgba(255, 255, 255, 0.13);
 }
-QMenuBar {
-    background-color: #13141f;
-    color: #c0caf5;
-    border-bottom: 1px solid #292e42;
-    padding: 2px;
+QPushButton {
+    background-color: #2a2b30;
+    color: #ececed;
+    border: 1px solid #3a3b42;
+    padding: 5px 14px;
+    border-radius: 6px;
+    min-height: 22px;
 }
-QMenuBar::item {
-    padding: 4px 10px;
-    background-color: transparent;
-    border-radius: 4px;
+QPushButton:hover {
+    background-color: #33343a;
+    border-color: #46474f;
 }
-QMenuBar::item:selected {
-    background-color: #292e42;
+QPushButton:pressed {
+    background-color: #3b3c44;
 }
-QMenu {
-    background-color: #1a1b26;
-    color: #c0caf5;
-    border: 1px solid #3b4261;
+QPushButton:default {
+    background-color: #ff4d7a;
+    color: #1a1b1e;
+    border-color: #ff4d7a;
+}
+QPushButton:default:hover {
+    background-color: #ff6690;
+    border-color: #ff6690;
+}
+QPushButton:checked {
+    background-color: rgba(255, 77, 122, 0.14);
+    color: #ececed;
+    border-color: rgba(255, 77, 122, 0.40);
+}
+QPushButton:disabled {
+    background-color: #212226;
+    color: #55565e;
+    border-color: #2c2d32;
+}
+QPushButton#OpenEmptyButton {
+    background-color: #ff4d7a;
+    color: #1a1b1e;
+    border: none;
+    border-radius: 7px;
+    padding: 9px 22px;
+    font-weight: 600;
+}
+QPushButton#OpenEmptyButton:hover {
+    background-color: #ff6690;
+}
+QPushButton#OpenEmptyButton:pressed {
+    background-color: #e63d67;
+}
+QLineEdit {
+    background-color: #2a2b30;
+    color: #ececed;
+    border: 1px solid #3a3b42;
+    padding: 5px 8px;
+    border-radius: 6px;
+    selection-background-color: #ff4d7a;
+    selection-color: #1a1b1e;
+}
+QLineEdit:focus {
+    border-color: #ff4d7a;
+}
+QSpinBox {
+    background-color: #2a2b30;
+    color: #ececed;
+    border: 1px solid #3a3b42;
     padding: 4px;
+    border-radius: 6px;
 }
-QMenu::item {
-    padding: 6px 28px 6px 20px;
-    border-radius: 4px;
+QSpinBox:focus {
+    border-color: #ff4d7a;
 }
-QMenu::item:selected {
-    background-color: #33467c;
+QSpinBox::up-button, QSpinBox::down-button {
+    background-color: #34353b;
+    border: none;
+    width: 18px;
 }
-QMenu::item:disabled {
-    color: #3b4261;
+QLabel {
+    color: #ececed;
+    background-color: transparent;
 }
-QMenu::separator {
-    height: 1px;
-    background-color: #292e42;
-    margin: 4px 8px;
+QLabel#EmptyTitle {
+    color: #ececed;
+    font-size: 19px;
+    font-weight: 600;
 }
-QProgressDialog {
-    background-color: #1a1b26;
-    color: #c0caf5;
-    border: 1px solid #3b4261;
+QLabel#EmptySubtitle {
+    color: #9b9ca4;
+    font-size: 13px;
 }
-QMessageBox {
-    background-color: #1a1b26;
-    color: #c0caf5;
+QLabel#PdfPage, QLabel#ContinuousPage {
+    background-color: #ffffff;
+    border: 1px solid #3a3b42;
 }
-QMessageBox QLabel {
-    color: #c0caf5;
+QStatusBar {
+    background-color: #222327;
+    color: #9b9ca4;
+    border-top: 1px solid #2b2c31;
+    padding: 2px 8px;
 }
-QMessageBox QPushButton {
-    min-width: 80px;
-}
-QInputDialog {
-    background-color: #1a1b26;
-    color: #c0caf5;
-}
-QScrollBar:horizontal {
-    background-color: #13141f;
-    height: 10px;
+QScrollArea {
+    background-color: #141518;
     border: none;
 }
-QScrollBar::handle:horizontal {
-    background-color: #3b4261;
-    border-radius: 5px;
-    min-width: 30px;
-}
-QScrollBar::handle:horizontal:hover {
-    background-color: #565f89;
-}
-QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-    width: 0px;
+QWidget#ContinuousDocument, QWidget#DocumentViewport {
+    background-color: #141518;
 }
 QScrollBar:vertical {
-    background-color: #13141f;
-    width: 10px;
-    border: none;
+    background: transparent;
+    width: 12px;
+    margin: 2px;
 }
 QScrollBar::handle:vertical {
-    background-color: #3b4261;
-    border-radius: 5px;
-    min-height: 30px;
+    background-color: #45464e;
+    border-radius: 4px;
+    min-height: 36px;
+    margin: 0px 2px;
 }
 QScrollBar::handle:vertical:hover {
-    background-color: #565f89;
+    background-color: #5c5d66;
 }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+QScrollBar:horizontal {
+    background: transparent;
+    height: 12px;
+    margin: 2px;
+}
+QScrollBar::handle:horizontal {
+    background-color: #45464e;
+    border-radius: 4px;
+    min-width: 36px;
+    margin: 2px 0px;
+}
+QScrollBar::handle:horizontal:hover {
+    background-color: #5c5d66;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    width: 0px;
     height: 0px;
+}
+QScrollBar::add-page, QScrollBar::sub-page {
+    background: transparent;
+}
+QProgressDialog {
+    background-color: #1a1b1e;
+    color: #ececed;
+}
+QMessageBox {
+    background-color: #1a1b1e;
+    color: #ececed;
+}
+QMessageBox QLabel {
+    color: #ececed;
+}
+QMessageBox QPushButton {
+    min-width: 84px;
+}
+QInputDialog {
+    background-color: #1a1b1e;
+    color: #ececed;
+}
+QGroupBox {
+    background-color: #222327;
+    border: 1px solid #34353b;
+    border-radius: 8px;
+    margin-top: 12px;
+    padding: 14px 12px 12px 12px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0px 4px;
+    color: #9b9ca4;
+    font-size: 12px;
+    font-weight: 600;
+}
+QToolTip {
+    background-color: #33343a;
+    color: #f2f2f4;
+    border: 1px solid #45464e;
+    border-radius: 6px;
+    padding: 5px 8px;
 }
 """
 
@@ -656,230 +981,278 @@ class PdfPageLabel(QLabel):
 # ---------------------------------------------------------------------------
 
 
-def _make_zoom_icon(icon_size: int, draw_fn) -> QIcon:
-    """Create a crisp vector icon for toolbar buttons using QPainter."""
-    pixmap = QPixmap(icon_size, icon_size)
-    pixmap.fill(Qt.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    draw_fn(painter, icon_size)
-    painter.end()
-    return QIcon(pixmap)
+# ---------------------------------------------------------------------------
+# Toolbar design system — theme-aware vector icons
+# ---------------------------------------------------------------------------
+
+TOOLBAR_ICON_SIZE = 18
+TOOLBAR_BUTTON_SIZE = 30
+TOOLBAR_SMALL_BUTTON_SIZE = 26
 
 
-def _make_zoom_buttons() -> tuple[QPushButton, QPushButton, QPushButton]:
-    """Build zoom control buttons with crisp vector icons instead of text."""
-    btn_size = 34
-    line_w = 2.5
-    margin = 7
-
-    # --- Zoom out (-) icon ---
-    def _draw_minus(p: QPainter, s: int):
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(80, 80, 80))
-        y = s // 2
-        p.drawRoundedRect(margin, y - line_w, s - 2 * margin, line_w * 2, 2, 2)
-
-    # --- Zoom in (+) icon ---
-    def _draw_plus(p: QPainter, s: int):
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(80, 80, 80))
-        y = s // 2
-        p.drawRoundedRect(margin, y - line_w, s - 2 * margin, line_w * 2, 2, 2)
-        x = s // 2
-        p.drawRoundedRect(x - line_w, margin, line_w * 2, s - 2 * margin, 2, 2)
-
-    # --- Fit icon (two diagonal arrows pointing inward) ---
-    def _draw_fit(p: QPainter, s: int):
-        p.setPen(QPen(QColor(80, 80, 80), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        p.setBrush(Qt.NoBrush)
-        m = 8
-        # Top-left arrow
-        p.drawLine(m, s - m, s // 2 - 2, s // 2 - 2)
-        p.drawLine(m, m, s // 2 - 2, s // 2 - 2)
-        p.drawLine(m, m, s // 2 - 2, m)
-        # Bottom-right arrow
-        p.drawLine(s - m, m, s // 2 + 2, s // 2 + 2)
-        p.drawLine(s - m, s - m, s // 2 + 2, s // 2 + 2)
-        p.drawLine(s - m, s - m, s // 2 + 2, s - m)
-
-    # --- Hover/checked variants with accent color ---
-    def _make_hovered(draw_fn):
-        return _make_zoom_icon(btn_size, draw_fn)
-
-    zoom_out_icon = _make_zoom_icon(btn_size, _draw_minus)
-    zoom_in_icon = _make_zoom_icon(btn_size, _draw_plus)
-    fit_icon = _make_zoom_icon(btn_size, _draw_fit)
-
-    zoom_out = QPushButton()
-    zoom_out.setIcon(zoom_out_icon)
-    zoom_out.setIconSize(QSize(btn_size, btn_size))
-    zoom_out.setFixedSize(btn_size + 4, btn_size + 4)
-    zoom_out.setToolTip("Zoom out (Ctrl+Mouse Wheel Up / Ctrl+-)")
-
-    zoom_in = QPushButton()
-    zoom_in.setIcon(zoom_in_icon)
-    zoom_in.setIconSize(QSize(btn_size, btn_size))
-    zoom_in.setFixedSize(btn_size + 4, btn_size + 4)
-    zoom_in.setToolTip("Zoom in (Ctrl+Mouse Wheel Down / Ctrl+=)")
-
-    fit = QPushButton()
-    fit.setIcon(fit_icon)
-    fit.setIconSize(QSize(btn_size, btn_size))
-    fit.setFixedSize(btn_size + 4, btn_size + 4)
-    fit.setCheckable(True)
-    fit.setChecked(True)
-    fit.setToolTip("Fit page to window (Ctrl+0)")
-
-    # Stylesheet for consistent sizing and hover feedback
-    zoom_btn_css = """
-        QPushButton {
-            border: 1px solid transparent;
-            border-radius: 4px;
-            background-color: transparent;
-            padding: 0px;
+def _toolbar_icon_colors(dark_mode: bool) -> dict[str, str]:
+    """Fluent-style icon palette for the active theme."""
+    if dark_mode:
+        return {
+            "stroke": "#e9e9ee",
+            "muted": "#9b9ca4",
+            "accent": "#ff4d7a",
+            "highlight": "#f5c518",
+            "disabled": "#4c4d55",
+            "surface": "#232428",
         }
-        QPushButton:hover {
-            background-color: rgba(128, 128, 128, 40);
-            border-color: rgba(128, 128, 128, 80);
-        }
-        QPushButton:pressed {
-            background-color: rgba(128, 128, 128, 80);
-        }
-        QPushButton:checked {
-            background-color: rgba(74, 144, 217, 40);
-            border-color: rgba(74, 144, 217, 120);
-        }
-    """
-    zoom_out.setStyleSheet(zoom_btn_css)
-    zoom_in.setStyleSheet(zoom_btn_css)
-    fit.setStyleSheet(zoom_btn_css)
-
-    return zoom_out, zoom_in, fit
+    return {
+        "stroke": "#232329",
+        "muted": "#6f7076",
+        "accent": "#ff255f",
+        "highlight": "#e8a800",
+        "disabled": "#c3c4c9",
+        "surface": "#fbfbfc",
+    }
 
 
-def _make_tool_icons(icon_size: int):
-    """Build crisp vector icons for annotation toolbar buttons."""
+def _icon_pen(color: str, width: float = 1.6) -> QPen:
+    pen = QPen(QColor(color), width)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    return pen
 
-    btn_css = """
-        QPushButton {
-            border: 1px solid transparent;
-            border-radius: 4px;
-            background-color: transparent;
-            padding: 0px;
-        }
-        QPushButton:hover {
-            background-color: rgba(128, 128, 128, 40);
-            border-color: rgba(128, 128, 128, 80);
-        }
-        QPushButton:pressed {
-            background-color: rgba(128, 128, 128, 80);
-        }
-    """
 
-    def _build(draw_fn):
-        pixmap = QPixmap(icon_size, icon_size)
-        pixmap.fill(Qt.transparent)
+def _draw_open_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.5))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath()
+    path.moveTo(2.8, 5.4)
+    path.lineTo(7.1, 5.4)
+    path.lineTo(8.6, 7.3)
+    path.lineTo(15.2, 7.3)
+    path.lineTo(15.2, 14.3)
+    path.lineTo(2.8, 14.3)
+    path.closeSubpath()
+    p.drawPath(path)
+
+
+def _draw_save_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.6))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawLine(QPointF(9, 3.2), QPointF(9, 11.1))
+    arrow = QPainterPath()
+    arrow.moveTo(5.9, 8.2)
+    arrow.lineTo(9, 11.3)
+    arrow.lineTo(12.1, 8.2)
+    p.drawPath(arrow)
+    tray = QPainterPath()
+    tray.moveTo(3.5, 12.2)
+    tray.lineTo(3.5, 15.0)
+    tray.lineTo(14.5, 15.0)
+    tray.lineTo(14.5, 12.2)
+    p.drawPath(tray)
+
+
+def _chevron(p: QPainter, c: dict[str, str], points: tuple):
+    p.setPen(_icon_pen(c["stroke"], 1.8))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath()
+    path.moveTo(*points[0])
+    path.lineTo(*points[1])
+    path.lineTo(*points[2])
+    p.drawPath(path)
+
+
+def _draw_chevron_left(p: QPainter, s: float, c: dict[str, str]):
+    _chevron(p, c, ((11.6, 4.6), (6.4, 9.0), (11.6, 13.4)))
+
+
+def _draw_chevron_right(p: QPainter, s: float, c: dict[str, str]):
+    _chevron(p, c, ((6.4, 4.6), (11.6, 9.0), (6.4, 13.4)))
+
+
+def _draw_chevron_up(p: QPainter, s: float, c: dict[str, str]):
+    _chevron(p, c, ((4.8, 11.4), (9.0, 6.6), (13.2, 11.4)))
+
+
+def _draw_chevron_down(p: QPainter, s: float, c: dict[str, str]):
+    _chevron(p, c, ((4.8, 6.6), (9.0, 11.4), (13.2, 6.6)))
+
+
+def _draw_plus_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.8))
+    p.drawLine(QPointF(4.4, 9), QPointF(13.6, 9))
+    p.drawLine(QPointF(9, 4.4), QPointF(9, 13.6))
+
+
+def _draw_minus_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.8))
+    p.drawLine(QPointF(4.4, 9), QPointF(13.6, 9))
+
+
+def _draw_fit_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.6))
+    # Four corner brackets.
+    p.drawLine(QPointF(3.2, 6.6), QPointF(3.2, 3.2))
+    p.drawLine(QPointF(3.2, 3.2), QPointF(6.6, 3.2))
+    p.drawLine(QPointF(11.4, 3.2), QPointF(14.8, 3.2))
+    p.drawLine(QPointF(14.8, 3.2), QPointF(14.8, 6.6))
+    p.drawLine(QPointF(3.2, 11.4), QPointF(3.2, 14.8))
+    p.drawLine(QPointF(3.2, 14.8), QPointF(6.6, 14.8))
+    p.drawLine(QPointF(11.4, 14.8), QPointF(14.8, 14.8))
+    p.drawLine(QPointF(14.8, 14.8), QPointF(14.8, 11.4))
+
+
+def _draw_copy_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["muted"], 1.4))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(4.2, 3.2, 7.8, 9.8), 1.8, 1.8)
+    # Front sheet occludes the back one.
+    p.setBrush(QColor(c["surface"]))
+    p.drawRoundedRect(QRectF(7.2, 6.2, 7.0, 9.0), 1.8, 1.8)
+
+
+def _draw_highlight_icon(p: QPainter, s: float, c: dict[str, str]):
+    pen = QPen(QColor(c["highlight"]), 4.4)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    p.setPen(pen)
+    p.drawLine(QPointF(4.8, 13.2), QPointF(12.2, 4.9))
+    p.setPen(_icon_pen(c["muted"], 1.5))
+    p.drawLine(QPointF(12.9, 3.6), QPointF(14.6, 5.3))
+
+
+def _draw_underline_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.7))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath()
+    path.moveTo(5.5, 3.4)
+    path.lineTo(5.5, 9.1)
+    path.cubicTo(5.5, 12.6, 12.5, 12.6, 12.5, 9.1)
+    path.lineTo(12.5, 3.4)
+    p.drawPath(path)
+    p.setPen(_icon_pen(c["accent"], 1.8))
+    p.drawLine(QPointF(4.0, 15.1), QPointF(14.0, 15.1))
+
+
+def _draw_strike_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.55))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath()
+    path.moveTo(12.2, 5.5)
+    path.cubicTo(12.2, 3.4, 6.2, 3.2, 6.2, 6.4)
+    path.cubicTo(6.2, 8.8, 12.4, 8.3, 12.4, 11.8)
+    path.cubicTo(12.4, 14.8, 6.0, 14.8, 6.0, 12.5)
+    p.drawPath(path)
+    p.setPen(_icon_pen(c["accent"], 1.8))
+    p.drawLine(QPointF(3.6, 9.1), QPointF(14.4, 9.1))
+
+
+def _draw_sticky_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["muted"], 1.45))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(4.2, 3.2, 9.6, 11.6), 1.7, 1.7)
+    fold = QPainterPath()
+    fold.moveTo(10.8, 3.2)
+    fold.lineTo(10.8, 6.8)
+    fold.lineTo(13.8, 6.8)
+    p.drawPath(fold)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(c["accent"]))
+    p.drawEllipse(QPointF(6.9, 6.5), 1.05, 1.05)
+    p.setPen(_icon_pen(c["muted"], 1.2))
+    p.drawLine(QPointF(6.9, 9.5), QPointF(11.1, 9.5))
+    p.drawLine(QPointF(6.9, 11.5), QPointF(10.1, 11.5))
+
+
+def _draw_search_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["muted"], 1.6))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawEllipse(QPointF(7.8, 7.8), 4.5, 4.5)
+    p.drawLine(QPointF(11.2, 11.2), QPointF(14.8, 14.8))
+
+
+def _draw_close_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["muted"], 1.6))
+    p.drawLine(QPointF(5.2, 5.2), QPointF(12.8, 12.8))
+    p.drawLine(QPointF(12.8, 5.2), QPointF(5.2, 12.8))
+
+
+_TOOLBAR_ICONS = {
+    "open": _draw_open_icon,
+    "save": _draw_save_icon,
+    "chevron_left": _draw_chevron_left,
+    "chevron_right": _draw_chevron_right,
+    "chevron_up": _draw_chevron_up,
+    "chevron_down": _draw_chevron_down,
+    "plus": _draw_plus_icon,
+    "minus": _draw_minus_icon,
+    "fit": _draw_fit_icon,
+    "copy": _draw_copy_icon,
+    "highlight": _draw_highlight_icon,
+    "underline": _draw_underline_icon,
+    "strike": _draw_strike_icon,
+    "sticky": _draw_sticky_icon,
+    "search": _draw_search_icon,
+    "close": _draw_close_icon,
+}
+
+
+def _make_toolbar_icon(draw_fn, dark_mode: bool, size: int = TOOLBAR_ICON_SIZE) -> QIcon:
+    """Render a crisp icon (plus a muted disabled variant) for the theme."""
+    colors = _toolbar_icon_colors(dark_mode)
+    scale = 2.0
+    icon = QIcon()
+    for mode, palette in (
+        (QIcon.Mode.Normal, colors),
+        (
+            QIcon.Mode.Disabled,
+            {
+                **colors,
+                "stroke": colors["disabled"],
+                "muted": colors["disabled"],
+                "accent": colors["disabled"],
+                "highlight": colors["disabled"],
+            },
+        ),
+    ):
+        pixmap = QPixmap(int(size * scale), int(size * scale))
+        pixmap.fill(Qt.GlobalColor.transparent)
+        pixmap.setDevicePixelRatio(scale)
         painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        draw_fn(painter, icon_size)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        # QPainter already works in logical pixels for a DPR-aware pixmap.
+        draw_fn(painter, size, palette)
         painter.end()
-        return QIcon(pixmap)
+        icon.addPixmap(pixmap, mode)
+    return icon
 
-    # --- Copy: two overlapping document pages ---
-    def _draw_copy(p: QPainter, s: int):
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        # Back page
-        p.setPen(QPen(QColor(100, 100, 100), 1.5))
-        p.setBrush(QColor(245, 245, 245))
-        p.drawRoundedRect(7, 4, 15, 18, 2, 2)
-        # Front page
-        p.drawRoundedRect(10, 8, 17, 20, 2, 2)
-        # Lines on front page
-        p.setPen(QPen(QColor(140, 140, 140), 1.2))
-        for y in [14, 18, 22]:
-            p.drawLine(14, y, 23, y)
 
-    # --- Highlight: marker pen + highlight bar ---
-    def _draw_highlight(p: QPainter, s: int):
-        # Highlight bar (angled)
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(255, 220, 60, 180))
-        bar = QPainterPath()
-        bar.moveTo(7, 25)
-        bar.lineTo(26, 6)
-        bar.lineTo(30, 10)
-        bar.lineTo(11, 29)
-        bar.closeSubpath()
-        p.drawPath(bar)
-        # Pen tip
-        p.setPen(QPen(QColor(60, 60, 60), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        p.drawLine(26, 6, 29, 3)
-
-    # --- Underline: "U" with underline ---
-    def _draw_underline(p: QPainter, s: int):
-        p.setPen(QPen(QColor(80, 80, 80), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        # U shape
-        path = QPainterPath()
-        path.moveTo(9, 8)
-        path.cubicTo(9, 8, 9, 24, 17, 24)
-        path.cubicTo(25, 24, 25, 8, 25, 8)
-        p.drawPath(path)
-        # Underline
-        p.drawLine(8, 27, 26, 27)
-
-    # --- Strikethrough: "S" with strike line ---
-    def _draw_strikethrough(p: QPainter, s: int):
-        p.setPen(QPen(QColor(80, 80, 80), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        # S letter
-        path = QPainterPath()
-        path.moveTo(22, 8)
-        path.cubicTo(22, 8, 24, 7, 21, 7)
-        path.cubicTo(14, 7, 10, 18, 17, 18)
-        path.cubicTo(24, 18, 22, 27, 15, 27)
-        path.cubicTo(11, 27, 10, 26, 10, 26)
-        p.drawPath(path)
-        # Strike line
-        p.setPen(QPen(QColor(220, 50, 50), 2.5, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-        p.drawLine(7, 17, 27, 17)
-
-    # --- Sticky Note: notepad with folded corner ---
-    def _draw_sticky(p: QPainter, s: int):
-        # Notepad body
-        p.setPen(QPen(QColor(100, 100, 100), 1.5))
-        p.setBrush(QColor(255, 250, 200))
-        p.drawRoundedRect(6, 4, 22, 26, 2, 2)
-        # Folded corner
-        fold = QPainterPath()
-        fold.moveTo(22, 4)
-        fold.lineTo(22, 12)
-        fold.lineTo(28, 12)
-        fold.closeSubpath()
-        p.setBrush(QColor(220, 215, 180))
-        p.setPen(QPen(QColor(140, 140, 140), 1))
-        p.drawPath(fold)
-        # Lined paper
-        p.setPen(QPen(QColor(180, 180, 150), 1.2))
-        for y in [15, 19, 23]:
-            p.drawLine(10, y, 21, y)
-        # Pin dot
-        p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor(200, 70, 70))
-        p.drawEllipse(QPointF(s / 2, 6), 2.5, 2.5)
-
-    names = ["copy", "highlight", "underline", "strike", "sticky"]
-    drawers = [_draw_copy, _draw_highlight, _draw_underline, _draw_strikethrough, _draw_sticky]
-
-    buttons = []
-    for name, draw_fn in zip(names, drawers):
-        btn = QPushButton()
-        btn.setIcon(_build(draw_fn))
-        btn.setIconSize(QSize(icon_size, icon_size))
-        btn.setFixedSize(icon_size + 4, icon_size + 4)
-        btn.setStyleSheet(btn_css)
-        buttons.append(btn)
-
-    return buttons  # [copy, highlight, underline, strike, sticky]
+def _make_empty_state_icon(dark_mode: bool, size: int = 60) -> QPixmap:
+    """A quiet document glyph for the empty reading surface."""
+    colors = _toolbar_icon_colors(dark_mode)
+    scale = 2.0
+    pixmap = QPixmap(int(size * scale), int(size * scale))
+    pixmap.fill(Qt.GlobalColor.transparent)
+    pixmap.setDevicePixelRatio(scale)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+    pen = QPen(QColor(colors["muted"]), 1.5)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    sheet = QPainterPath()
+    sheet.moveTo(14, 4)
+    sheet.lineTo(38, 4)
+    sheet.lineTo(48, 14)
+    sheet.lineTo(48, 56)
+    sheet.lineTo(14, 56)
+    sheet.closeSubpath()
+    painter.drawPath(sheet)
+    painter.drawLine(QPointF(38, 4), QPointF(38, 14))
+    painter.drawLine(QPointF(38, 14), QPointF(48, 14))
+    line_color = QColor(colors["muted"])
+    line_color.setAlpha(150)
+    painter.setPen(QPen(line_color, 1.4, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+    for y in (26, 34, 42):
+        painter.drawLine(QPointF(21, y), QPointF(41, y))
+    painter.end()
+    return pixmap
 
 
 # ---------------------------------------------------------------------------
@@ -897,6 +1270,15 @@ class PdfReaderWindow(QMainWindow):
     MIN_ZOOM = 0.25
     MAX_ZOOM = 5.0
     ZOOM_STEP = 0.15
+
+    # Continuous scrolling (virtualized): every page keeps a sized placeholder
+    # so the scroll range always spans the whole document, while pixmaps exist
+    # only for the viewport plus a small overscan.
+    CONTINUOUS_OVERSCAN = 2      # pages rendered on each side of the viewport
+    CONTINUOUS_CACHE = 4         # rendered pages kept on each side before release
+    CONTINUOUS_PAGE_GAP = 12
+    CONTINUOUS_PAGE_MARGIN = 16
+    CONTINUOUS_RENDER_DELAY_MS = 40
 
     # Dark mode constants
     THEME_AUTO = 0
@@ -936,18 +1318,28 @@ class PdfReaderWindow(QMainWindow):
         _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
-        self.resize(1000, 800)
+        self.resize(1100, 820)
+        self.setMinimumSize(720, 480)
 
         # ---- IPC server for single-instance tab routing ----
         self._ipc_server = ipc_server
         if ipc_server is not None:
             ipc_server.newConnection.connect(self._on_ipc_connection)
 
-        # ---- Continuous scroll ----
+        # ---- Continuous scroll (virtualized) ----
         self._continuous_mode = True  # default to continuous
         self._continuous_pages: list[QLabel] = []
+        self._continuous_rendered: set[int] = set()
         self._continuous_container = None
         self._continuous_layout = None
+        self._continuous_layout_zoom: float | None = None
+        self._continuous_layout_document = None
+        self._continuous_syncing_scroll = False
+        self._pending_scroll_page: int | None = None
+        self._continuous_render_timer = QTimer(self)
+        self._continuous_render_timer.setSingleShot(True)
+        self._continuous_render_timer.setInterval(self.CONTINUOUS_RENDER_DELAY_MS)
+        self._continuous_render_timer.timeout.connect(self._render_visible_continuous)
 
         # App icon
         self._set_app_icon()
@@ -1060,11 +1452,11 @@ class PdfReaderWindow(QMainWindow):
         tab_strip_layout.addWidget(self.tab_bar)
 
         self.new_tab_button = QToolButton()
-        self.new_tab_button.setText("+")
         self.new_tab_button.setObjectName("NewTabButton")
+        self.new_tab_button.setIconSize(QSize(16, 16))
         self.new_tab_button.setFixedSize(28, 28)
+        self.tab_bar.setMinimumWidth(1)
         self.new_tab_button.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
-        self.new_tab_button.setAutoRaise(True)
         self.new_tab_button.setCursor(Qt.PointingHandCursor)
         self.new_tab_button.setToolTip("New Tab (Ctrl+T)")
         self.new_tab_button.setAccessibleName("New blank tab")
@@ -1073,106 +1465,44 @@ class PdfReaderWindow(QMainWindow):
         tab_strip_layout.addStretch(1)
 
         root.addWidget(tab_strip)
+        self._sync_tab_strip()
 
-        # Controls bar
-        controls_widget = QWidget()
-        controls_widget.setContentsMargins(8, 6, 8, 6)
-        controls = QHBoxLayout(controls_widget)
-        controls.setSpacing(4)
-        controls.setContentsMargins(0, 0, 0, 0)
 
-        self.prev_button = QPushButton("Prev")
-        self.prev_button.setToolTip("Previous page (Page Up)")
-        self.next_button = QPushButton("Next")
-        self.next_button.setToolTip("Next page (Page Down)")
-        self.page_spin = QSpinBox()
-        self.page_spin.setMinimum(1)
-        self.page_spin.setMaximum(1)
-        self.page_spin.setFixedWidth(70)
-        self.page_spin.setToolTip("Jump to page number")
-        self.page_count_label = QLabel("/ 0")
-
-        self.zoom_out_button, self.zoom_in_button, self.fit_button = _make_zoom_buttons()
-        self.copy_button, self.highlight_button, self.underline_button, self.strike_button, self.sticky_button = \
-            _make_tool_icons(34)
-        self.copy_button.setToolTip("Copy selected text (Ctrl+C)")
-        self.highlight_button.setToolTip("Highlight selected text")
-        self.underline_button.setToolTip("Underline selected text")
-        self.strike_button.setToolTip("Strikethrough selected text")
-        self.sticky_button.setCheckable(True)
-        self.sticky_button.setToolTip("Place sticky note")
-
-        controls.addSpacing(4)
-        controls.addWidget(self.prev_button)
-        controls.addWidget(self.next_button)
-        controls.addWidget(QLabel("Pg"))
-        controls.addWidget(self.page_spin)
-        controls.addWidget(self.page_count_label)
-        controls.addSpacing(6)
-        controls.addWidget(self.zoom_out_button)
-        controls.addWidget(self.zoom_in_button)
-        controls.addWidget(self.fit_button)
-        controls.addSpacing(6)
-        controls.addWidget(self.copy_button)
-        controls.addWidget(self.highlight_button)
-        controls.addWidget(self.underline_button)
-        controls.addWidget(self.strike_button)
-        controls.addWidget(self.sticky_button)
-
-        controls.addSpacing(4)
-        self.semantic_cb = QCheckBox("Semantic")
-        self.semantic_cb.setToolTip("Enable semantic (meaning-based) search instead of keyword exact match")
-
-        controls.addSpacing(4)
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search text")
-        self.search_input.setClearButtonEnabled(True)
-        self.search_input.setMinimumWidth(160)
-        self.search_prev_button = QPushButton("\u25b2")
-        self.search_prev_button.setFixedWidth(30)
-        self.search_next_button = QPushButton("\u25bc")
-        self.search_next_button.setFixedWidth(30)
-        self.search_count_label = QLabel("0")
-        self.search_count_label.setFixedWidth(32)
-
-        controls.addWidget(self.search_input, 1)
-        controls.addWidget(self.search_prev_button)
-        controls.addWidget(self.search_next_button)
-        controls.addWidget(self.search_count_label)
-        controls.addWidget(self.semantic_cb)
-        root.addWidget(controls_widget)
-
-        # Page content — improved empty state
+        # Page content — quiet empty state
         self.empty_state_widget = QWidget()
         empty_layout = QVBoxLayout(self.empty_state_widget)
         empty_layout.setAlignment(Qt.AlignCenter)
-        empty_layout.setSpacing(14)
+        empty_layout.setSpacing(16)
 
-        # Icon / visual marker
-        icon_label = QLabel()
-        icon_pixmap = self.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogStart).pixmap(48, 48)
-        icon_label.setPixmap(icon_pixmap)
-        icon_label.setAlignment(Qt.AlignCenter)
-        icon_opacity = QGraphicsOpacityEffect()
-        icon_opacity.setOpacity(0.45)
-        icon_label.setGraphicsEffect(icon_opacity)
-        empty_layout.addWidget(icon_label)
+        self._empty_icon_label = QLabel()
+        self._empty_icon_label.setPixmap(_make_empty_state_icon(self._dark_mode))
+        self._empty_icon_label.setAlignment(Qt.AlignCenter)
+        empty_layout.addWidget(self._empty_icon_label)
 
-        title_label = QLabel("<h2 style='color:#666; font-weight:400; margin:0;'>Open a PDF to begin</h2>")
+        title_label = QLabel("Open a PDF to begin")
+        title_label.setObjectName("EmptyTitle")
         title_label.setAlignment(Qt.AlignCenter)
         empty_layout.addWidget(title_label)
 
         subtitle_label = QLabel(
-            "<p style='color:#999; font-size:13px; margin:0; line-height:1.5;'>"
             "Drag and drop a PDF here, or use <b>File → Open PDF</b> (Ctrl+O)<br>"
-            "to get started reading locally and privately.</p>"
+            "to start reading locally and privately."
         )
+        subtitle_label.setObjectName("EmptySubtitle")
         subtitle_label.setWordWrap(True)
+        subtitle_label.setFixedWidth(460)
         subtitle_label.setAlignment(Qt.AlignCenter)
-        empty_layout.addWidget(subtitle_label)
+        subtitle_row = QHBoxLayout()
+        subtitle_row.addStretch()
+        subtitle_row.addWidget(subtitle_label)
+        subtitle_row.addStretch()
+        empty_layout.addLayout(subtitle_row)
 
         open_btn = QPushButton("Open PDF")
-        open_btn.setFixedWidth(160)
+        open_btn.setObjectName("OpenEmptyButton")
+        open_btn.setFixedWidth(180)
+        open_btn.setCursor(Qt.PointingHandCursor)
+        open_btn.setAccessibleName("Open PDF")
         open_btn.clicked.connect(self.open_pdf)
         open_btn_layout = QHBoxLayout()
         open_btn_layout.addStretch()
@@ -1181,6 +1511,7 @@ class PdfReaderWindow(QMainWindow):
         empty_layout.addLayout(open_btn_layout)
 
         self.page_label = PdfPageLabel()
+        self.page_label.setObjectName("PdfPage")
         self.page_label.setAlignment(Qt.AlignCenter)
         self.page_label.selection_finished.connect(self.select_text_in_rect)
         self.page_label.sticky_note_requested.connect(self._place_sticky_note)
@@ -1189,7 +1520,11 @@ class PdfReaderWindow(QMainWindow):
         self.scroll_area.setWidget(self.empty_state_widget)
         self.scroll_area.setAlignment(Qt.AlignCenter)
         self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.viewport().setObjectName("DocumentViewport")
         self.scroll_area.viewport().installEventFilter(self)
+        self.scroll_area.verticalScrollBar().valueChanged.connect(
+            self._on_continuous_scrolled
+        )
         root.addWidget(self.scroll_area, 1)
 
         self.setCentralWidget(central)
@@ -1199,61 +1534,240 @@ class PdfReaderWindow(QMainWindow):
         self._content_stack = {None: self.empty_state_widget}
         self._current_content = None
 
-        # Signal connections
+    def _build_actions(self):
+        """Build the single, unified application toolbar.
+
+        Everything the reader needs lives on one 44 px Fluent-style row:
+        file actions, page navigation, zoom, annotations, and search.
+        """
+        toolbar = QToolBar("Main Toolbar", self)
+        toolbar.setObjectName("MainToolbar")
+        toolbar.setMovable(False)
+        toolbar.setFloatable(False)
+        toolbar.setIconSize(QSize(TOOLBAR_ICON_SIZE, TOOLBAR_ICON_SIZE))
+        toolbar.setToolButtonStyle(Qt.ToolButtonIconOnly)
+        toolbar.setContextMenuPolicy(Qt.PreventContextMenu)
+        self.addToolBar(Qt.TopToolBarArea, toolbar)
+        self.toolbar = toolbar
+
+        self._icon_buttons: dict[str, QToolButton] = {}
+        self._icon_specs: dict[str, object] = {}
+        self._search_icon_action = None
+        # The tab strip's "+" button shares the vector plus icon.
+        self._icon_specs["new_tab"] = _TOOLBAR_ICONS["plus"]
+        self._icon_buttons["new_tab"] = self.new_tab_button
+
+        def icon_button(
+            spec: str,
+            tooltip: str,
+            accessible_name: str,
+            *,
+            checkable: bool = False,
+            size: int = TOOLBAR_BUTTON_SIZE,
+        ) -> QToolButton:
+            button = QToolButton(toolbar)
+            button.setObjectName("ToolbarButton")
+            button.setIconSize(QSize(TOOLBAR_ICON_SIZE, TOOLBAR_ICON_SIZE))
+            button.setFixedSize(size, size)
+            button.setToolTip(tooltip)
+            button.setAccessibleName(accessible_name)
+            button.setCheckable(checkable)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setFocusPolicy(Qt.StrongFocus)
+            self._icon_specs[spec] = _TOOLBAR_ICONS[spec]
+            self._icon_buttons[spec] = button
+            return button
+
+        # ── File ──
+        open_button = icon_button("open", "Open PDF (Ctrl+O)", "Open PDF")
+        open_button.clicked.connect(self.open_pdf)
+        save_button = icon_button("save", "Save document (Ctrl+S)", "Save document")
+        save_button.clicked.connect(self._save_document)
+        toolbar.addWidget(open_button)
+        toolbar.addWidget(save_button)
+
+        # ── Page navigation ──
+        toolbar.addSeparator()
+        self.prev_button = icon_button(
+            "chevron_left", "Previous page (Page Up)", "Previous page"
+        )
         self.prev_button.clicked.connect(self.previous_page)
+        self.next_button = icon_button(
+            "chevron_right", "Next page (Page Down)", "Next page"
+        )
         self.next_button.clicked.connect(self.next_page)
+
+        self.page_spin = QSpinBox(toolbar)
+        self.page_spin.setObjectName("PageSpin")
+        self.page_spin.setMinimum(1)
+        self.page_spin.setMaximum(1)
+        self.page_spin.setFixedWidth(46)
+        self.page_spin.setAlignment(Qt.AlignCenter)
+        self.page_spin.setButtonSymbols(QAbstractSpinBox.NoButtons)
+        self.page_spin.setKeyboardTracking(False)
+        self.page_spin.setToolTip("Page number — type a number and press Enter")
+        self.page_spin.setAccessibleName("Page number")
         self.page_spin.valueChanged.connect(self.jump_to_page)
+
+        self.page_count_label = QLabel("/ 0", toolbar)
+        self.page_count_label.setObjectName("PageCount")
+        self.page_count_label.setMinimumWidth(46)
+        self.page_count_label.setAccessibleName("Page count")
+
+        toolbar.addWidget(self.prev_button)
+        toolbar.addWidget(self.page_spin)
+        toolbar.addWidget(self.page_count_label)
+        toolbar.addWidget(self.next_button)
+
+        # ── Zoom ──
+        toolbar.addSeparator()
+        self.zoom_out_button = icon_button(
+            "minus", "Zoom out (Ctrl+- or Ctrl+Mouse Wheel)", "Zoom out"
+        )
         self.zoom_out_button.clicked.connect(self.zoom_out)
+
+        self.zoom_label = QLabel("100%", toolbar)
+        self.zoom_label.setObjectName("ZoomLabel")
+        self.zoom_label.setAlignment(Qt.AlignCenter)
+        self.zoom_label.setFixedWidth(42)
+        self.zoom_label.setToolTip("Current zoom level")
+        self.zoom_label.setAccessibleName("Zoom level")
+
+        self.zoom_in_button = icon_button(
+            "plus", "Zoom in (Ctrl+= or Ctrl+Mouse Wheel)", "Zoom in"
+        )
         self.zoom_in_button.clicked.connect(self.zoom_in)
+        self.fit_button = icon_button(
+            "fit", "Fit page to window (Ctrl+0)", "Fit page", checkable=True
+        )
+        self.fit_button.setChecked(True)
         self.fit_button.toggled.connect(self._on_fit_toggled)
+
+        toolbar.addWidget(self.zoom_out_button)
+        toolbar.addWidget(self.zoom_label)
+        toolbar.addWidget(self.zoom_in_button)
+        toolbar.addWidget(self.fit_button)
+
+        # ── Annotations ──
+        toolbar.addSeparator()
+        self.copy_button = icon_button(
+            "copy", "Copy selected text (Ctrl+C)", "Copy selected text"
+        )
         self.copy_button.clicked.connect(self.copy_selected_text)
+        self.highlight_button = icon_button(
+            "highlight", "Highlight selected text", "Highlight selected text"
+        )
         self.highlight_button.clicked.connect(self.highlight_selection)
+        self.underline_button = icon_button(
+            "underline", "Underline selected text", "Underline selected text"
+        )
         self.underline_button.clicked.connect(self.underline_selection)
+        self.strike_button = icon_button(
+            "strike", "Strikethrough selected text", "Strikethrough selected text"
+        )
         self.strike_button.clicked.connect(self.strikeout_selection)
+        self.sticky_button = icon_button(
+            "sticky", "Place sticky note", "Place sticky note", checkable=True
+        )
         self.sticky_button.clicked.connect(self._toggle_sticky_note_mode)
+        for annotation_button in (
+            self.copy_button,
+            self.highlight_button,
+            self.underline_button,
+            self.strike_button,
+            self.sticky_button,
+        ):
+            toolbar.addWidget(annotation_button)
+
+        # Keep search anchored to the right edge of the toolbar.
+        spacer = QWidget(toolbar)
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        toolbar.addWidget(spacer)
+
+        # ── Search ──
+        self.search_input = QLineEdit(toolbar)
+        self.search_input.setObjectName("SearchInput")
+        self.search_input.setPlaceholderText("Search document")
+        self.search_input.setClearButtonEnabled(False)
+        self.search_input.setMinimumWidth(160)
+        self.search_input.setMaximumWidth(320)
+        self.search_input.setFixedHeight(30)
+        self.search_input.setAccessibleName("Search document")
+        self._search_icon_action = self.search_input.addAction(
+            _make_toolbar_icon(_TOOLBAR_ICONS["search"], self._dark_mode),
+            QLineEdit.LeadingPosition,
+        )
+        self._search_clear_action = self.search_input.addAction(
+            _make_toolbar_icon(_TOOLBAR_ICONS["close"], self._dark_mode),
+            QLineEdit.TrailingPosition,
+        )
+        self._search_clear_action.setToolTip("Clear search")
+        self._search_clear_action.setVisible(False)
+        self._search_clear_action.triggered.connect(self.search_input.clear)
+        self.search_input.textChanged.connect(
+            lambda text: self._search_clear_action.setVisible(bool(text))
+        )
         self.search_input.returnPressed.connect(self.search)
         self.search_input.textChanged.connect(self._search_text_changed)
+
+        self.search_prev_button = icon_button(
+            "chevron_up",
+            "Previous match",
+            "Previous match",
+            size=TOOLBAR_SMALL_BUTTON_SIZE,
+        )
         self.search_prev_button.clicked.connect(self.previous_search_result)
+        self.search_next_button = icon_button(
+            "chevron_down",
+            "Next match",
+            "Next match",
+            size=TOOLBAR_SMALL_BUTTON_SIZE,
+        )
         self.search_next_button.clicked.connect(self.next_search_result)
 
-    def _build_actions(self):
-        toolbar = QToolBar("Main Toolbar")
-        toolbar.setIconSize(QSize(18, 18))
-        self.addToolBar(toolbar)
+        self.search_count_label = QLabel("0", toolbar)
+        self.search_count_label.setObjectName("SearchCount")
+        self.search_count_label.setFixedWidth(40)
+        self.search_count_label.setAlignment(Qt.AlignCenter)
+        self.search_count_label.setAccessibleName("Search match count")
 
-        style = self.style()
+        # A text toggle rather than a checkbox: it inherits the toolbar's
+        # hover/checked treatment and renders correctly in both themes.
+        self.semantic_cb = QToolButton(toolbar)
+        self.semantic_cb.setObjectName("SemanticToggle")
+        self.semantic_cb.setText("Semantic")
+        self.semantic_cb.setCheckable(True)
+        self.semantic_cb.setToolTip(
+            "Enable semantic (meaning-based) search instead of keyword exact match"
+        )
+        self.semantic_cb.setAccessibleName("Semantic search")
+        self.semantic_cb.setCursor(Qt.PointingHandCursor)
+        self.semantic_cb.setFocusPolicy(Qt.StrongFocus)
 
-        open_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogOpenButton), "Open", self)
-        open_action.triggered.connect(self.open_pdf)
-        toolbar.addAction(open_action)
+        toolbar.addWidget(self.search_input)
+        toolbar.addWidget(self.search_prev_button)
+        toolbar.addWidget(self.search_next_button)
+        toolbar.addWidget(self.search_count_label)
+        toolbar.addWidget(self.semantic_cb)
 
-        toolbar.addSeparator()
-        save_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_DialogSaveButton), "Save", self)
-        save_action.triggered.connect(self._save_document)
-        toolbar.addAction(save_action)
+        self._refresh_toolbar_icons()
 
-        toolbar.addSeparator()
-        prev_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowBack), "Previous Page", self)
-        prev_action.triggered.connect(self.previous_page)
-        toolbar.addAction(prev_action)
-
-        next_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowForward), "Next Page", self)
-        next_action.triggered.connect(self.next_page)
-        toolbar.addAction(next_action)
-
-        toolbar.addSeparator()
-        zoom_in_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowUp), "Zoom In", self)
-        zoom_in_action.triggered.connect(self.zoom_in)
-        toolbar.addAction(zoom_in_action)
-
-        zoom_out_action = QAction(style.standardIcon(QStyle.StandardPixmap.SP_ArrowDown), "Zoom Out", self)
-        zoom_out_action.triggered.connect(self.zoom_out)
-        toolbar.addAction(zoom_out_action)
-
-        toolbar.addSeparator()
-        find_action = QAction("Find", self)
-        find_action.triggered.connect(self.focus_search)
-        toolbar.addAction(find_action)
+    def _refresh_toolbar_icons(self):
+        """Re-render every toolbar icon for the active theme."""
+        for spec_name, button in getattr(self, "_icon_buttons", {}).items():
+            draw_fn = self._icon_specs.get(spec_name)
+            if draw_fn is not None:
+                button.setIcon(_make_toolbar_icon(draw_fn, self._dark_mode))
+        if getattr(self, "_search_icon_action", None) is not None:
+            self._search_icon_action.setIcon(
+                _make_toolbar_icon(_TOOLBAR_ICONS["search"], self._dark_mode)
+            )
+        if getattr(self, "_search_clear_action", None) is not None:
+            self._search_clear_action.setIcon(
+                _make_toolbar_icon(_TOOLBAR_ICONS["close"], self._dark_mode)
+            )
+        if getattr(self, "_empty_icon_label", None) is not None:
+            self._empty_icon_label.setPixmap(_make_empty_state_icon(self._dark_mode))
 
     @staticmethod
     def _menu_label(label: str, shortcut: str) -> str:
@@ -1543,6 +2057,24 @@ class PdfReaderWindow(QMainWindow):
     def _apply_theme(self):
         stylesheet = DARK_STYLESHEET if self._dark_mode else LIGHT_STYLESHEET
         self.setStyleSheet(stylesheet)
+        if hasattr(self, "scroll_area"):
+            # The scroll viewport paints from the palette, not the QSS, so
+            # give it the reading-surface colour explicitly.
+            content = QColor("#141518" if self._dark_mode else "#ececee")
+            viewport = self.scroll_area.viewport()
+            widgets = [self.scroll_area, viewport]
+            # QScrollArea enables autoFillBackground on its scroll widget, so
+            # the empty state needs the reading-surface palette too.
+            if hasattr(self, "empty_state_widget"):
+                widgets.append(self.empty_state_widget)
+            for widget in widgets:
+                palette = widget.palette()
+                palette.setColor(QPalette.ColorRole.Window, content)
+                palette.setColor(QPalette.ColorRole.Base, content)
+                widget.setPalette(palette)
+            viewport.setAutoFillBackground(True)
+        if hasattr(self, "_icon_buttons"):
+            self._refresh_toolbar_icons()
 
     @staticmethod
     def _asset_path(name: str) -> str:
@@ -1674,6 +2206,11 @@ class PdfReaderWindow(QMainWindow):
         self.ocr_warning_shown = tab.ocr_warning_shown
         self.current_tab_id = tab_id
 
+        # The page controls belong to the document, so refresh them on switch.
+        page_count = self.document.page_count if self.document is not None else 0
+        self.page_spin.setMaximum(max(1, page_count))
+        self.page_count_label.setText(f"/ {page_count}")
+
     def _on_tab_double_click(self, index: int):
         self.new_tab()
 
@@ -1688,6 +2225,7 @@ class PdfReaderWindow(QMainWindow):
         self._restore_state(new_tab_id)
         self._restore_current_tab_controls()
         self.clear_text_selection(render=False)
+        self.statusBar().clearMessage()
         self.render_page()
         self._update_controls()
 
@@ -1706,10 +2244,16 @@ class PdfReaderWindow(QMainWindow):
         self.search_input.blockSignals(True)
         self.search_input.setText(self.search_text)
         self.search_input.blockSignals(False)
+        if hasattr(self, "_search_clear_action"):
+            self._search_clear_action.setVisible(bool(self.search_input.text()))
         if self.search_results:
             self.search_count_label.setText(self._search_count_text())
         else:
             self.search_count_label.setText("0")
+
+    def _sync_tab_strip(self):
+        """Hide the tab bar while there are no documents open."""
+        self.tab_bar.setVisible(self.tab_bar.count() > 0)
 
     def _create_tab(self, tab_data: TabData) -> int:
         self._save_current_state()
@@ -1724,6 +2268,7 @@ class PdfReaderWindow(QMainWindow):
         finally:
             self.tab_bar.blockSignals(False)
         self.current_tab_id = tab_id
+        self._sync_tab_strip()
         return tab_id
 
     def _create_tab_close_button(self, tab_id: int, tab_name: str) -> QToolButton:
@@ -1780,6 +2325,7 @@ class PdfReaderWindow(QMainWindow):
         finally:
             self.tab_bar.blockSignals(False)
         del self.tabs[tab_id]
+        self._sync_tab_strip()
 
         if not self.tabs:
             self.current_tab_id = None
@@ -1837,6 +2383,7 @@ class PdfReaderWindow(QMainWindow):
                     tab.document.close()
         self.tabs.clear()
         self.tab_bar.clear()
+        self._sync_tab_strip()
         self.current_tab_id = None
         self.document = None
         self.current_path = None
@@ -2075,6 +2622,7 @@ class PdfReaderWindow(QMainWindow):
         if self.document is not None:
             self.document.close()
         self.document = None
+        self._teardown_continuous_layout()
 
     # ------------------------------------------------------------------
     # Page Rendering
@@ -2088,6 +2636,7 @@ class PdfReaderWindow(QMainWindow):
         """Perform the actual page render (called by debounce timer)."""
         _t = _perf_start()
         if self.document is None:
+            self._teardown_continuous_layout()
             # Show empty state if not already
             if self.scroll_area.widget() is not self.empty_state_widget:
                 self.scroll_area.takeWidget()
@@ -2109,6 +2658,8 @@ class PdfReaderWindow(QMainWindow):
 
     def _render_single_page(self):
         """Render a single page in the scroll area at display resolution."""
+        if self._continuous_container is not None:
+            self._teardown_continuous_layout()
         try:
             page = self.document.load_page(self.current_page)
             zoom = self._effective_zoom(page)
@@ -2148,11 +2699,6 @@ class PdfReaderWindow(QMainWindow):
         qp = QPixmap.fromImage(image)
         qp.setDevicePixelRatio(dpr)
         self.page_label.setPixmap(qp)
-        self.page_label.setStyleSheet(
-            "border: 1px solid #3b4261; background-color: white;"
-            if self._dark_mode else
-            "border: 1px solid #c8c8c8; background-color: white;"
-        )
         self.page_label.adjustSize()
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
@@ -2160,87 +2706,281 @@ class PdfReaderWindow(QMainWindow):
         self._update_controls()
 
     def _render_continuous(self):
-        """Render pages in continuous vertical scroll layout."""
+        """Render the continuous view around the current scroll position.
+
+        The layout always holds one sized widget per page, so the scroll
+        range spans the whole document. Pixmaps are created lazily for the
+        viewport plus overscan and released once they leave the cache
+        window, which keeps memory bounded for very long documents.
+        """
+        if self.document is None or getattr(self.document, "is_closed", False):
+            return
         page_count = self.document.page_count
+        if page_count <= 0:
+            return
+
         page0 = self.document.load_page(0)
         zoom = self._effective_zoom(page0)
         self.current_render_zoom = zoom
 
-        # HiDPI-aware: render at device pixel ratio for crisp output
-        dpr = self.devicePixelRatioF() if hasattr(self, 'devicePixelRatioF') else 1.0
-        render_zoom = zoom * dpr
-        border_style = ("border: 1px solid #3b4261; background-color: white;"
-                        if self._dark_mode else
-                        "border: 1px solid #c8c8c8; background-color: white;")
+        if self._continuous_layout_needs_rebuild(zoom, page_count):
+            self._build_continuous_layout(zoom, page_count)
+        else:
+            self._show_continuous_container()
 
-        # Determine visible range (current page + buffer)
-        buffer_pages = 5
-        start_page = max(0, self.current_page - buffer_pages)
-        end_page = min(page_count, self.current_page + buffer_pages + 1)
+        # An explicit render (search, annotations, theme, zoom) invalidates
+        # cached pixmaps. Plain scrolling goes through the scroll handler and
+        # does not, so the cache survives normal reading.
+        self._release_all_continuous_pixmaps()
+        self._render_visible_continuous()
+        self._update_page_controls()
 
-        # Build or reuse continuous container
+    # -- continuous layout -------------------------------------------------
+
+    def _continuous_layout_needs_rebuild(self, zoom: float, page_count: int) -> bool:
+        if self._continuous_container is None or self._continuous_layout is None:
+            return True
+        if self._continuous_layout_document is not self.document:
+            return True
+        if len(self._continuous_pages) != page_count:
+            return True
+        if self._continuous_layout_zoom is None:
+            return True
+        return abs(self._continuous_layout_zoom - zoom) > 1e-4
+
+    def _show_continuous_container(self):
         if self._continuous_container is None:
-            self._continuous_container = QWidget()
-            self._continuous_layout = QVBoxLayout(self._continuous_container)
-            self._continuous_layout.setContentsMargins(12, 12, 12, 12)
-            self._continuous_layout.setSpacing(12)
-
-        # Show continuous container in scroll area
+            return
         if self.scroll_area.widget() is not self._continuous_container:
             self.scroll_area.takeWidget()
             self.scroll_area.setWidget(self._continuous_container)
             self.scroll_area.setWidgetResizable(True)
 
-        show_annots = hasattr(self, "show_annots_action") and self.show_annots_action.isChecked()
+    def _build_continuous_layout(self, zoom: float, page_count: int):
+        """Create a correctly sized placeholder for every page."""
+        # Keep the reader on the same page across zoom/theme rebuilds even
+        # though the scrollbar briefly collapses while the widget is swapped.
+        target_page = max(0, min(self.current_page, page_count - 1))
+        self._teardown_continuous_layout()
 
-        # Clear and rebuild visible pages
-        for label in self._continuous_pages:
-            label.setParent(None)
-            label.deleteLater()
-        self._continuous_pages.clear()
+        container = QWidget()
+        container.setObjectName("ContinuousDocument")
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(
+            self.CONTINUOUS_PAGE_MARGIN,
+            self.CONTINUOUS_PAGE_MARGIN,
+            self.CONTINUOUS_PAGE_MARGIN,
+            self.CONTINUOUS_PAGE_MARGIN,
+        )
+        layout.setSpacing(self.CONTINUOUS_PAGE_GAP)
+        layout.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
-        # Clear layout items
-        while self._continuous_layout.count():
-            item = self._continuous_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+        pages: list[QLabel] = []
+        for page_index in range(page_count):
+            page = self.document.load_page(page_index)
+            width = max(1, int(round(page.rect.width * zoom)))
+            height = max(1, int(round(page.rect.height * zoom)))
+            label = QLabel()
+            label.setObjectName("ContinuousPage")
+            label.setAlignment(Qt.AlignCenter)
+            # +2 accounts for the 1 px border drawn by the stylesheet.
+            label.setFixedSize(width + 2, height + 2)
+            layout.addWidget(label, 0, Qt.AlignHCenter)
+            pages.append(label)
 
-        for page_idx in range(start_page, end_page):
-            try:
-                page = self.document.load_page(page_idx)
-                self._validate_render_size(page, render_zoom)
-                matrix = fitz.Matrix(render_zoom, render_zoom)
-                pixmap = page.get_pixmap(matrix=matrix, alpha=False, annots=show_annots)
-                image = QImage(
-                    pixmap.samples,
-                    pixmap.width,
-                    pixmap.height,
-                    pixmap.stride,
-                    QImage.Format_RGB888,
-                )
-                qp = QPixmap.fromImage(image)
-                qp.setDevicePixelRatio(dpr)
-                label = QLabel()
-                label.setPixmap(qp)
-                label.setStyleSheet(border_style)
-                label.setAlignment(Qt.AlignCenter)
-                self._continuous_pages.append(label)
-                self._continuous_layout.addWidget(label, 0, Qt.AlignCenter)
-            except Exception:
-                continue  # nosec — skip unrenderable pages gracefully
+        self._continuous_container = container
+        self._continuous_layout = layout
+        self._continuous_pages = pages
+        self._continuous_rendered.clear()
+        self._continuous_layout_zoom = zoom
+        self._continuous_layout_document = self.document
 
-        # Scroll to show current page
-        if self._continuous_pages:
-            target_idx = self.current_page - start_page
-            if 0 <= target_idx < len(self._continuous_pages):
-                target_y = self._continuous_pages[target_idx].y()
-                self.scroll_area.verticalScrollBar().setValue(max(0, target_y - 20))
+        # Pin the target page before the widget is attached: scrollbar range
+        # changes during the swap must not reset the reader's position.
+        self.current_page = target_page
+        self._pending_scroll_page = target_page
+        self._show_continuous_container()
+        layout.activate()
+        container.adjustSize()
+        self._scroll_to_page(target_page)
 
+    def _teardown_continuous_layout(self):
+        self._continuous_render_timer.stop()
+        self._pending_scroll_page = None
+        # Clear the page list before detaching the widget so scroll events
+        # raised by the swap are ignored.
+        self._continuous_pages = []
+        self._continuous_rendered.clear()
+        if self._continuous_container is not None:
+            if self.scroll_area.widget() is self._continuous_container:
+                self.scroll_area.takeWidget()
+            self._continuous_container.setParent(None)
+            self._continuous_container.deleteLater()
+        self._continuous_container = None
+        self._continuous_layout = None
+        self._continuous_layout_zoom = None
+        self._continuous_layout_document = None
+
+    # -- lazy rendering ----------------------------------------------------
+
+    def _release_all_continuous_pixmaps(self):
+        for index in list(self._continuous_rendered):
+            self._release_pixmap(index)
+
+    def _release_pixmap(self, page_index: int):
+        if 0 <= page_index < len(self._continuous_pages):
+            self._continuous_pages[page_index].clear()
+        self._continuous_rendered.discard(page_index)
+
+    def _continuous_visible_range(self) -> tuple[int, int]:
+        """Return the first and last page index intersecting the viewport."""
+        if not self._continuous_pages:
+            return (0, -1)
+        scrollbar = self.scroll_area.verticalScrollBar()
+        top = scrollbar.value()
+        bottom = top + max(1, self.scroll_area.viewport().height())
+        first = None
+        last = None
+        for index, label in enumerate(self._continuous_pages):
+            label_top = label.y()
+            label_bottom = label_top + label.height()
+            if label_bottom > top and first is None:
+                first = index
+            if label_top < bottom:
+                last = index
+            elif last is not None:
+                break
+        if first is None:
+            first = len(self._continuous_pages) - 1
+        if last is None:
+            last = first
+        return (first, last)
+
+    def _render_visible_continuous(self):
+        """Render the viewport and overscan; release pixmaps outside cache."""
+        if not self._continuous_mode:
+            return
+        if self.document is None or getattr(self.document, "is_closed", False):
+            return
+        if not self._continuous_pages:
+            return
+
+        first, last = self._continuous_visible_range()
+        if last < first:
+            return
+
+        keep_start = max(0, first - self.CONTINUOUS_CACHE)
+        keep_end = min(len(self._continuous_pages), last + self.CONTINUOUS_CACHE + 1)
+        for index in list(self._continuous_rendered):
+            if index < keep_start or index >= keep_end:
+                self._release_pixmap(index)
+
+        render_start = max(0, first - self.CONTINUOUS_OVERSCAN)
+        render_end = min(len(self._continuous_pages), last + self.CONTINUOUS_OVERSCAN + 1)
+        for page_index in range(render_start, render_end):
+            if page_index not in self._continuous_rendered:
+                self._render_continuous_page(page_index)
+
+    def _render_continuous_page(self, page_index: int):
+        if page_index < 0 or page_index >= len(self._continuous_pages):
+            return
+        try:
+            page = self.document.load_page(page_index)
+            dpr = self.devicePixelRatioF() if hasattr(self, "devicePixelRatioF") else 1.0
+            layout_zoom = self._continuous_layout_zoom or self.current_render_zoom
+            render_zoom = layout_zoom * dpr
+            self._validate_render_size(page, render_zoom)
+            show_annots = (
+                hasattr(self, "show_annots_action")
+                and self.show_annots_action.isChecked()
+            )
+            pixmap = page.get_pixmap(
+                matrix=fitz.Matrix(render_zoom, render_zoom),
+                alpha=False,
+                annots=show_annots,
+            )
+            image = QImage(
+                pixmap.samples,
+                pixmap.width,
+                pixmap.height,
+                pixmap.stride,
+                QImage.Format_RGB888,
+            )
+            if page_index == self.current_page:
+                highlight_rects = self._active_highlight_rects()
+                if highlight_rects:
+                    self._paint_highlights(image, page, highlight_rects, render_zoom)
+            qp = QPixmap.fromImage(image)
+            qp.setDevicePixelRatio(dpr)
+            self._continuous_pages[page_index].setPixmap(qp)
+            self._continuous_rendered.add(page_index)
+        except Exception:
+            # Leave the placeholder in place — one unrenderable page must not
+            # take the rest of the document down with it.
+            return  # nosec — unrenderable pages are skipped, not fatal
+
+    # -- scroll position ---------------------------------------------------
+
+    def _on_continuous_scrolled(self, value: int):
+        if not self._continuous_mode:
+            return
+        if self.document is None or not self._continuous_pages:
+            return
+        if self._continuous_syncing_scroll or self._pending_scroll_page is not None:
+            return
+
+        scrollbar = self.scroll_area.verticalScrollBar()
+        first, _last = self._continuous_visible_range()
+        if scrollbar.maximum() > 0 and scrollbar.value() >= scrollbar.maximum() - 1:
+            first = len(self._continuous_pages) - 1
+        if first != self.current_page:
+            self.current_page = first
+            self.page_spin.blockSignals(True)
+            self.page_spin.setValue(first + 1)
+            self.page_spin.blockSignals(False)
+            self._update_controls()
+        self._continuous_render_timer.start()
+
+    def _scroll_to_page(self, page_index: int):
+        """Scroll so the requested page sits at the top of the viewport."""
+        if not self._continuous_pages:
+            return
+        page_index = max(0, min(page_index, len(self._continuous_pages) - 1))
+        self.current_page = page_index
+        self._pending_scroll_page = page_index
+        self._apply_pending_scroll()
+        # The scroll range can still be settling right after a layout rebuild;
+        # retry once on the next event-loop turn.
+        QTimer.singleShot(0, self._apply_pending_scroll)
+
+    def _apply_pending_scroll(self):
+        page_index = self._pending_scroll_page
+        if page_index is None or not self._continuous_pages:
+            return
+        if page_index >= len(self._continuous_pages):
+            self._pending_scroll_page = None
+            return
+        target = self._continuous_pages[page_index].y()
+        scrollbar = self.scroll_area.verticalScrollBar()
+        self._continuous_syncing_scroll = True
+        try:
+            scrollbar.setValue(target)
+        finally:
+            self._continuous_syncing_scroll = False
+        if scrollbar.value() == target:
+            self._pending_scroll_page = None
+        # The scroll may have settled after the previous render pass (layout
+        # rebuilds), so make sure the pages now on screen get pixmaps.
+        self._continuous_render_timer.start()
+        self._update_page_controls()
+
+    def _update_page_controls(self):
+        if self.document is None:
+            return
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
         self.page_spin.blockSignals(False)
         self._update_controls()
-        _perf_end(_t, f"_do_render page={self.current_page} zoom={self.current_render_zoom:.2f}")
 
     def _effective_zoom(self, page):
         if not self.fit_to_window:
@@ -2411,6 +3151,8 @@ class PdfReaderWindow(QMainWindow):
         self._continuous_mode = checked
         if hasattr(self, "_continuous_menu_action"):
             self._continuous_menu_action.setChecked(checked)
+        if not checked:
+            self._teardown_continuous_layout()
         if self.document is not None:
             self.render_page()
 
@@ -2598,27 +3340,38 @@ class PdfReaderWindow(QMainWindow):
 
     def previous_page(self):
         if self.document is not None and self.current_page > 0:
-            self.current_page -= 1
-            self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
-            self.render_page()
+            self._go_to_page(self.current_page - 1)
 
     def next_page(self):
         if self.document is not None and self.current_page < self.document.page_count - 1:
-            self.current_page += 1
-            self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
-            self.render_page()
+            self._go_to_page(self.current_page + 1)
 
     def jump_to_page(self, page_number):
         if self.document is None:
             return
-        target = page_number - 1
+        target = max(0, min(page_number - 1, self.document.page_count - 1))
         if target != self.current_page:
-            self.current_page = target
-            self.clear_text_selection(render=False)
-            self._sync_search_result_to_page()
+            self._go_to_page(target)
+
+    def _go_to_page(self, page_index: int):
+        """Move to a page without rebuilding the continuous document."""
+        if self.document is None:
+            return
+        page_index = max(0, min(page_index, self.document.page_count - 1))
+        self.current_page = page_index
+        self.clear_text_selection(render=False)
+        self._sync_search_result_to_page()
+        if self._continuous_mode and self._continuous_pages:
+            self._scroll_to_page(page_index)
+            self._continuous_render_timer.start()
+        else:
             self.render_page()
+
+    def _reveal_current_page(self):
+        """Make a programmatically selected page visible in continuous mode."""
+        if self._continuous_mode and self._continuous_pages:
+            self._scroll_to_page(self.current_page)
+            self._continuous_render_timer.start()
 
     # ------------------------------------------------------------------
     # Zoom
@@ -2731,6 +3484,7 @@ class PdfReaderWindow(QMainWindow):
         self.current_result_index = (self.current_result_index + 1) % len(self.search_results)
         self.current_page = self.search_results[self.current_result_index]["page"]
         self.clear_text_selection(render=False)
+        self._reveal_current_page()
         self.search_count_label.setText(self._search_count_text())
         self.render_page()
 
@@ -2745,6 +3499,7 @@ class PdfReaderWindow(QMainWindow):
         self.current_result_index = (self.current_result_index - 1) % len(self.search_results)
         self.current_page = self.search_results[self.current_result_index]["page"]
         self.clear_text_selection(render=False)
+        self._reveal_current_page()
         self.search_count_label.setText(self._search_count_text())
         self.render_page()
 
@@ -3024,6 +3779,12 @@ class PdfReaderWindow(QMainWindow):
         self.search_prev_button.setEnabled(has_document and has_matches)
         self.search_next_button.setEnabled(has_document and has_matches)
         self.semantic_cb.setEnabled(has_document and HAS_LIB_MODULES)
+        if hasattr(self, "zoom_label"):
+            if has_document:
+                self.zoom_label.setText(f"{int(round(self.current_render_zoom * 100))}%")
+            else:
+                self.zoom_label.setText("—")
+            self.zoom_label.setEnabled(has_document)
 
     # ------------------------------------------------------------------
     # Events
@@ -3689,6 +4450,7 @@ class PdfReaderWindow(QMainWindow):
             self.current_result_index = first_on_or_after_page
             self.current_page = self.search_results[self.current_result_index]["page"]
             self.clear_text_selection(render=False)
+            self._reveal_current_page()
             self.search_count_label.setText(self._search_count_text())
         else:
             self.current_result_index = -1
@@ -3718,6 +4480,7 @@ class PdfReaderWindow(QMainWindow):
                 self.open_pdf(r.path)
             if self.document is not None:
                 self.current_page = min(r.page - 1, self.document.page_count - 1)
+                self._reveal_current_page()
                 self.render_page()
                 self.statusBar().showMessage(f"Opened: {r.filename} — page {r.page}", 5000)
 

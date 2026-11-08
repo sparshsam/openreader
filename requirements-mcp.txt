@@ -1,8 +1,12 @@
 # MCP server dependencies (optional — only needed for AI agent integration)
 # Install with: pip install -r requirements-mcp.txt
 # Or for SSE/HTTP transport: pip install -r 'requirements-mcp.txt[sse]'
+#
+# v1.2.8 is built against the MCP SDK 1.x server API. MCP 2.x moved
+# `mcp.types.Tool`, so an unbounded requirement installs a version the
+# bundled server cannot import. Relax this after the server is ported.
 
-mcp>=1.0.0
+mcp>=1.0.0,<2
 
 # SSE transport extras (optional):
 # pip install starlette uvicorn
