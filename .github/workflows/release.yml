@@ -4,6 +4,15 @@ on:
   push:
     tags:
       - "v*.*.*"
+  # Two-phase release: a tag push builds and uploads the artifacts only.
+  # After the artifacts and version metadata are verified, publish explicitly:
+  #   gh workflow run release.yml --ref vX.Y.Z -f publish=true
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: "Publish the GitHub release (only after artifacts are verified)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -100,9 +109,7 @@ jobs:
           }
 
           if (-not $makeAppx) {
-            Write-Host "MakeAppx.exe not found — skipping MSIX build."
-            Write-Host "Install Windows SDK or Visual Studio Build Tools for MSIX support."
-            exit 0
+            throw "MakeAppx.exe not found — the MSIX package is required for a release."
           }
 
           # Normalize MakeAppx path
@@ -287,6 +294,7 @@ jobs:
 
   publish:
     name: Publish GitHub Release
+    if: github.event_name == 'workflow_dispatch' && inputs.publish == true
     runs-on: ubuntu-latest
     needs:
       - build-windows
@@ -308,12 +316,12 @@ jobs:
           test -f "release-assets/OpenReader-Setup.exe" || { echo "Missing Windows Setup.exe"; exit 1; }
           test -f "release-assets/OpenReader-macOS-Apple-Silicon.zip" || { echo "Missing macOS Apple Silicon ZIP"; exit 1; }
           test -f "release-assets/OpenReader-macOS-Intel.zip" || { echo "Missing macOS Intel ZIP"; exit 1; }
-          # MSIX is optional until signing is set up; warn if missing
-          if [ -f "release-assets/OpenReader.msix" ]; then
-            echo "MSIX package found — will attach to release"
-          else
-            echo "⚠️  MSIX package not found — MakeAppx.exe may not be available on this runner"
-          fi
+          # The Store package is mandatory for a release.
+          test -f "release-assets/OpenReader.msix" || {
+            echo "Missing OpenReader.msix — the Store package is required for a release."
+            exit 1
+          }
+          echo "MSIX package verified"
           echo "All required assets verified"
 
       - name: Generate release notes
