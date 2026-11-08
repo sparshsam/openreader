@@ -2,7 +2,7 @@
 Tests for the OpenReader MCP server.
 
 Covers input validation, output shape, and error handling
-for all 14 tools, following the MCP Build Guide test patterns.
+for all 19 tools, following the MCP Build Guide test patterns.
 """
 
 from __future__ import annotations
@@ -26,8 +26,15 @@ from pdfreader_lib.mcp_server import (
     _split_every_page,
     _extract_pages,
     _parse_page_ranges,
+    _form_fields,
+    _form_get_field,
+    _form_set_value,
+    _form_fill,
+    _form_validate,
     TOOLS,
 )
+
+from tests._form_fixtures import make_form_fixture
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -114,9 +121,11 @@ class TestToolRegistration:
         "search_pdf", "compare_pdfs", "merge_pdfs", "split_pdf",
         "extract_pages", "compress_pdf", "index_folder",
         "search_library", "search_semantic", "list_indexed_docs",
+        "form_list_fields", "form_get_field", "form_set_value",
+        "form_fill", "form_validate",
     ])
     def test_known_tools_exist(self, tool_name):
-        """All 14 expected tools are registered."""
+        """All 19 expected tools are registered."""
         names = [t.name for t in TOOLS]
         assert tool_name in names, f"Expected tool '{tool_name}' not found in TOOLS"
 
@@ -299,3 +308,77 @@ class TestErrorHandling:
         """Invalid page range raises error."""
         with pytest.raises(ValueError, match="outside valid range"):
             _extract_pages(str(sample_pdf), "1-999", str(output_dir / "bad.pdf"))
+
+
+# ═══════════════════════════════════════════════════════════════
+# Form tools (Phase 2 — PDF Form Intelligence)
+# ═══════════════════════════════════════════════════════════════
+
+
+@pytest.fixture
+def form_pdf(tmp_path) -> Path:
+    """A PDF exercising every AcroForm field type."""
+    path = tmp_path / "form.pdf"
+    make_form_fixture(str(path))
+    return path
+
+
+class TestFormTools:
+    def test_form_list_fields(self, form_pdf):
+        fields = _form_fields(str(form_pdf))
+        by_name = {f["name"]: f for f in fields}
+        assert len(fields) >= 9
+        assert by_name["fullname"]["type"] == "text"
+        assert by_name["gender"]["type"] == "radio"
+        assert by_name["gender"]["choices"] == ["M", "F"]
+        assert by_name["ref"]["readonly"] is True
+        assert by_name["phone"]["required"] is True
+
+    def test_form_get_field(self, form_pdf):
+        field = _form_get_field(str(form_pdf), "gender")
+        assert field["type"] == "radio"
+        assert field["value"] == "F"
+
+    def test_form_get_field_not_found(self, form_pdf):
+        with pytest.raises(ValueError, match="not found"):
+            _form_get_field(str(form_pdf), "nope")
+
+    def test_form_set_value_roundtrip(self, form_pdf):
+        result = _form_set_value(str(form_pdf), "fullname", "Alice Smith")
+        assert result["value"] == "Alice Smith"
+        assert result["saved_to"] == str(form_pdf)
+
+    def test_form_set_value_to_output(self, form_pdf, tmp_path):
+        out = tmp_path / "copy.pdf"
+        result = _form_set_value(str(form_pdf), "country", "UK", str(out))
+        assert result["value"] == "UK"
+        assert result["saved_to"] == str(out)
+        assert out.exists()
+
+    def test_form_set_value_readonly_refused(self, form_pdf):
+        with pytest.raises(ValueError, match="read-only"):
+            _form_set_value(str(form_pdf), "ref", "HACK")
+
+    def test_form_fill(self, form_pdf):
+        result = _form_fill(str(form_pdf), {"country": "CA", "agree": True, "gender": "M"})
+        by_field = {r["field"]: r for r in result["results"]}
+        assert by_field["country"]["ok"] is True
+        assert by_field["agree"]["ok"] is True
+        assert by_field["gender"]["value"] == "M"
+        assert result["saved_to"] == str(form_pdf)
+
+    def test_form_fill_missing_field_reported(self, form_pdf):
+        result = _form_fill(str(form_pdf), {"ghost": "x"})
+        assert result["results"][0]["ok"] is False
+        assert result["results"][0]["error"] == "field not found"
+
+    def test_form_validate(self, form_pdf):
+        bad = _form_validate(str(form_pdf), "dob", "not-a-date")
+        assert bad["detected_type"] == "date"
+        assert bad["ok"] is False
+        good = _form_validate(str(form_pdf), "dob", "2026-08-03")
+        assert good["ok"] is True
+
+    def test_form_tool_invalid_path(self):
+        with pytest.raises(FileNotFoundError):
+            _form_fields("/does/not/exist.pdf")
