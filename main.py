@@ -2968,6 +2968,9 @@ class PdfReaderWindow(QMainWindow):
             self._continuous_syncing_scroll = False
         if scrollbar.value() == target:
             self._pending_scroll_page = None
+        # The scroll may have settled after the previous render pass (layout
+        # rebuilds), so make sure the pages now on screen get pixmaps.
+        self._continuous_render_timer.start()
         self._update_page_controls()
 
     def _update_page_controls(self):

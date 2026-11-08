@@ -10,6 +10,7 @@ The tests run offscreen and do not need a display.
 
 from __future__ import annotations
 
+from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
 
@@ -152,9 +153,12 @@ def test_scroll_range_survives_zoom_changes(make_window, make_pdf):
 
     window.zoom_in()
     _flush(window)
+    QTest.qWait(80)  # let the deferred scroll settle and the render timer fire
 
     assert window.current_page == before
     assert len(window._continuous_pages) == 76
+    # The page the reader was on must be rendered after the zoom rebuild.
+    assert before in window._continuous_rendered
     scrollbar = window.scroll_area.verticalScrollBar()
     scrollbar.setValue(scrollbar.maximum())
     QApplication.processEvents()
