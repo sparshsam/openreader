@@ -18,6 +18,7 @@ OpenReader is a local-first desktop PDF utility built with Python and PySide6 (Q
 │  │  pdfreader_lib/                 │    │
 │  │  ├── search_index.py            │    │
 │  │  ├── comparison.py              │    │
+│  │  ├── form_fields.py             │    │
 │  │  └── mcp_server.py              │    │
 │  └─────────────────────────────────┘    │
 │  ┌─────────────────────────────────┐    │
@@ -38,7 +39,8 @@ OpenReader is a local-first desktop PDF utility built with Python and PySide6 (Q
 | PDF Engine | — | PyMuPDF (MuPDF bindings) for rendering, text extraction, annotation |
 | Search | `pdfreader_lib/search_index.py` | SQLite FTS5 keyword index + TF-IDF semantic search |
 | Comparison | `pdfreader_lib/comparison.py` | Page-by-page text diff with color-coded output |
-| MCP Server | `pdfreader_lib/mcp_server.py` | Model Context Protocol server for AI agent integration (14 tools) |
+| Forms | `pdfreader_lib/form_fields.py` | AcroForm field model, value read/write, type detection & advisory validation (v1.3.0+) |
+| MCP Server | `pdfreader_lib/mcp_server.py` | Model Context Protocol server for AI agent integration (19 tools) |
 
 ## Key Architecture Decisions
 

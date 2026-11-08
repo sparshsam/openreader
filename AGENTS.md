@@ -4,7 +4,7 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 ## Product Boundaries
 
-**Current version:** v1.2.7 (2026-08-02) — Store-aware updates, default-reader UX, Windows file associations
+**Current version:** v1.3.0 (2026-08-02) — PDF Form Intelligence (AcroForm overlays, type detection, completion workflow, 5 new MCP form tools)
 
 - Do not add new user-facing PDF features unless the task explicitly asks for them.
 - Do not change the local-first privacy philosophy.
@@ -54,8 +54,10 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 
 The repository ships two MCP server entry points:
 
-1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app. 14 tools, stdio + SSE transport.
+1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app. 19 tools, stdio + SSE transport.
 2. **`packages/mcp-server/`** — standalone pip package `openreader-mcp`. Install via `pip install openreader-mcp`, run with `python -m openreader_mcp`.
+
+**v1.3.0 (August 2026):** added five AcroForm tools — `form_list_fields`, `form_get_field`, `form_set_value`, `form_fill`, `form_validate` — in both the bundled server and the standalone package. They share the form engine (`pdfreader_lib/form_fields.py` / `packages/mcp-server/src/openreader_mcp/_form_fields.py`) with the GUI's interactive form overlays.
 
 **Improvements made (June 2026):**
 - All 14 tool descriptions rewritten as AI-optimized sentences (what it does, what it returns, when to use vs alternatives).

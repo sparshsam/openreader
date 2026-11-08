@@ -45,6 +45,7 @@ from .search_index import (
     IndexProgress,
 )
 from .comparison import compare_pdfs as _lib_compare_pdfs, generate_diff_summary
+from . import form_fields as _ff
 
 
 # ---------------------------------------------------------------------------
@@ -383,6 +384,126 @@ except ImportError:
     HAVE_MCP = False
 
 
+def _form_fields(path_str: str) -> list[dict]:
+    """Enumerate AcroForm fields with type intelligence, as dicts."""
+    p = _validate_pdf(path_str)
+    doc = fitz.open(str(p))
+    try:
+        fields = _ff.build_field_index(doc)
+        _ff.annotate_field_types(fields, doc)
+        return [f.to_dict() for f in fields]
+    finally:
+        doc.close()
+
+
+def _find_form_field(fields: list, field_ref: str) -> Any:
+    for f in fields:
+        if f.name == field_ref or f.label == field_ref:
+            return f
+    return None
+
+
+def _save_form_doc(doc, src_path: Path, output_path: str | None) -> str:
+    """Incremental save to the original, or a full save to ``output_path``."""
+    if output_path:
+        out = str(Path(output_path).expanduser().resolve())
+        doc.save(out, garbage=1, deflate=True)
+        return out
+    try:
+        doc.save(str(src_path), incremental=True, encryption=0)
+    except Exception:
+        doc.save(str(src_path), garbage=1, deflate=True)
+    return str(src_path)
+
+
+def _form_get_field(path_str: str, field_ref: str) -> dict:
+    p = _validate_pdf(path_str)
+    doc = fitz.open(str(p))
+    try:
+        fields = _ff.build_field_index(doc)
+        _ff.annotate_field_types(fields, doc)
+        field = _find_form_field(fields, field_ref)
+        if field is None:
+            raise ValueError(f"Field not found: {field_ref}")
+        return field.to_dict()
+    finally:
+        doc.close()
+
+
+def _form_set_value(path_str: str, field_ref: str, value, output_path: str | None = None) -> dict:
+    p = _validate_pdf(path_str)
+    doc = fitz.open(str(p))
+    try:
+        fields = _ff.build_field_index(doc)
+        _ff.annotate_field_types(fields, doc)
+        field = _find_form_field(fields, field_ref)
+        if field is None:
+            raise ValueError(f"Field not found: {field_ref}")
+        if not field.is_editable():
+            raise ValueError(f"Field '{field_ref}' is read-only or not editable.")
+        if not _ff.set_field_value(doc, field, value):
+            raise ValueError(f"Could not write value to field '{field_ref}'.")
+        saved = _save_form_doc(doc, p, output_path)
+        return {
+            "field": field.name,
+            "value": _ff.get_field_value(doc, field),
+            "saved_to": saved,
+        }
+    finally:
+        doc.close()
+
+
+def _form_fill(path_str: str, values: dict, output_path: str | None = None) -> dict:
+    p = _validate_pdf(path_str)
+    doc = fitz.open(str(p))
+    try:
+        fields = _ff.build_field_index(doc)
+        _ff.annotate_field_types(fields, doc)
+        by_name = {f.name: f for f in fields}
+        results = []
+        for ref, value in (values or {}).items():
+            field = by_name.get(ref)
+            if field is None:
+                results.append({"field": ref, "ok": False, "error": "field not found"})
+                continue
+            if not field.is_editable():
+                results.append({"field": ref, "ok": False, "error": "read-only or unsupported"})
+                continue
+            ok = _ff.set_field_value(doc, field, value)
+            results.append(
+                {
+                    "field": ref,
+                    "ok": ok,
+                    "value": _ff.get_field_value(doc, field) if ok else None,
+                    "error": None if ok else "write failed",
+                }
+            )
+        saved = _save_form_doc(doc, p, output_path) if any(r["ok"] for r in results) else None
+        return {"results": results, "saved_to": saved}
+    finally:
+        doc.close()
+
+
+def _form_validate(path_str: str, field_ref: str, value) -> dict:
+    p = _validate_pdf(path_str)
+    doc = fitz.open(str(p))
+    try:
+        fields = _ff.build_field_index(doc)
+        _ff.annotate_field_types(fields, doc)
+        field = _find_form_field(fields, field_ref)
+        if field is None:
+            raise ValueError(f"Field not found: {field_ref}")
+        ok, message = _ff.FormValidator.validate(field, value)
+        return {
+            "field": field.name,
+            "detected_type": field.detected_type,
+            "ok": ok,
+            "message": message,
+        }
+    finally:
+        doc.close()
+
+
 def _make_tool(
     name: str,
     description: str,
@@ -581,6 +702,94 @@ TOOLS: list[Tool] = [
         "List all PDF documents currently in the library search index with metadata including file name, path, page count, and character count. Run this to see what documents are available for searching before using search_library or search_semantic. Returns an empty list if index_folder has not been run yet.",
         {},
     ),
+    _make_tool(
+        "form_list_fields",
+        "List all AcroForm fields in a PDF with their metadata — name, page, type, required/readonly flags, max length, choices, current value, and any detected field type (date, phone, ZIP, email, currency, numeric). Use this to discover what a PDF form contains before filling it.",
+        {
+            "path": {
+                "type": "string",
+                "description": "Absolute or relative path to the PDF file on the local filesystem",
+            }
+        },
+        required=["path"],
+    ),
+    _make_tool(
+        "form_get_field",
+        "Get full details about a single AcroForm field by name, including formatting rule, detected type, choices, and current value. Use this to inspect a specific field before setting its value.",
+        {
+            "path": {
+                "type": "string",
+                "description": "Absolute or relative path to the PDF file on the local filesystem",
+            },
+            "field": {
+                "type": "string",
+                "description": "The field name (or label) to inspect",
+            },
+        },
+        required=["path", "field"],
+    ),
+    _make_tool(
+        "form_set_value",
+        "Set the value of a single AcroForm field and save the PDF. Saves incrementally to the original file by default, or to an output_path if provided. Respects read-only fields and max lengths. Checkboxes accept true/false, radios accept the option label, combo/listbox fields accept one of their choices. Returns the saved value and destination path.",
+        {
+            "path": {
+                "type": "string",
+                "description": "Absolute or relative path to the PDF file on the local filesystem",
+            },
+            "field": {
+                "type": "string",
+                "description": "The field name (or label) to set",
+            },
+            "value": {
+                "type": "string",
+                "description": "The value to write (checkbox: true/false, radio: option label, choice: one of the field's choices, text: the string)",
+            },
+            "output_path": {
+                "type": "string",
+                "description": "Optional path to save a copy to instead of the original file",
+            },
+        },
+        required=["path", "field", "value"],
+    ),
+    _make_tool(
+        "form_fill",
+        "Fill multiple AcroForm fields at once from a mapping of field name to value, then save once. Returns a per-field success/failure report (missing fields and read-only fields are reported, not fatal). Saves incrementally to the original by default, or to output_path. Use this to complete an entire form in one call.",
+        {
+            "path": {
+                "type": "string",
+                "description": "Absolute or relative path to the PDF file on the local filesystem",
+            },
+            "values": {
+                "type": "object",
+                "additionalProperties": {"type": "string"},
+                "description": "Mapping of field name to value to write",
+            },
+            "output_path": {
+                "type": "string",
+                "description": "Optional path to save a copy to instead of the original file",
+            },
+        },
+        required=["path", "values"],
+    ),
+    _make_tool(
+        "form_validate",
+        "Validate a value against a field's detected type (date, phone, ZIP, email, currency, numeric) without saving. Advisory only — returns ok/message and never blocks input. Use this to check a value before committing it to a form.",
+        {
+            "path": {
+                "type": "string",
+                "description": "Absolute or relative path to the PDF file on the local filesystem",
+            },
+            "field": {
+                "type": "string",
+                "description": "The field name (or label) whose value should be validated",
+            },
+            "value": {
+                "type": "string",
+                "description": "The value to validate against the field's detected type",
+            },
+        },
+        required=["path", "field", "value"],
+    ),
 ]
 
 
@@ -744,6 +953,35 @@ async def _handle_call(
                     indent=2,
                 )
             )
+
+        case "form_list_fields":
+            fields = _form_fields(args["path"])
+            return _ok(json.dumps(fields, indent=2))
+
+        case "form_get_field":
+            field = _form_get_field(args["path"], args["field"])
+            return _ok(json.dumps(field, indent=2))
+
+        case "form_set_value":
+            result = _form_set_value(
+                args["path"],
+                args["field"],
+                args["value"],
+                args.get("output_path"),
+            )
+            return _ok(json.dumps(result, indent=2))
+
+        case "form_fill":
+            result = _form_fill(
+                args["path"],
+                args["values"],
+                args.get("output_path"),
+            )
+            return _ok(json.dumps(result, indent=2))
+
+        case "form_validate":
+            result = _form_validate(args["path"], args["field"], args["value"])
+            return _ok(json.dumps(result, indent=2))
 
         case _:
             return _err(f"Unknown tool: {name}")

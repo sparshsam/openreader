@@ -70,7 +70,7 @@
 | <img src="assets/icons/feature-offline.svg" width="28" height="28" alt=""> **Semantic search** — TF-IDF cosine similarity — meaning-based matching, no external ML. | <img src="assets/icons/feature-compare.svg" width="28" height="28" alt=""> **Compare** — Side-by-side diff with color-coded changes and structured summary. |
 | <img src="assets/icons/feature-tabs.svg" width="28" height="28" alt=""> **Multi-tab** — Open several documents in one window with movable tabs. | <img src="assets/icons/feature-darkmode.svg" width="28" height="28" alt=""> **Dark mode** — System-aware theme with Auto/Light/Dark toggle. |
 | <img src="assets/icons/feature-tools.svg" width="28" height="28" alt=""> **PDF tools** — Merge, split, extract page ranges, compress. | <img src="assets/icons/feature-ocr.svg" width="28" height="28" alt=""> **OCR fallback** — Automatic OCR on scanned/image-based pages when Tesseract is available. |
-| <img src="assets/icons/feature-platform.svg" width="28" height="28" alt=""> **Session restore** — Remembers open documents and page positions across restarts. | <img src="assets/icons/feature-ai.svg" width="28" height="28" alt=""> **AI agent integration** — Built-in MCP server with 14 tools for automated PDF workflows. |
+| <img src="assets/icons/feature-platform.svg" width="28" height="28" alt=""> **Session restore** — Remembers open documents and page positions across restarts. | <img src="assets/icons/feature-ai.svg" width="28" height="28" alt=""> **AI agent integration** — Built-in MCP server with 19 tools for automated PDF workflows, including AcroForm filling. |
 
 ---
 

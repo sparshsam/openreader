@@ -2,7 +2,7 @@
 
 ## Overview
 
-**Latest update:** v1.2.7 — Store-aware updates, default-reader UX, Windows file associations (2026-08-02)
+**Latest update:** v1.3.0 — PDF Form Intelligence (2026-08-02)
 
 Privacy-first, local-only desktop PDF utility for Windows.
 macOS experimental; Linux unsupported.
@@ -11,6 +11,7 @@ macOS experimental; Linux unsupported.
 
 | Version | Date | Summary |
 |---------|------|---------|
+| v1.3.0 | 2026-08-02 | PDF Form Intelligence — AcroForm overlays, type detection + advisory validation, Form Navigator & completion workflow, autosave/crash recovery, 5 new MCP form tools (19 total) |
 | v1.2.7 | 2026-08-02 | Store-aware updates — install-source detection, channel-aware Software Updates dialog, persisted skip + last-checked |
 | v1.2.6 | 2026-08-02 | Default Reader Experience — Windows UserChoice detection, Settings dialog, first-launch default prompt |
 | v1.2.5 | 2026-08-02 | Windows File Association Fix — MSIX `.pdf` association, ChangesAssociations, single-source version injector, changelog cleanup |
@@ -105,13 +106,14 @@ python -m pytest tests/ -v
 
 The repository ships two MCP server entry points:
 
-1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app source. 14 tools, stdio + SSE transport.
+1. **`pdfreader_lib/mcp_server.py`** — bundled with the main app source. 19 tools, stdio + SSE transport.
    - All tool descriptions rewritten as AI-optimized sentences (what, returns, when-to-use).
    - Error messages are tiered: validation, file-not-found, missing params, unexpected errors.
-   - Tests at `tests/test_mcp_server.py` — 43 tests covering registration, validation, output shape, error handling.
+   - Tests at `tests/test_mcp_server.py` — 58 tests covering registration, validation, output shape, error handling.
+   - Form tools (`form_list_fields`, `form_get_field`, `form_set_value`, `form_fill`, `form_validate`) added in v1.3.0 — they share the AcroForm engine with the GUI via `pdfreader_lib/form_fields.py`.
 
 2. **`packages/mcp-server/`** — standalone pip package `openreader-mcp`. Install via `pip install openreader-mcp`, run with `python -m openreader_mcp`.
-   - Mirrors the bundled server but imports bundled `_search_index` and `_comparison` modules.
+   - Mirrors the bundled server but imports bundled `_search_index`, `_comparison`, and `_form_fields` modules.
    - `pyproject.toml` defines metadata. Update whenever `pdfreader_lib/mcp_server.py` gains new tools.
 
 ### Rules
@@ -121,6 +123,14 @@ The repository ships two MCP server entry points:
 - Keep `requirements-mcp.txt` minimal (only `mcp` SDK required for stdio mode).
 - When adding a tool to the bundled server, add it to `packages/mcp-server/` too.
 - Agent config uses `"args": ["-m", "openreader_mcp"]` (standalone) or `"args": ["-m", "pdfreader_lib.mcp_server"]` (bundled).
+
+## PDF Form Intelligence (v1.3.0+)
+
+- **Shared engine:** `pdfreader_lib/form_fields.py` is pure logic (no PySide6 imports) and is consumed by both the GUI and the MCP server. Keep GUI form logic out of the module.
+- **GUI:** native Qt overlay widgets are positioned over AcroForm field rects per page (Approach A), managed per-tab by `_FormController` in `main.py`. Overlays are rebuilt on every render (`detach_all()` before continuous-mode rebuilds).
+- **Type detection** (`FormTypeDetector`) distinguishes explicit (PDF formatting rule) from inferred (name/label) types — inference is always advisory, never enforced. User overrides persist outside the PDF via `FormStateStore`.
+- **Validation** (`FormValidator`) is advisory and international-tolerant; it writes `validation_message`, never blocks input.
+- **Rules:** when adding a new form operation, mirror it in the bundled server and `packages/mcp-server/` (copy `_form_fields.py` too). See `docs/superpowers/specs/2026-08-02-pdf-form-intelligence-design.md` for the full spec.
 
 ## Design Playbooks
 
