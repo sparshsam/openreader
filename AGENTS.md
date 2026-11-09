@@ -11,6 +11,15 @@ This repository is a local-first desktop PDF utility. Keep maintenance changes b
 - Do not introduce network behavior beyond the explicit GitHub release update check (update detection only — no downloading or applying updates).
 - Treat PDFs as local/private user data.
 
+## Editing Rules (v1.3.0+)
+
+- Keep the object model and persistence in `pdfreader_lib/edit_objects.py` **Qt-free**. GUI-only logic (overlays, inline editor, signature dialog, coordinate conversion) belongs in `pdfreader_lib/edit_gui.py`.
+- Persist text as native `FreeText` annotations and signatures/images as image XObjects in page content, each carrying the `OpenReaderData` metadata key. Never persist edits as temporary overlays that disappear on save.
+- Save atomically (temp file + `os.replace`) and preserve encryption with `PDF_ENCRYPT_KEEP`. Flattened export must operate on a copy, never the open original.
+- Warn before editing/saving documents that contain `/FT /Sig` signature fields. Encrypted documents and pages with `/Rotate` are read-only for editing.
+- Any change to the object model needs save → reopen round-trip tests. Any change to overlays needs continuous-scroll/zoom coordinate tests.
+- Signature data is local-only. Do not add uploads, accounts, or cloud processing.
+
 ## Release and Update Rules
 
 - The app detects updates via GitHub API and opens the releases page in a browser. It does not download or install updates.

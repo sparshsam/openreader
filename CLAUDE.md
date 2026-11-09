@@ -133,6 +133,16 @@ The repository ships two MCP server entry points:
 - **Validation** (`FormValidator`) is advisory and international-tolerant; it writes `validation_message`, never blocks input.
 - **Rules:** when adding a new form operation, mirror it in the bundled server and `packages/mcp-server/` (copy `_form_fields.py` too). See `docs/superpowers/specs/2026-08-02-pdf-form-intelligence-design.md` for the full spec.
 
+## Editing — Add Text, Signatures & Images (v1.3.0)
+
+- **Model / persistence:** `pdfreader_lib/edit_objects.py` is Qt-free. Text is stored as native `FreeText` annotations with an `OpenReaderData` metadata key on the annotation xref; signatures and images are page-content image XObjects carrying the same metadata key. This is what makes objects survive save/reopen and remain re-editable in OpenReader. Never store edits as temporary overlays.
+- **GUI:** `pdfreader_lib/edit_gui.py` owns the per-tab `EditController`, selection/resize overlays on the persistent continuous page labels, the inline text editor, the signature draw/type/import dialog, and snapshot-based undo/redo. Coordinate conversion belongs here (PDF points ↔ page-label pixels), never in the model.
+- **Signatures:** `pdfreader_lib/signature_store.py` is a local PNG library under the app data directory. It has per-entry delete and clear-all; nothing is ever uploaded.
+- **Save/export:** saves are atomic (temp file + `os.replace`) and preserve the document's encryption via `PDF_ENCRYPT_KEEP`. Export Flattened PDF uses `Document.bake(annots=True, widgets=True)` on a copy, never the open original.
+- **Safety:** documents with `/FT /Sig` signature fields warn before editing/saving. Encrypted documents and pages with `/Rotate` are read-only for editing. Never silently invalidate a signature.
+- **Limitations:** text rotation is 90° steps only (FreeText); text fonts are Base-14 Helvetica/Times/Courier; editing arbitrary pre-existing embedded text and certificate-based signing are out of scope. Form-field value changes use native widget undo; the global undo stack covers editable objects.
+- **Spec:** `docs/superpowers/specs/2026-11-08-fill-edit-sign-design.md`.
+
 ## Design Playbooks
 
 Three canonical playbooks govern all design and architecture decisions. Loaded at `docs/playbooks/`:
