@@ -11,8 +11,8 @@ from datetime import datetime
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSettings, QSize, QStandardPaths, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPalette, QPen, QPixmap, QShortcut
+from PySide6.QtCore import QBuffer, QByteArray, QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSettings, QSize, QStandardPaths, QTimer, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPalette, QPen, QPixmap, QPolygonF, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QButtonGroup,
     QCalendarWidget,
     QCheckBox,
+    QColorDialog,
     QComboBox,
     QDialog,
     QDialogButtonBox,
@@ -118,6 +119,9 @@ from pdfreader_lib import install_source
 
 # AcroForm field intelligence (Phase 2) — shared with the MCP server.
 from pdfreader_lib import form_fields as _ff
+from pdfreader_lib import edit_gui as edit_ui
+from pdfreader_lib import edit_objects as eo
+from pdfreader_lib import signature_store as sig_store
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +144,7 @@ class TabData:
     selected_rects: list = field(default_factory=list)
     ocr_text_pages: OrderedDict = field(default_factory=OrderedDict)
     ocr_warning_shown: bool = False
+    encrypted: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +300,41 @@ QToolBar#MainToolbar QToolButton#SemanticToggle:checked {
 }
 QToolBar#MainToolbar QToolButton#SemanticToggle:disabled {
     color: #aaabb2;
+}
+QToolBar#ContextToolbar {
+    background-color: #fbfbfc;
+    border: none;
+    border-bottom: 1px solid #e8e8ec;
+    padding: 4px 10px;
+    spacing: 4px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 8px;
+    color: #1b1b1f;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:checked {
+    background-color: rgba(255, 37, 95, 0.10);
+    border-color: rgba(255, 37, 95, 0.30);
+}
+QToolBar#ContextToolbar QLabel#CtxLabel {
+    color: #6e6f76;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QComboBox#CtxCombo,
+QToolBar#ContextToolbar QSpinBox#CtxSpin {
+    background-color: #ffffff;
+    color: #1b1b1f;
+    border: 1px solid #dfe0e4;
+    border-radius: 5px;
+    padding: 3px 6px;
+    min-height: 22px;
 }
 QTabBar {
     background: transparent;
@@ -673,6 +713,41 @@ QToolBar#MainToolbar QToolButton#SemanticToggle:checked {
 }
 QToolBar#MainToolbar QToolButton#SemanticToggle:disabled {
     color: #55565e;
+}
+QToolBar#ContextToolbar {
+    background-color: #222327;
+    border: none;
+    border-bottom: 1px solid #2b2c31;
+    padding: 4px 10px;
+    spacing: 4px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 8px;
+    color: #ececed;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:checked {
+    background-color: rgba(255, 77, 122, 0.14);
+    border-color: rgba(255, 77, 122, 0.40);
+}
+QToolBar#ContextToolbar QLabel#CtxLabel {
+    color: #9b9ca4;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QComboBox#CtxCombo,
+QToolBar#ContextToolbar QSpinBox#CtxSpin {
+    background-color: #2a2b30;
+    color: #ececed;
+    border: 1px solid #3a3b42;
+    border-radius: 5px;
+    padding: 3px 6px;
+    min-height: 22px;
 }
 QTabBar {
     background: transparent;
@@ -1183,6 +1258,57 @@ def _draw_close_icon(p: QPainter, s: float, c: dict[str, str]):
     p.drawLine(QPointF(12.8, 5.2), QPointF(5.2, 12.8))
 
 
+def _draw_fill_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.5))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(3.0, 3.5, 8.2, 11.0), 1.5, 1.5)
+    p.setPen(_icon_pen(c["muted"], 1.2))
+    p.drawLine(QPointF(4.8, 6.2), QPointF(9.2, 6.2))
+    p.drawLine(QPointF(4.8, 8.6), QPointF(8.4, 8.6))
+    p.setPen(_icon_pen(c["accent"], 1.7))
+    p.drawLine(QPointF(10.0, 7.2), QPointF(14.4, 11.6))
+    p.drawLine(QPointF(14.4, 11.6), QPointF(14.4, 14.0))
+    p.drawLine(QPointF(14.4, 14.0), QPointF(12.0, 14.0))
+
+
+def _draw_text_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.8))
+    p.drawLine(QPointF(4.0, 4.2), QPointF(14.0, 4.2))
+    p.drawLine(QPointF(9.0, 4.2), QPointF(9.0, 14.6))
+    p.drawLine(QPointF(6.2, 14.6), QPointF(11.8, 14.6))
+
+
+def _draw_signature_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.6))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath()
+    path.moveTo(3.4, 13.8)
+    path.cubicTo(6.2, 10.4, 8.4, 4.4, 11.6, 4.4)
+    path.cubicTo(14.4, 4.4, 12.6, 9.6, 8.6, 12.4)
+    p.drawPath(path)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(c["accent"]))
+    nib = QPolygonF([QPointF(13.0, 3.2), QPointF(15.2, 5.4), QPointF(13.2, 7.4), QPointF(11.0, 5.2)])
+    p.drawPolygon(nib)
+
+
+def _draw_image_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.5))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(2.8, 3.8, 12.4, 10.4), 1.5, 1.5)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(c["accent"]))
+    p.drawEllipse(QPointF(6.3, 7.0), 1.2, 1.2)
+    p.setPen(_icon_pen(c["muted"], 1.35))
+    path = QPainterPath()
+    path.moveTo(3.4, 13.0)
+    path.lineTo(7.0, 9.4)
+    path.lineTo(9.4, 11.8)
+    path.lineTo(11.3, 9.9)
+    path.lineTo(14.4, 13.0)
+    p.drawPath(path)
+
+
 _TOOLBAR_ICONS = {
     "open": _draw_open_icon,
     "save": _draw_save_icon,
@@ -1200,6 +1326,10 @@ _TOOLBAR_ICONS = {
     "sticky": _draw_sticky_icon,
     "search": _draw_search_icon,
     "close": _draw_close_icon,
+    "fill": _draw_fill_icon,
+    "text": _draw_text_icon,
+    "signature": _draw_signature_icon,
+    "image": _draw_image_icon,
 }
 
 
@@ -1377,6 +1507,7 @@ class _FormController(QObject):
         self._radio_groups: dict = {}     # field.name -> QButtonGroup
         self._button_group = None
         self.dirty = False
+        self.readonly = False
         self._dirty_names: set = set()
         self._seeding = 0
         self._current_index = -1
@@ -1500,6 +1631,7 @@ class _FormController(QObject):
                 max(8, round((opt_rect[3] - opt_rect[1]) * zoom)),
             )
             rb.setStyleSheet(style)
+            rb.setEnabled(not self.readonly)
             if field.value == caption:
                 rb.setChecked(True)
             group.addButton(rb)
@@ -1547,6 +1679,8 @@ class _FormController(QObject):
     def _register_widget(self, widget, field):
         self._widgets[widget] = field
         self._field_widgets.setdefault(field.name, []).append(widget)
+        if self.readonly:
+            widget.setEnabled(False)
 
     def _seed_widget(self, widget, field):
         value = field.value
@@ -1808,7 +1942,7 @@ class _FormController(QObject):
                 continue
             try:
                 _ff.set_field_value(doc, field, self.current_value(field))
-            except Exception:
+            except Exception:  # nosec B112
                 continue
         self._persist(doc, path)
         self.dirty = False
@@ -1986,8 +2120,8 @@ class PdfReaderWindow(QMainWindow):
         _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
-        self.resize(1100, 820)
-        self.setMinimumSize(720, 480)
+        self.resize(1240, 840)
+        self.setMinimumSize(900, 560)
 
         # ---- IPC server for single-instance tab routing ----
         self._ipc_server = ipc_server
@@ -2047,6 +2181,18 @@ class PdfReaderWindow(QMainWindow):
         self._form_controllers: dict[int, _FormController] = {}
         _app_data = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
         self._form_store = _ff.FormStateStore(base_dir=Path(_app_data))
+
+        # ---- Editing: Fill / Add Text / Sign / Image (v1.3.0) ----
+        self._edit_controllers: dict[int, edit_ui.EditController] = {}
+        self._edit_tool_buttons: dict[str, QToolButton] = {}
+        self._edit_tool: str | None = None
+        self._context_toolbar = None
+        self._ctx_updating = False
+        self._ctx_color_value = "#000000"
+        self._signed_warning_tabs: set[int] = set()
+        self._signature_store = sig_store.SignatureStore(
+            Path(_app_data) / "signatures"
+        )
         self._form_menu = None
         self._navigator_action = None
 
@@ -2379,6 +2525,39 @@ class PdfReaderWindow(QMainWindow):
         ):
             toolbar.addWidget(annotation_button)
 
+        # ── Edit: Fill / Add Text / Sign / Image (v1.3.0) ──
+        toolbar.addSeparator()
+        self.fill_button = icon_button(
+            "fill", "Fill form fields", "Fill form fields"
+        )
+        self.fill_button.clicked.connect(self._focus_first_form_field)
+        self.text_button = icon_button(
+            "text", "Add text", "Add text", checkable=True
+        )
+        self.text_button.clicked.connect(
+            lambda checked: self._activate_edit_tool("text", checked)
+        )
+        self.sign_button = icon_button(
+            "signature", "Add signature", "Add signature", checkable=True
+        )
+        self.sign_button.clicked.connect(self._choose_signature)
+        self.image_button = icon_button(
+            "image", "Insert image", "Insert image", checkable=True
+        )
+        self.image_button.clicked.connect(self._choose_image)
+        self._edit_tool_buttons = {
+            "text": self.text_button,
+            "sign": self.sign_button,
+            "image": self.image_button,
+        }
+        for edit_button in (
+            self.fill_button,
+            self.text_button,
+            self.sign_button,
+            self.image_button,
+        ):
+            toolbar.addWidget(edit_button)
+
         # Keep search anchored to the right edge of the toolbar.
         spacer = QWidget(toolbar)
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
@@ -2451,6 +2630,7 @@ class PdfReaderWindow(QMainWindow):
         toolbar.addWidget(self.semantic_cb)
 
         self._refresh_toolbar_icons()
+        self._build_context_toolbar()
 
     def _refresh_toolbar_icons(self):
         """Re-render every toolbar icon for the active theme."""
@@ -2468,6 +2648,670 @@ class PdfReaderWindow(QMainWindow):
             )
         if getattr(self, "_empty_icon_label", None) is not None:
             self._empty_icon_label.setPixmap(_make_empty_state_icon(self._dark_mode))
+
+    # ------------------------------------------------------------------
+    # Editing: Fill / Add Text / Sign / Image (v1.3.0)
+    # ------------------------------------------------------------------
+
+    def _build_context_toolbar(self):
+        self.addToolBarBreak(Qt.TopToolBarArea)
+        bar = QToolBar("Context Toolbar", self)
+        bar.setObjectName("ContextToolbar")
+        bar.setMovable(False)
+        bar.setFloatable(False)
+        bar.setIconSize(QSize(16, 16))
+        self.addToolBar(Qt.TopToolBarArea, bar)
+        self.context_toolbar = bar
+
+        self._ctx_font = QComboBox(bar)
+        self._ctx_font.setObjectName("CtxCombo")
+        for label, pdf_name in eo.TEXT_FONTS:
+            self._ctx_font.addItem(label, pdf_name)
+        self._ctx_font.setFixedWidth(150)
+        self._ctx_font.currentIndexChanged.connect(self._on_context_style_changed)
+
+        self._ctx_size = QSpinBox(bar)
+        self._ctx_size.setObjectName("CtxSpin")
+        self._ctx_size.setRange(6, 96)
+        self._ctx_size.setValue(14)
+        self._ctx_size.setFixedWidth(58)
+        self._ctx_size.valueChanged.connect(self._on_context_style_changed)
+
+        self._ctx_color = QToolButton(bar)
+        self._ctx_color.setObjectName("CtxButton")
+        self._ctx_color.setText("A")
+        self._ctx_color.setToolTip("Text color")
+        self._ctx_color.clicked.connect(self._choose_text_color)
+        self._update_color_button()
+
+        def toggle(label, tooltip, *, bold=False, italic=False, underline=False):
+            button = QToolButton(bar)
+            button.setObjectName("CtxButton")
+            button.setText(label)
+            button.setToolTip(tooltip)
+            button.setCheckable(True)
+            font = button.font()
+            font.setBold(bold)
+            font.setItalic(italic)
+            font.setUnderline(underline)
+            button.setFont(font)
+            button.clicked.connect(self._on_context_style_changed)
+            return button
+
+        self._ctx_bold = toggle("B", "Bold", bold=True)
+        self._ctx_italic = toggle("I", "Italic", italic=True)
+        self._ctx_underline = toggle("U", "Underline", underline=True)
+
+        self._ctx_align_group = QButtonGroup(self)
+        self._ctx_align_group.setExclusive(True)
+        self._ctx_align_left = toggle("L", "Align left")
+        self._ctx_align_center = toggle("C", "Align center")
+        self._ctx_align_right = toggle("R", "Align right")
+        for button in (
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+        ):
+            self._ctx_align_group.addButton(button)
+        self._ctx_align_left.setChecked(True)
+
+        self._ctx_rotate = QToolButton(bar)
+        self._ctx_rotate.setObjectName("CtxButton")
+        self._ctx_rotate.setText("Rotate 90°")
+        self._ctx_rotate.setToolTip("Rotate the selected object by 90 degrees")
+        self._ctx_rotate.clicked.connect(self._context_rotate)
+
+        self._ctx_duplicate = QToolButton(bar)
+        self._ctx_duplicate.setObjectName("CtxButton")
+        self._ctx_duplicate.setText("Duplicate")
+        self._ctx_duplicate.setToolTip("Duplicate the selected object")
+        self._ctx_duplicate.clicked.connect(self._context_duplicate)
+
+        self._ctx_delete = QToolButton(bar)
+        self._ctx_delete.setObjectName("CtxButton")
+        self._ctx_delete.setText("Delete")
+        self._ctx_delete.setToolTip("Delete the selected object")
+        self._ctx_delete.clicked.connect(self._context_delete)
+
+        self._ctx_done = QToolButton(bar)
+        self._ctx_done.setObjectName("CtxButton")
+        self._ctx_done.setText("Done")
+        self._ctx_done.setToolTip("Finish editing this text")
+        self._ctx_done.clicked.connect(self._context_done)
+
+        self._ctx_hint = QLabel("Select text or an object to format", bar)
+        self._ctx_hint.setObjectName("CtxLabel")
+        self._ctx_hint_action = bar.addWidget(self._ctx_hint)
+
+        self._ctx_text_actions = []
+        text_label = QLabel("Text", bar)
+        text_label.setObjectName("CtxLabel")
+        self._ctx_text_actions.append(bar.addWidget(text_label))
+        for widget in (
+            self._ctx_font,
+            self._ctx_size,
+            self._ctx_color,
+            self._ctx_bold,
+            self._ctx_italic,
+            self._ctx_underline,
+        ):
+            self._ctx_text_actions.append(bar.addWidget(widget))
+        self._ctx_text_actions.append(bar.addSeparator())
+        for widget in (
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+        ):
+            self._ctx_text_actions.append(bar.addWidget(widget))
+        bar.addSeparator()
+        for widget in (
+            self._ctx_rotate,
+            self._ctx_duplicate,
+            self._ctx_delete,
+        ):
+            bar.addWidget(widget)
+        self._ctx_done_action = bar.addWidget(self._ctx_done)
+        self._ctx_text_widgets = [
+            text_label,
+            self._ctx_font,
+            self._ctx_size,
+            self._ctx_color,
+            self._ctx_bold,
+            self._ctx_italic,
+            self._ctx_underline,
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+        ]
+        for control in (
+            self._ctx_font,
+            self._ctx_size,
+            self._ctx_color,
+            self._ctx_bold,
+            self._ctx_italic,
+            self._ctx_underline,
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+            self._ctx_rotate,
+            self._ctx_duplicate,
+            self._ctx_delete,
+            self._ctx_done,
+        ):
+            control.setFixedHeight(28)
+        bar.hide()
+
+    def _update_color_button(self):
+        self._ctx_color.setStyleSheet(
+            f"QToolButton#CtxButton {{ color: {self._ctx_color_value}; font-weight: 700; }}"
+        )
+
+    def _on_context_style_changed(self, *args):
+        if self._ctx_updating:
+            return
+        controller = self._edit_for_current()
+        obj = controller.selected_object() if controller else None
+        if obj is None or obj.kind != eo.TEXT_KIND:
+            return
+        align = (
+            "left"
+            if self._ctx_align_left.isChecked()
+            else "center"
+            if self._ctx_align_center.isChecked()
+            else "right"
+        )
+        style = eo.TextStyle(
+            font_family=self._ctx_font.currentData() or "Helvetica",
+            font_size=float(self._ctx_size.value()),
+            color=self._ctx_color_value,
+            bold=self._ctx_bold.isChecked(),
+            italic=self._ctx_italic.isChecked(),
+            underline=self._ctx_underline.isChecked(),
+            align=align,
+        )
+        controller.apply_style(style)
+
+    def _choose_text_color(self):
+        color = QColorDialog.getColor(
+            QColor(self._ctx_color_value), self, "Text Color"
+        )
+        if color.isValid():
+            self._ctx_color_value = color.name()
+            self._update_color_button()
+            self._on_context_style_changed()
+
+    def _context_rotate(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.rotate_selected(90)
+            self._on_edit_selection_changed(controller.selected_object())
+
+    def _context_duplicate(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.duplicate_selected()
+
+    def _context_delete(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.delete_selected()
+
+    def _context_done(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller._finish_text_edit()
+
+    def _on_edit_selection_changed(self, obj):
+        if not getattr(self, "context_toolbar", None):
+            return
+        if obj is None:
+            if self.document is None:
+                self.context_toolbar.hide()
+                return
+            self._ctx_updating = True
+            try:
+                for action in getattr(self, "_ctx_text_actions", []):
+                    action.setVisible(False)
+                for widget in self._ctx_text_widgets:
+                    widget.setVisible(False)
+                if getattr(self, "_ctx_done_action", None) is not None:
+                    self._ctx_done_action.setVisible(False)
+                self._ctx_done.setVisible(False)
+                if getattr(self, "_ctx_hint_action", None) is not None:
+                    self._ctx_hint_action.setVisible(True)
+                self._ctx_hint.setVisible(True)
+                for control in (
+                    self._ctx_rotate,
+                    self._ctx_duplicate,
+                    self._ctx_delete,
+                ):
+                    control.setEnabled(False)
+            finally:
+                self._ctx_updating = False
+            self.context_toolbar.show()
+            return
+        controller = self._edit_for_current()
+        self._ctx_updating = True
+        try:
+            if getattr(self, "_ctx_hint_action", None) is not None:
+                self._ctx_hint_action.setVisible(False)
+            self._ctx_hint.setVisible(False)
+            for control in (
+                self._ctx_rotate,
+                self._ctx_duplicate,
+                self._ctx_delete,
+            ):
+                control.setEnabled(True)
+            is_text = obj.kind == eo.TEXT_KIND
+            for action in getattr(self, "_ctx_text_actions", []):
+                action.setVisible(is_text)
+            for widget in self._ctx_text_widgets:
+                widget.setVisible(is_text)
+            editing = bool(
+                is_text
+                and controller is not None
+                and getattr(controller, "_editor", None) is not None
+            )
+            if getattr(self, "_ctx_done_action", None) is not None:
+                self._ctx_done_action.setVisible(editing)
+            self._ctx_done.setVisible(editing)
+            if is_text:
+                style = obj.style.normalized()
+                index = self._ctx_font.findData(style.font_family)
+                self._ctx_font.setCurrentIndex(index if index >= 0 else 0)
+                self._ctx_size.setValue(int(round(style.font_size)))
+                self._ctx_color_value = style.color
+                self._update_color_button()
+                self._ctx_bold.setChecked(style.bold)
+                self._ctx_italic.setChecked(style.italic)
+                self._ctx_underline.setChecked(style.underline)
+                self._ctx_align_left.setChecked(style.align == "left")
+                self._ctx_align_center.setChecked(style.align == "center")
+                self._ctx_align_right.setChecked(style.align == "right")
+        finally:
+            self._ctx_updating = False
+        self.context_toolbar.show()
+
+    def _on_edit_tool_changed(self, tool):
+        for name, button in getattr(self, "_edit_tool_buttons", {}).items():
+            button.blockSignals(True)
+            button.setChecked(name == tool)
+            button.blockSignals(False)
+        self._edit_tool = tool
+        controller = self._edit_for_current()
+        self._on_edit_selection_changed(
+            controller.selected_object() if controller is not None else None
+        )
+
+    def _init_edit(self):
+        if self.current_tab_id is None or self.document is None or self.current_path is None:
+            return None
+        old = self._edit_controllers.pop(self.current_tab_id, None)
+        if old is not None:
+            old.detach_all()
+        tab_id = self.current_tab_id
+        controller = edit_ui.EditController(self, tab_id)
+        controller.selectionChanged.connect(self._on_edit_selection_changed)
+        controller.statusMessage.connect(
+            lambda message: self.statusBar().showMessage(message, 6000)
+        )
+        controller.dirtyChanged.connect(
+            lambda _dirty, tid=tab_id: self._on_edit_dirty(tid)
+        )
+        controller.toolChanged.connect(self._on_edit_tool_changed)
+        controller.load(self.document, self.current_path)
+        self._edit_controllers[self.current_tab_id] = controller
+        self._edit_tool = None
+        return controller
+
+    def _edit_for_current(self):
+        if self.current_tab_id is None:
+            return None
+        return self._edit_controllers.get(self.current_tab_id)
+
+    def _drop_edit_controller(self, tab_id):
+        controller = self._edit_controllers.pop(tab_id, None)
+        if controller is not None:
+            controller.detach_all()
+        if tab_id == self.current_tab_id:
+            self._edit_tool = None
+            self._on_edit_selection_changed(None)
+
+    def _on_edit_dirty(self, tab_id):
+        self._update_window_title_dirty()
+        self._refresh_tab_dirty(tab_id)
+
+    def _refresh_tab_dirty(self, tab_id):
+        form = self._form_controllers.get(tab_id)
+        edit = self._edit_controllers.get(tab_id)
+        dirty = bool(
+            (form is not None and form.dirty)
+            or (edit is not None and edit.is_dirty())
+        )
+        tab = self.tabs.get(tab_id)
+        if tab is None:
+            return
+        for index in range(self.tab_bar.count()):
+            if self.tab_bar.tabData(index) == tab_id:
+                self.tab_bar.setTabText(
+                    index, ("● " if dirty else "") + tab.name
+                )
+                break
+
+    def _document_dirty(self, tab_id) -> bool:
+        form = self._form_controllers.get(tab_id)
+        edit = self._edit_controllers.get(tab_id)
+        return bool(
+            (form is not None and form.dirty)
+            or (edit is not None and edit.is_dirty())
+        )
+
+    def _current_document_encrypted(self) -> bool:
+        tab = self.tabs.get(self.current_tab_id) if self.current_tab_id else None
+        return bool(getattr(tab, "encrypted", False))
+
+    def _focus_first_form_field(self):
+        form = self._form_for_current()
+        if form is not None:
+            self.form_dock.show()
+            self._rebuild_navigator()
+            if form.editable_fields:
+                form.focus_next(forward=True)
+                self.statusBar().showMessage(
+                    "Form fields are editable — click any field.", 6000
+                )
+                return
+        self.statusBar().showMessage(
+            "This document has no interactive form fields; use Add Text instead.",
+            6000,
+        )
+
+    def _activate_edit_tool(self, tool: str, checked: bool):
+        if not checked:
+            if self._edit_tool == tool:
+                self._deactivate_edit_tool()
+            return
+        controller = self._edit_for_current()
+        if controller is None or self.document is None:
+            self._uncheck_edit_tools()
+            return
+        if not eo.document_allows_editing(self.document):
+            self._uncheck_edit_tools()
+            self.statusBar().showMessage(
+                "This document is read-only or encrypted and cannot be edited.", 6000
+            )
+            return
+        if not self._confirm_edit_on_signed():
+            self._uncheck_edit_tools()
+            return
+        controller.set_tool(tool)
+        self._edit_tool = tool
+        if tool == "text":
+            self.statusBar().showMessage(
+                "Click on the page to add text. Escape to cancel.", 6000
+            )
+
+    def _uncheck_edit_tools(self):
+        for button in self._edit_tool_buttons.values():
+            button.blockSignals(True)
+            button.setChecked(False)
+            button.blockSignals(False)
+        self._edit_tool = None
+
+    def _deactivate_edit_tool(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.set_tool(None)
+        self._uncheck_edit_tools()
+        self._edit_tool = None
+        self._on_edit_selection_changed(None)
+
+    def _choose_signature(self):
+        controller = self._edit_for_current()
+        if controller is None or self.document is None:
+            self.sign_button.setChecked(False)
+            return
+        if not eo.document_allows_editing(self.document):
+            self.sign_button.setChecked(False)
+            self.statusBar().showMessage(
+                "This document cannot be edited.", 5000
+            )
+            return
+        if not self._confirm_edit_on_signed():
+            self.sign_button.setChecked(False)
+            return
+        dialog = edit_ui.SignatureDialog(self._signature_store, self)
+        if dialog.exec() and dialog.result_png:
+            controller.set_pending_image(
+                "signature", dialog.result_png, dialog.result_name
+            )
+            self._edit_tool = "sign"
+            self.statusBar().showMessage(
+                "Click on the page to place the signature. Escape to cancel.",
+                6000,
+            )
+        else:
+            self._uncheck_edit_tools()
+            controller.set_tool(None)
+
+    def _choose_image(self):
+        controller = self._edit_for_current()
+        if controller is None or self.document is None:
+            self.image_button.setChecked(False)
+            return
+        if not eo.document_allows_editing(self.document):
+            self.image_button.setChecked(False)
+            self.statusBar().showMessage("This document cannot be edited.", 5000)
+            return
+        if not self._confirm_edit_on_signed():
+            self.image_button.setChecked(False)
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Insert Image",
+            str(Path.home()),
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.gif)",
+        )
+        if not path:
+            self._uncheck_edit_tools()
+            return
+        image = QImage(path)
+        if image.isNull():
+            self.image_button.setChecked(False)
+            self.statusBar().showMessage("That image could not be read.", 5000)
+            return
+        image = image.convertToFormat(QImage.Format_RGBA8888)
+        buffer = QBuffer()
+        buffer.open(QBuffer.OpenModeFlag.WriteOnly)
+        image.save(buffer, "PNG")
+        png = bytes(buffer.data())
+        buffer.close()
+        controller.set_pending_image("image", png, Path(path).name)
+        self._edit_tool = "image"
+        self.statusBar().showMessage(
+            "Click on the page to place the image. Escape to cancel.", 6000
+        )
+
+    def _confirm_edit_on_signed(self) -> bool:
+        if self.document is None or not eo.document_has_signatures(self.document):
+            return True
+        if self.current_tab_id in self._signed_warning_tabs:
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle("Digital Signature Detected")
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText(
+            "This PDF contains a digital signature.\n\n"
+            "Editing it will invalidate the existing signature. "
+            "OpenReader uses visual electronic signatures only and does not "
+            "create certificate-based digital signatures."
+        )
+        continue_button = box.addButton("Continue Editing", QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is continue_button:
+            self._signed_warning_tabs.add(self.current_tab_id)
+            return True
+        return False
+
+    def _confirm_save_signed(self) -> bool:
+        if not self._document_dirty(self.current_tab_id):
+            return True
+        if self.document is None or not eo.document_has_signatures(self.document):
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle("Signed Document")
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText(
+            "Saving changes to this signed document will invalidate its "
+            "existing digital signature."
+        )
+        save_button = box.addButton("Save Anyway", QMessageBox.ButtonRole.DestructiveRole)
+        copy_button = box.addButton("Save As Copy…", QMessageBox.ButtonRole.ActionRole)
+        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is save_button:
+            return True
+        if box.clickedButton() is copy_button:
+            self._save_document_as()
+            return False
+        return False
+
+    def _edit_undo(self) -> bool:
+        controller = self._edit_for_current()
+        if controller is not None:
+            focus = QApplication.focusWidget()
+            if controller._editor is not None and focus is controller._editor:
+                controller._editor.undo()
+                return True
+            if controller.undo():
+                return True
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit)):
+            focus.undo()
+            return True
+        return False
+
+    def _edit_redo(self) -> bool:
+        controller = self._edit_for_current()
+        if controller is not None:
+            focus = QApplication.focusWidget()
+            if controller._editor is not None and focus is controller._editor:
+                controller._editor.redo()
+                return True
+            if controller.redo():
+                return True
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit)):
+            focus.redo()
+            return True
+        return False
+
+    def _edit_escape(self) -> bool:
+        controller = self._edit_for_current()
+        if controller is None:
+            return False
+        if controller._editor is not None:
+            controller._cancel_text_edit()
+            return True
+        if controller.tool is not None:
+            self._deactivate_edit_tool()
+            return True
+        if controller.selected_object() is not None:
+            controller.select(None)
+            controller.set_tool(None)
+            return True
+        return False
+
+    def _edit_delete_key(self) -> bool:
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit, QSpinBox, QComboBox)):
+            return False
+        controller = self._edit_for_current()
+        if controller is not None and controller.selected_object() is not None:
+            controller.delete_selected()
+            return True
+        return False
+
+    def _edit_paste_shortcut(self) -> bool:
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit)):
+            return False
+        controller = self._edit_for_current()
+        return bool(controller is not None and controller.paste())
+
+    def _page_index_for_label(self, obj):
+        if obj is self.page_label:
+            return self.current_page
+        labels = getattr(self, "_continuous_pages", [])
+        try:
+            return labels.index(obj)
+        except ValueError:
+            return None
+
+    def _export_flattened(self):
+        if self.document is None or self.current_path is None:
+            self.statusBar().showMessage("No document open", 3000)
+            return
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller._finish_text_edit()
+        form = self._form_for_current()
+        if form is not None:
+            self._write_dirty_form_values(form)
+        default_name = f"{Path(self.current_path).stem}_flattened.pdf"
+        target, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Flattened PDF",
+            str(Path(self.current_path).with_name(default_name)),
+            "PDF files (*.pdf)",
+        )
+        if not target:
+            return
+        if not target.lower().endswith(".pdf"):
+            target += ".pdf"
+        try:
+            eo.export_flattened(self.document, target)
+            self.statusBar().showMessage(
+                f"Flattened copy saved as {Path(target).name}", 5000
+            )
+        except Exception as exc:
+            self.statusBar().showMessage(f"Export failed: {exc}", 6000)
+
+    def _save_tab(self, tab_id) -> bool:
+        tab = self.tabs.get(tab_id)
+        if tab is None or tab.document is None or not tab.path:
+            return False
+        form = self._form_controllers.get(tab_id)
+        edit = self._edit_controllers.get(tab_id)
+        try:
+            if form is not None and form.dirty:
+                for name in form._dirty_names:
+                    field = form._by_name.get(name)
+                    if field is None or not field.is_editable():
+                        continue
+                    try:
+                        _ff.set_field_value(
+                            tab.document, field, form.current_value(field)
+                        )
+                    except Exception:  # nosec B112
+                        continue
+            if edit is not None:
+                edit._finish_text_edit()
+            eo.save_document(tab.document, tab.path)
+            if edit is not None:
+                edit.mark_saved()
+            if form is not None:
+                form.dirty = False
+                form._dirty_names = set()
+                if getattr(form, "_state_store", None) is not None:
+                    form._state_store.clear(tab.path)
+            self._refresh_tab_dirty(tab_id)
+            self._update_window_title_dirty()
+            return True
+        except Exception as exc:
+            self.statusBar().showMessage(f"Save failed: {exc}", 6000)
+            return False
 
     @staticmethod
     def _menu_label(label: str, shortcut: str) -> str:
@@ -2497,6 +3341,21 @@ class PdfReaderWindow(QMainWindow):
             self._app_shortcuts.append(shortcut)
 
     def eventFilter(self, obj, event):
+        # Editing tools capture a click on a rendered page to place an object.
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            if self._edit_tool in ("text", "sign", "image"):
+                page_index = self._page_index_for_label(obj)
+                if page_index is not None:
+                    edit = self._edit_for_current()
+                    zoom = (
+                        self._continuous_layout_zoom
+                        if self._continuous_mode
+                        else self.current_render_zoom
+                    )
+                    if edit is not None and edit.handle_page_click(
+                        page_index, obj, event.position().toPoint(), zoom or 1.0
+                    ):
+                        return True
         # Ctrl + Mouse Wheel zoom on the scroll area viewport
         if (event.type() == QEvent.Wheel
                 and obj is self.scroll_area.viewport()
@@ -2523,9 +3382,26 @@ class PdfReaderWindow(QMainWindow):
             if key == Qt.Key_PageDown:
                 self.next_page()
                 return True
+            if key == Qt.Key_Escape:
+                return self._edit_escape()
+            if key in (Qt.Key_Delete, Qt.Key_Backspace):
+                return self._edit_delete_key()
+            return False
+        if modifiers == (Qt.ControlModifier | Qt.ShiftModifier):
+            if key == Qt.Key_Z:
+                return self._edit_redo()
             return False
         if modifiers != Qt.ControlModifier:
             return False
+
+        if key in (Qt.Key_Z, Qt.Key_Y):
+            return self._edit_undo() if key == Qt.Key_Z else self._edit_redo()
+        if key == Qt.Key_V:
+            focus = QApplication.focusWidget()
+            if isinstance(focus, (QLineEdit, QTextEdit)):
+                return False
+            controller = self._edit_for_current()
+            return bool(controller is not None and controller.paste())
 
         ctrl_handlers = {
             Qt.Key_O: self.open_pdf,
@@ -2560,6 +3436,14 @@ class PdfReaderWindow(QMainWindow):
         if isinstance(focus, QTextEdit) and focus.textCursor().hasSelection():
             focus.copy()
             return
+        if not isinstance(focus, (QLineEdit, QTextEdit)):
+            controller = self._edit_for_current()
+            if (
+                controller is not None
+                and controller.selected_object() is not None
+                and controller.copy_selected()
+            ):
+                return
         self.copy_selected_text()
 
     def _fit_width_shortcut(self):
@@ -2615,6 +3499,10 @@ class PdfReaderWindow(QMainWindow):
         file_save_as = QAction(self._menu_label("Save As…", "Ctrl+Shift+S"), self)
         file_save_as.triggered.connect(self._save_document_as)
         file_menu.addAction(file_save_as)
+
+        file_export = QAction("Export Flattened PDF…", self)
+        file_export.triggered.connect(self._export_flattened)
+        file_menu.addAction(file_export)
 
         file_menu.addSeparator()
 
@@ -2950,14 +3838,24 @@ class PdfReaderWindow(QMainWindow):
         new_tab_id = self.tab_bar.tabData(index)
         if new_tab_id is None or new_tab_id == self.current_tab_id:
             return
+        old_edit = self._edit_for_current()
+        if old_edit is not None:
+            old_edit.detach_all()
         self._save_current_state()
         self._save_current_tab_controls()
         self._restore_state(new_tab_id)
         self._restore_current_tab_controls()
+        if (
+            self.current_tab_id not in self._edit_controllers
+            and self.document is not None
+            and self.current_path is not None
+        ):
+            self._init_edit()
         self.clear_text_selection(render=False)
         self.statusBar().clearMessage()
         self.render_page()
         self._update_controls()
+        self._refresh_tab_dirty(new_tab_id)
         # Refresh form-related chrome for the newly selected tab (Phase 2).
         self._update_window_title_dirty()
         self._update_form_menu_state()
@@ -3054,6 +3952,7 @@ class PdfReaderWindow(QMainWindow):
         if tab.document is not None:
             tab.document.close()
         self._drop_form_controller(tab_id)
+        self._drop_edit_controller(tab_id)
         self.tab_bar.blockSignals(True)
         try:
             for i in range(self.tab_bar.count()):
@@ -3114,12 +4013,24 @@ class PdfReaderWindow(QMainWindow):
 
     def _close_all_tabs(self):
         tab_ids = list(self.tabs.keys())
+        for tab_id in tab_ids:
+            if not self._confirm_discard_form(tab_id):
+                return
+        for controller in getattr(self, "_form_controllers", {}).values():
+            controller.detach_all()
+        for controller in getattr(self, "_edit_controllers", {}).values():
+            controller.detach_all()
         for tid in tab_ids:
             if tid in self.tabs:
                 tab = self.tabs[tid]
                 if tab.document is not None:
                     tab.document.close()
         self.tabs.clear()
+        self._form_controllers.clear()
+        self._edit_controllers.clear()
+        self._edit_tool = None
+        if getattr(self, "context_toolbar", None):
+            self.context_toolbar.hide()
         self.tab_bar.clear()
         self._sync_tab_strip()
         self.current_tab_id = None
@@ -3267,6 +4178,12 @@ class PdfReaderWindow(QMainWindow):
         if self.current_tab_id is not None and self.current_tab_id in self.tabs:
             self.tabs[self.current_tab_id].document = document
             self.tabs[self.current_tab_id].path = file_name
+            try:
+                self.tabs[self.current_tab_id].encrypted = bool(
+                    document.needs_pass or document.is_encrypted
+                )
+            except Exception:
+                self.tabs[self.current_tab_id].encrypted = False
 
         self.document = document
         self.current_path = file_name
@@ -3306,6 +4223,7 @@ class PdfReaderWindow(QMainWindow):
 
         # Build AcroForm overlays (Phase 2) before the first render.
         self._init_form()
+        self._init_edit()
 
         self.render_page()
         self._update_controls()
@@ -3448,6 +4366,9 @@ class PdfReaderWindow(QMainWindow):
         if current_form is not None:
             current_form.detach_all()
         self._attach_form_overlays(self.page_label, self.current_page, zoom)
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit.attach_page(self.page_label, self.current_page, zoom)
         self.page_label.adjustSize()
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
@@ -3559,6 +4480,9 @@ class PdfReaderWindow(QMainWindow):
         form = self._form_for_current()
         if form is not None:
             form.detach_all()
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit.detach_all()
         # Clear the page list before detaching the widget so scroll events
         # raised by the swap are ignored.
         self._continuous_pages = []
@@ -3583,6 +4507,9 @@ class PdfReaderWindow(QMainWindow):
         form = self._form_for_current()
         if form is not None and 0 <= page_index < len(self._continuous_pages):
             form.detach_page(self._continuous_pages[page_index])
+        edit = self._edit_for_current()
+        if edit is not None and 0 <= page_index < len(self._continuous_pages):
+            edit.detach_page(self._continuous_pages[page_index])
         if 0 <= page_index < len(self._continuous_pages):
             self._continuous_pages[page_index].clear()
         self._continuous_rendered.discard(page_index)
@@ -3673,6 +4600,11 @@ class PdfReaderWindow(QMainWindow):
             self._attach_form_overlays(
                 self._continuous_pages[page_index], page_index, layout_zoom
             )
+            edit = self._edit_for_current()
+            if edit is not None:
+                edit.attach_page(
+                    self._continuous_pages[page_index], page_index, layout_zoom
+                )
         except Exception:
             # Leave the placeholder in place — one unrenderable page must not
             # take the rest of the document down with it.
@@ -3683,7 +4615,11 @@ class PdfReaderWindow(QMainWindow):
     def _on_continuous_scrolled(self, value: int):
         if not self._continuous_mode:
             return
-        if self.document is None or not self._continuous_pages:
+        if (
+            self.document is None
+            or getattr(self.document, "is_closed", False)
+            or not self._continuous_pages
+        ):
             return
         if self._continuous_syncing_scroll or self._pending_scroll_page is not None:
             return
@@ -3714,6 +4650,9 @@ class PdfReaderWindow(QMainWindow):
 
     def _apply_pending_scroll(self):
         page_index = self._pending_scroll_page
+        if self.document is None or getattr(self.document, "is_closed", False):
+            self._pending_scroll_page = None
+            return
         if page_index is None or not self._continuous_pages:
             return
         if page_index >= len(self._continuous_pages):
@@ -3734,7 +4673,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_page_controls()
 
     def _update_page_controls(self):
-        if self.document is None:
+        if self.document is None or getattr(self.document, "is_closed", False):
             return
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
@@ -4082,33 +5021,45 @@ class PdfReaderWindow(QMainWindow):
             except Exception as exc:
                 self.statusBar().showMessage(f"Could not save annotations: {exc}", 5000)
 
-    def _save_document(self):
-        """Explicit save via File > Save (form values + annotations)."""
+    def _save_document(self) -> bool:
+        """Explicit save via File > Save (form values, edits, annotations)."""
         if self.current_path is None or self.document is None:
             self.statusBar().showMessage("No document open", 3000)
-            return
+            return False
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit._finish_text_edit()
+        if not self._confirm_save_signed():
+            return False
         form = self._form_for_current()
-        if form is not None and form.dirty:
-            try:
-                form.save(self.document, self.current_path)
-                self._update_window_title_dirty()
-                self._update_navigator_item_for_tab(self.current_tab_id)
-                self.statusBar().showMessage("Document saved", 3000)
-                return
-            except Exception as exc:
-                self.statusBar().showMessage(f"Save failed: {exc}", 5000)
-                return
         try:
-            self.document.save(self.current_path, garbage=1, deflate=True)
-            self.statusBar().showMessage("Document saved", 3000)
+            if form is not None and form.dirty:
+                self._write_dirty_form_values(form)
+            eo.save_document(self.document, self.current_path)
         except Exception as exc:
-            self.statusBar().showMessage(f"Save failed: {exc}", 5000)
+            self.statusBar().showMessage(f"Save failed: {exc}", 6000)
+            return False
+        if edit is not None:
+            edit.mark_saved()
+        if form is not None:
+            form.dirty = False
+            form._dirty_names = set()
+            if getattr(form, "_state_store", None) is not None:
+                form._state_store.clear(self.current_path)
+        self._update_window_title_dirty()
+        self._refresh_tab_dirty(self.current_tab_id)
+        self._update_navigator_item_for_tab(self.current_tab_id)
+        self.statusBar().showMessage("Document saved", 3000)
+        return True
 
-    def _save_document_as(self):
-        """Save As — full save to a new path, updating the tab."""
+    def _save_document_as(self) -> bool:
+        """Save As — atomic full save to a new path, updating the tab."""
         if self.document is None or self.current_path is None:
             self.statusBar().showMessage("No document open", 3000)
-            return
+            return False
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit._finish_text_edit()
         default_name = f"{Path(self.current_path).stem}_completed.pdf"
         new_path, _ = QFileDialog.getSaveFileName(
             self,
@@ -4117,24 +5068,34 @@ class PdfReaderWindow(QMainWindow):
             "PDF files (*.pdf)",
         )
         if not new_path:
-            return
+            return False
         if not new_path.lower().endswith(".pdf"):
             new_path += ".pdf"
+        form = self._form_for_current()
         try:
-            form = self._form_for_current()
             if form is not None:
                 self._write_dirty_form_values(form)
-                form.save_as(self.document, new_path)
-            else:
-                self.document.save(new_path, garbage=1, deflate=True)
-            self.current_path = new_path
-            if self.current_tab_id in self.tabs:
-                self.tabs[self.current_tab_id].path = new_path
-            self._add_recent_file(new_path)
-            self._update_window_title_dirty()
-            self.statusBar().showMessage(f"Saved as {Path(new_path).name}", 4000)
+            eo.save_document(self.document, new_path)
         except Exception as exc:
-            self.statusBar().showMessage(f"Save As failed: {exc}", 5000)
+            self.statusBar().showMessage(f"Save As failed: {exc}", 6000)
+            return False
+        if edit is not None:
+            edit.mark_saved()
+            edit.path = new_path
+        if form is not None:
+            form.dirty = False
+            form._dirty_names = set()
+            if getattr(form, "_state_store", None) is not None:
+                form._state_store.clear(new_path)
+        self.current_path = new_path
+        if self.current_tab_id in self.tabs:
+            self.tabs[self.current_tab_id].path = new_path
+            self.tabs[self.current_tab_id].name = Path(new_path).name
+        self._add_recent_file(new_path)
+        self._update_window_title_dirty()
+        self._refresh_tab_dirty(self.current_tab_id)
+        self.statusBar().showMessage(f"Saved as {Path(new_path).name}", 4000)
+        return True
 
     def _write_dirty_form_values(self, form):
         for name in form._dirty_names:
@@ -4143,7 +5104,7 @@ class PdfReaderWindow(QMainWindow):
                 continue
             try:
                 _ff.set_field_value(self.document, field, form.current_value(field))
-            except Exception:
+            except Exception:  # nosec B112
                 continue
 
     # ------------------------------------------------------------------
@@ -4160,8 +5121,16 @@ class PdfReaderWindow(QMainWindow):
             stale.detach_all()
         controller = _FormController(self, self.current_tab_id)
         controller.load(self.document, self.current_path)
+        controller.readonly = not eo.document_allows_editing(
+            self.document, encrypted=self._current_document_encrypted()
+        )
         controllers[self.current_tab_id] = controller
         count = len(controller.fields)
+        if controller.readonly and count:
+            self.statusBar().showMessage(
+                "This document is read-only; form fields are displayed but cannot be edited.",
+                7000,
+            )
         if count and _ff.has_form_fields(self.document):
             self._mark_recent_form_doc(self.current_path)
             self.statusBar().showMessage(
@@ -4187,6 +5156,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_window_title_dirty()
         self._update_form_menu_state()
         self._update_navigator_item_for_tab(tab_id)
+        self._refresh_tab_dirty(tab_id)
 
     def _update_window_title_dirty(self):
         if self.current_path:
@@ -4194,7 +5164,11 @@ class PdfReaderWindow(QMainWindow):
         else:
             base = self.APP_NAME
         form = self._form_for_current()
-        dirty = form is not None and form.dirty
+        edit = self._edit_for_current()
+        dirty = bool(
+            (form is not None and form.dirty)
+            or (edit is not None and edit.is_dirty())
+        )
         self.setWindowTitle(("● " if dirty else "") + base)
 
     def _on_form_focus(self, field):
@@ -4441,29 +5415,35 @@ class PdfReaderWindow(QMainWindow):
     # -- close warning ------------------------------------------------------
 
     def _confirm_discard_form(self, tab_id) -> bool:
-        """If the tab has unsaved form edits, ask. Returns True to proceed."""
-        controller = getattr(self, "_form_controllers", {}).get(tab_id)
-        if controller is None or not controller.dirty:
+        """If the tab has unsaved form or edit changes, ask. True to proceed."""
+        form = getattr(self, "_form_controllers", {}).get(tab_id)
+        edit = getattr(self, "_edit_controllers", {}).get(tab_id)
+        form_dirty = form is not None and form.dirty
+        edit_dirty = edit is not None and edit.is_dirty()
+        if not form_dirty and not edit_dirty:
             return True
         tab = self.tabs.get(tab_id)
         answer = QMessageBox.question(
             self,
-            "Unsaved Form",
-            "This form has unsaved changes. Save before closing?",
+            "Unsaved Changes",
+            "This document has unsaved changes. Save before closing?",
             QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
             QMessageBox.Save,
         )
         if answer == QMessageBox.Save:
-            if tab is not None and tab.document is not None and tab.path:
-                try:
-                    controller.save(tab.document, tab.path)
-                except Exception:
-                    pass
-            return True
+            return self._save_tab(tab_id)
         if answer == QMessageBox.Discard:
-            path = tab.path if tab is not None and tab.path else getattr(self, "current_path", None)
-            if path and controller._state_store is not None:
-                controller._state_store.clear(path)
+            path = (
+                tab.path
+                if tab is not None and tab.path
+                else getattr(self, "current_path", None)
+            )
+            if (
+                path
+                and form is not None
+                and getattr(form, "_state_store", None) is not None
+            ):
+                form._state_store.clear(path)
             return True
         return False
 
@@ -4474,7 +5454,7 @@ class PdfReaderWindow(QMainWindow):
             current = set(self.settings.value("formDocs", [], list))
             current.add(str(Path(path).resolve()))
             self.settings.setValue("formDocs", list(current))
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
     def _is_recent_form_doc(self, path) -> bool:
@@ -4915,7 +5895,10 @@ class PdfReaderWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _update_controls(self):
-        has_document = self.document is not None
+        has_document = bool(
+            self.document is not None
+            and not getattr(self.document, "is_closed", False)
+        )
         can_go_previous = has_document and self.current_page > 0
         can_go_next = has_document and self.current_page < self.document.page_count - 1
         has_matches = bool(self.search_results)
@@ -4938,12 +5921,38 @@ class PdfReaderWindow(QMainWindow):
         self.search_prev_button.setEnabled(has_document and has_matches)
         self.search_next_button.setEnabled(has_document and has_matches)
         self.semantic_cb.setEnabled(has_document and HAS_LIB_MODULES)
+        can_edit = bool(
+            has_document
+            and self.document is not None
+            and eo.document_allows_editing(
+                self.document, encrypted=self._current_document_encrypted()
+            )
+        )
+        for edit_button in (
+            getattr(self, "fill_button", None),
+            getattr(self, "text_button", None),
+            getattr(self, "sign_button", None),
+            getattr(self, "image_button", None),
+        ):
+            if edit_button is not None:
+                edit_button.setEnabled(can_edit)
         if hasattr(self, "zoom_label"):
             if has_document:
                 self.zoom_label.setText(f"{int(round(self.current_render_zoom * 100))}%")
             else:
                 self.zoom_label.setText("—")
             self.zoom_label.setEnabled(has_document)
+        if getattr(self, "context_toolbar", None) is not None:
+            if has_document:
+                self.context_toolbar.show()
+                controller = self._edit_for_current()
+                self._on_edit_selection_changed(
+                    controller.selected_object()
+                    if controller is not None
+                    else None
+                )
+            else:
+                self.context_toolbar.hide()
 
     # ------------------------------------------------------------------
     # Events
@@ -5485,7 +6494,12 @@ class PdfReaderWindow(QMainWindow):
         for tab_id, controller in getattr(self, "_form_controllers", {}).items():
             try:
                 controller.detach_all()
-            except Exception:
+            except Exception:  # nosec B110
+                pass
+        for controller in getattr(self, "_edit_controllers", {}).values():
+            try:
+                controller.detach_all()
+            except Exception:  # nosec B110
                 pass
         # Close docs
         for tab_id, tab in self.tabs.items():
@@ -5496,6 +6510,8 @@ class PdfReaderWindow(QMainWindow):
                     pass  # best-effort document close  # nosec B110
         self.tabs.clear()
         self._form_controllers.clear()
+        self._edit_controllers.clear()
+        self._edit_tool = None
         super().closeEvent(event)
 
     # ------------------------------------------------------------------
