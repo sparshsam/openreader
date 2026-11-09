@@ -66,11 +66,12 @@
 | | |
 |---|---|
 | <img src="assets/icons/feature-read.svg" width="28" height="28" alt=""> **Read** — Open PDFs, one-page or continuous scroll, fit-width zoom, page jump. | <img src="assets/icons/feature-annotate.svg" width="28" height="28" alt=""> **Annotate** — Highlight, underline, strikethrough, and sticky notes. Saved as native PDF annotations. |
+| <img src="assets/icons/feature-annotate.svg" width="28" height="28" alt=""> **Fill, Edit & Sign** — Complete AcroForm fields, add formatted text, insert images and place visual signatures in continuous scroll. | <img src="assets/icons/feature-tools.svg" width="28" height="28" alt=""> **Forms & flatten** — Save, Save As, or export a flattened copy; annotations, links and metadata are preserved. |
 | <img src="assets/icons/feature-search.svg" width="28" height="28" alt=""> **Search** — Full-document keyword search with match count and navigation. | <img src="assets/icons/feature-session.svg" width="28" height="28" alt=""> **Library search** — Index entire folders with SQLite FTS5 for cross-document BM25-ranked search. |
 | <img src="assets/icons/feature-offline.svg" width="28" height="28" alt=""> **Semantic search** — TF-IDF cosine similarity — meaning-based matching, no external ML. | <img src="assets/icons/feature-compare.svg" width="28" height="28" alt=""> **Compare** — Side-by-side diff with color-coded changes and structured summary. |
 | <img src="assets/icons/feature-tabs.svg" width="28" height="28" alt=""> **Multi-tab** — Open several documents in one window with movable tabs. | <img src="assets/icons/feature-darkmode.svg" width="28" height="28" alt=""> **Dark mode** — System-aware theme with Auto/Light/Dark toggle. |
 | <img src="assets/icons/feature-tools.svg" width="28" height="28" alt=""> **PDF tools** — Merge, split, extract page ranges, compress. | <img src="assets/icons/feature-ocr.svg" width="28" height="28" alt=""> **OCR fallback** — Automatic OCR on scanned/image-based pages when Tesseract is available. |
-| <img src="assets/icons/feature-platform.svg" width="28" height="28" alt=""> **Session restore** — Remembers open documents and page positions across restarts. | <img src="assets/icons/feature-ai.svg" width="28" height="28" alt=""> **AI agent integration** — Built-in MCP server with 14 tools for automated PDF workflows. |
+| <img src="assets/icons/feature-platform.svg" width="28" height="28" alt=""> **Session restore** — Remembers open documents and page positions across restarts. | <img src="assets/icons/feature-ai.svg" width="28" height="28" alt=""> **AI agent integration** — Built-in MCP server with 19 tools for automated PDF workflows, including AcroForm filling. |
 
 ---
 
@@ -115,6 +116,7 @@ The focus is on reading and working with documents, not fighting the interface. 
 
 | Release | Date | Milestone |
 |---------|------|-----------|
+| **v1.3.0** | Nov 2026 | Fill, Edit & Sign — AcroForm filling, freeform text objects, visual signatures, image placement, atomic save and flattened export |
 | **v1.2.8** | Nov 2026 | Continuous scrolling rebuilt on a virtualized full-document layout; unified Fluent toolbar and light/dark redesign |
 | **v1.2.7** | Aug 2026 | Store-aware updates — install-source detection, channel-aware update dialog |
 | **v1.2.6** | Aug 2026 | Default reader experience — Windows default-app detection and settings |

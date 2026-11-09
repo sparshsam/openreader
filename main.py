@@ -11,15 +11,20 @@ from datetime import datetime
 from pathlib import Path
 
 import fitz
-from PySide6.QtCore import QByteArray, QEvent, QPoint, QPointF, QRect, QRectF, QSettings, QSize, QTimer, Qt, QUrl, Signal
-from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPalette, QPen, QPixmap, QShortcut
+from PySide6.QtCore import QBuffer, QByteArray, QEvent, QObject, QPoint, QPointF, QRect, QRectF, QSettings, QSize, QStandardPaths, QTimer, Qt, QUrl, Signal
+from PySide6.QtGui import QAction, QColor, QDesktopServices, QIcon, QImage, QKeySequence, QPainter, QPainterPath, QPalette, QPen, QPixmap, QPolygonF, QShortcut
 from PySide6.QtNetwork import QLocalServer, QLocalSocket, QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
+    QButtonGroup,
+    QCalendarWidget,
     QCheckBox,
+    QColorDialog,
+    QComboBox,
     QDialog,
     QDialogButtonBox,
+    QDockWidget,
     QFileDialog,
     QFrame,
     QGroupBox,
@@ -35,6 +40,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressDialog,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QScrollBar,
     QSizePolicy,
@@ -47,12 +53,14 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QToolBar,
     QToolButton,
+    QTreeWidget,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 
 
-__version__ = "1.2.8"
+__version__ = "1.3.0"
 GITHUB_REPO = "sparshsam/openreader"
 IPC_SERVER_NAME = "OpenReader-IPC"
 RECENT_FILES_MAX = 10
@@ -109,6 +117,12 @@ from pdfreader_lib import win_default_apps
 # Install-source detection for channel-aware updates (stdlib only).
 from pdfreader_lib import install_source
 
+# AcroForm field intelligence (Phase 2) — shared with the MCP server.
+from pdfreader_lib import form_fields as _ff
+from pdfreader_lib import edit_gui as edit_ui
+from pdfreader_lib import edit_objects as eo
+from pdfreader_lib import signature_store as sig_store
+
 
 # ---------------------------------------------------------------------------
 # Per-tab state container
@@ -130,6 +144,7 @@ class TabData:
     selected_rects: list = field(default_factory=list)
     ocr_text_pages: OrderedDict = field(default_factory=OrderedDict)
     ocr_warning_shown: bool = False
+    encrypted: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -285,6 +300,41 @@ QToolBar#MainToolbar QToolButton#SemanticToggle:checked {
 }
 QToolBar#MainToolbar QToolButton#SemanticToggle:disabled {
     color: #aaabb2;
+}
+QToolBar#ContextToolbar {
+    background-color: #fbfbfc;
+    border: none;
+    border-bottom: 1px solid #e8e8ec;
+    padding: 4px 10px;
+    spacing: 4px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 8px;
+    color: #1b1b1f;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:checked {
+    background-color: rgba(255, 37, 95, 0.10);
+    border-color: rgba(255, 37, 95, 0.30);
+}
+QToolBar#ContextToolbar QLabel#CtxLabel {
+    color: #6e6f76;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QComboBox#CtxCombo,
+QToolBar#ContextToolbar QSpinBox#CtxSpin {
+    background-color: #ffffff;
+    color: #1b1b1f;
+    border: 1px solid #dfe0e4;
+    border-radius: 5px;
+    padding: 3px 6px;
+    min-height: 22px;
 }
 QTabBar {
     background: transparent;
@@ -663,6 +713,41 @@ QToolBar#MainToolbar QToolButton#SemanticToggle:checked {
 }
 QToolBar#MainToolbar QToolButton#SemanticToggle:disabled {
     color: #55565e;
+}
+QToolBar#ContextToolbar {
+    background-color: #222327;
+    border: none;
+    border-bottom: 1px solid #2b2c31;
+    padding: 4px 10px;
+    spacing: 4px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton {
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 5px;
+    padding: 3px 8px;
+    color: #ececed;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:hover {
+    background-color: rgba(255, 255, 255, 0.06);
+}
+QToolBar#ContextToolbar QToolButton#CtxButton:checked {
+    background-color: rgba(255, 77, 122, 0.14);
+    border-color: rgba(255, 77, 122, 0.40);
+}
+QToolBar#ContextToolbar QLabel#CtxLabel {
+    color: #9b9ca4;
+    font-size: 12px;
+}
+QToolBar#ContextToolbar QComboBox#CtxCombo,
+QToolBar#ContextToolbar QSpinBox#CtxSpin {
+    background-color: #2a2b30;
+    color: #ececed;
+    border: 1px solid #3a3b42;
+    border-radius: 5px;
+    padding: 3px 6px;
+    min-height: 22px;
 }
 QTabBar {
     background: transparent;
@@ -1173,6 +1258,57 @@ def _draw_close_icon(p: QPainter, s: float, c: dict[str, str]):
     p.drawLine(QPointF(12.8, 5.2), QPointF(5.2, 12.8))
 
 
+def _draw_fill_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.5))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(3.0, 3.5, 8.2, 11.0), 1.5, 1.5)
+    p.setPen(_icon_pen(c["muted"], 1.2))
+    p.drawLine(QPointF(4.8, 6.2), QPointF(9.2, 6.2))
+    p.drawLine(QPointF(4.8, 8.6), QPointF(8.4, 8.6))
+    p.setPen(_icon_pen(c["accent"], 1.7))
+    p.drawLine(QPointF(10.0, 7.2), QPointF(14.4, 11.6))
+    p.drawLine(QPointF(14.4, 11.6), QPointF(14.4, 14.0))
+    p.drawLine(QPointF(14.4, 14.0), QPointF(12.0, 14.0))
+
+
+def _draw_text_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.8))
+    p.drawLine(QPointF(4.0, 4.2), QPointF(14.0, 4.2))
+    p.drawLine(QPointF(9.0, 4.2), QPointF(9.0, 14.6))
+    p.drawLine(QPointF(6.2, 14.6), QPointF(11.8, 14.6))
+
+
+def _draw_signature_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.6))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    path = QPainterPath()
+    path.moveTo(3.4, 13.8)
+    path.cubicTo(6.2, 10.4, 8.4, 4.4, 11.6, 4.4)
+    path.cubicTo(14.4, 4.4, 12.6, 9.6, 8.6, 12.4)
+    p.drawPath(path)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(c["accent"]))
+    nib = QPolygonF([QPointF(13.0, 3.2), QPointF(15.2, 5.4), QPointF(13.2, 7.4), QPointF(11.0, 5.2)])
+    p.drawPolygon(nib)
+
+
+def _draw_image_icon(p: QPainter, s: float, c: dict[str, str]):
+    p.setPen(_icon_pen(c["stroke"], 1.5))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    p.drawRoundedRect(QRectF(2.8, 3.8, 12.4, 10.4), 1.5, 1.5)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor(c["accent"]))
+    p.drawEllipse(QPointF(6.3, 7.0), 1.2, 1.2)
+    p.setPen(_icon_pen(c["muted"], 1.35))
+    path = QPainterPath()
+    path.moveTo(3.4, 13.0)
+    path.lineTo(7.0, 9.4)
+    path.lineTo(9.4, 11.8)
+    path.lineTo(11.3, 9.9)
+    path.lineTo(14.4, 13.0)
+    p.drawPath(path)
+
+
 _TOOLBAR_ICONS = {
     "open": _draw_open_icon,
     "save": _draw_save_icon,
@@ -1190,6 +1326,10 @@ _TOOLBAR_ICONS = {
     "sticky": _draw_sticky_icon,
     "search": _draw_search_icon,
     "close": _draw_close_icon,
+    "fill": _draw_fill_icon,
+    "text": _draw_text_icon,
+    "signature": _draw_signature_icon,
+    "image": _draw_image_icon,
 }
 
 
@@ -1256,6 +1396,666 @@ def _make_empty_state_icon(dark_mode: bool, size: int = 60) -> QPixmap:
 
 
 # ---------------------------------------------------------------------------
+# AcroForm overlays — Phase 2 PDF Form Intelligence (v1.3.0 / 1.3.1 / 1.3.2)
+# ---------------------------------------------------------------------------
+#
+# The FormController owns one tab's AcroForm state: native Qt overlay widgets
+# positioned over each fillable field rect (Approach A), a dirty flag, advisory
+# validation, autosave/recovery via FormStateStore, and the data feeding the
+# Form Navigator dock. All field logic lives in pdfreader_lib.form_fields.
+
+
+class _FormLineEdit(QLineEdit):
+    """Single-line text field overlay."""
+
+    def __init__(self, controller, field):
+        super().__init__()
+        self._controller = controller
+        self._field = field
+        if field.password:
+            self.setEchoMode(QLineEdit.Password)
+        if field.max_length:
+            self.setMaxLength(field.max_length)
+        self.textEdited.connect(lambda _t: controller.on_edited(field))
+        self.editingFinished.connect(lambda: controller.on_commit(field, self.text()))
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self._controller.on_focus(self._field)
+
+
+class _FormMultilineEdit(QTextEdit):
+    """Multiline text field overlay."""
+
+    def __init__(self, controller, field):
+        super().__init__()
+        self._controller = controller
+        self._field = field
+        self.setFrameShape(QFrame.NoFrame)
+        self.setTabChangesFocus(True)  # Tab moves between fields, not tabs
+        if field.max_length:
+            self.textChanged.connect(lambda: self._enforce_max_length())
+
+    def _enforce_max_length(self):
+        text = self.toPlainText()
+        limit = self._field.max_length
+        if limit and len(text) > limit:
+            cursor = self.textCursor()
+            pos = cursor.position()
+            self.blockSignals(True)
+            self.setPlainText(text[:limit])
+            cursor.setPosition(min(pos, limit))
+            self.setTextCursor(cursor)
+            self.blockSignals(False)
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self._controller.on_focus(self._field)
+
+
+class _FormCheck(QCheckBox):
+    """Checkbox overlay."""
+
+    def __init__(self, controller, field):
+        super().__init__()
+        self._controller = controller
+        self._field = field
+        self.toggled.connect(lambda checked: controller.on_toggled(field, checked))
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self._controller.on_focus(self._field)
+
+
+class _FormCombo(QComboBox):
+    """Combo/listbox overlay."""
+
+    def __init__(self, controller, field):
+        super().__init__()
+        self._controller = controller
+        self._field = field
+        for choice in field.choices:
+            self.addItem(choice)
+        self.setEditable(bool(field.editable_choice))
+        self.currentTextChanged.connect(lambda _t: controller.on_edited(field))
+
+    def focusInEvent(self, event):
+        super().focusInEvent(event)
+        self._controller.on_focus(self._field)
+
+
+# Overlay colors — brand accent #ff255F for focus, blue accent for fillables.
+_FORM_FILLABLE_BORDER = (37, 99, 235, 150)
+_FORM_FILLABLE_FILL = (37, 99, 235, 26)
+_FORM_READONLY_BORDER = (150, 150, 150, 130)
+_FORM_REQUIRED_EMPTY_BORDER = (245, 158, 11, 200)
+_FORM_FOCUS_BORDER = (255, 37, 95)
+
+
+class _FormController(QObject):
+    """Owns one tab's AcroForm overlays, dirty tracking and autosave."""
+
+    def __init__(self, window, tab_id: int):
+        super().__init__(window)
+        self.window = window
+        self.tab_id = tab_id
+        self.fields: list = []
+        self._by_name: dict = {}
+        self._widgets: dict = {}          # QWidget -> FormField
+        self._field_widgets: dict = {}    # field.name -> list[QWidget]
+        self._radio_buttons: dict = {}    # QRadioButton -> (field, caption)
+        self._radio_groups: dict = {}     # field.name -> QButtonGroup
+        self._button_group = None
+        self.dirty = False
+        self.readonly = False
+        self._dirty_names: set = set()
+        self._seeding = 0
+        self._current_index = -1
+        self._user_overrides: dict = {}   # "page:name" -> detected_type
+        self._state_store = None
+        self._autosave_timer = QTimer(self)
+        self._autosave_timer.setSingleShot(True)
+        self._autosave_timer.setInterval(1200)
+        self._autosave_timer.timeout.connect(self._autosave_now)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def load(self, doc, path) -> int:
+        """Build the field index for a document. Returns the field count."""
+        self.fields = _ff.build_field_index(doc)
+        _ff.annotate_field_types(self.fields, doc)
+        self._by_name = {f.name: f for f in self.fields}
+        self.dirty = False
+        self._dirty_names = set()
+        self._current_index = -1
+        self._user_overrides = {}
+        self._state_store = getattr(self.window, "_form_store", None)
+        self._apply_stored_state(path)
+        return len(self.fields)
+
+    @property
+    def editable_fields(self):
+        return [f for f in self.fields if f.is_editable()]
+
+    def detach_all(self):
+        """Remove every overlay widget from the UI."""
+        for widget in list(self._widgets.keys()):
+            widget.setParent(None)
+            widget.deleteLater()
+        self._widgets = {}
+        self._field_widgets = {}
+        self._radio_buttons = {}
+        self._radio_groups = {}
+        self._button_group = None
+
+    def detach_page(self, label):
+        """Remove overlay widgets attached to a single page label."""
+        self._clear_overlays(label)
+
+    # ------------------------------------------------------------------
+    # Overlay rendering
+    # ------------------------------------------------------------------
+
+    def attach_page(self, label, page_index, zoom, page_rect):
+        """Create/reposition overlay widgets for one rendered page label."""
+        self._clear_overlays(label)
+        if not self.fields:
+            return
+        page_fields = [f for f in self.fields if f.page_index == page_index]
+        if not page_fields:
+            return
+        style = self._overlay_style(bool(getattr(self.window, "_dark_mode", False)))
+        self._seeding += 1
+        try:
+            for field in page_fields:
+                if not field.is_editable():
+                    continue
+                if field.field_type == _ff.FieldType.RADIO:
+                    self._attach_radio(label, field, zoom, page_rect, style)
+                    continue
+                widget = self._make_widget(field)
+                widget.setParent(label)
+                widget.setStyleSheet(style)
+                widget.setGeometry(
+                    round((field.rect[0] - page_rect.x0) * zoom),
+                    round((field.rect[1] - page_rect.y0) * zoom),
+                    max(8, round((field.rect[2] - field.rect[0]) * zoom)),
+                    max(8, round((field.rect[3] - field.rect[1]) * zoom)),
+                )
+                widget.show()
+                self._register_widget(widget, field)
+                self._seed_widget(widget, field)
+                # v1.3.1 — visible date-picker affordance on detected date fields.
+                if (
+                    field.detected_type == _ff.TYPE_DATE
+                    and field.field_type in (_ff.FieldType.TEXT, _ff.FieldType.MULTILINE)
+                ):
+                    self._attach_date_button(label, field, zoom, page_rect)
+        finally:
+            self._seeding -= 1
+        self._set_tab_order(page_fields)
+
+    def _make_widget(self, field):
+        ftype = field.field_type
+        if ftype == _ff.FieldType.MULTILINE:
+            widget = _FormMultilineEdit(self, field)
+            widget.textChanged.connect(lambda: self.on_edited(field))
+        elif ftype == _ff.FieldType.CHECKBOX:
+            widget = _FormCheck(self, field)
+        elif ftype in (_ff.FieldType.COMBO, _ff.FieldType.LISTBOX):
+            widget = _FormCombo(self, field)
+        else:
+            widget = _FormLineEdit(self, field)
+        widget.setAccessibleName(field.display_name())
+        widget.setToolTip(self._tooltip_for(field))
+        widget.setContextMenuPolicy(Qt.CustomContextMenu)
+        widget.customContextMenuRequested.connect(
+            lambda pos, w=widget, f=field: self._on_context_menu(w, f, pos)
+        )
+        return widget
+
+    def _attach_radio(self, label, field, zoom, page_rect, style):
+        group = QButtonGroup(label)
+        group.setExclusive(True)
+        for caption, opt_rect in zip(field.choices, field.option_rects):
+            rb = QRadioButton(label)
+            rb.setText("")
+            rb.setToolTip(caption)
+            rb.setAccessibleName(f"{field.display_name()} — {caption}")
+            rb.setGeometry(
+                round((opt_rect[0] - page_rect.x0) * zoom),
+                round((opt_rect[1] - page_rect.y0) * zoom),
+                max(8, round((opt_rect[2] - opt_rect[0]) * zoom)),
+                max(8, round((opt_rect[3] - opt_rect[1]) * zoom)),
+            )
+            rb.setStyleSheet(style)
+            rb.setEnabled(not self.readonly)
+            if field.value == caption:
+                rb.setChecked(True)
+            group.addButton(rb)
+            rb.clicked.connect(lambda _c, f=field, cap=caption: self.on_radio(f, cap))
+            self._widgets[rb] = field
+            self._field_widgets.setdefault(field.name, []).append(rb)
+            self._radio_buttons[rb] = (field, caption)
+            rb.show()
+        self._button_group = group
+        self._radio_groups[field.name] = group
+
+    def _attach_date_button(self, label, field, zoom, page_rect):
+        """Small calendar button to the right of a detected date field."""
+        button = QToolButton(label)
+        button.setText("📅")
+        button.setToolTip("Pick a date")
+        button.setAccessibleName(f"Pick a date for {field.display_name()}")
+        button.setGeometry(
+            round((field.rect[2] - page_rect.x0) * zoom),
+            round((field.rect[1] - page_rect.y0) * zoom),
+            max(16, round((field.rect[3] - field.rect[1]) * zoom)),
+            max(16, round((field.rect[3] - field.rect[1]) * zoom)),
+        )
+        button.clicked.connect(lambda _c, f=field: self._open_date_picker(f))
+        button.show()
+        # Keep it above the field widget so clicks reach it.
+        button.raise_()
+
+    def _open_date_picker(self, field):
+        dialog = QDialog(self.window)
+        dialog.setWindowTitle(f"Pick a date — {field.display_name()}")
+        layout = QVBoxLayout(dialog)
+        calendar = QCalendarWidget()
+        layout.addWidget(calendar)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addWidget(buttons)
+        if dialog.exec() == QDialog.Accepted:
+            iso = calendar.selectedDate().toString("yyyy-MM-dd")
+            self._set_widget_value(field, iso)
+            self._mark_dirty(field)
+            self.on_commit(field, iso)
+
+    def _register_widget(self, widget, field):
+        self._widgets[widget] = field
+        self._field_widgets.setdefault(field.name, []).append(widget)
+        if self.readonly:
+            widget.setEnabled(False)
+
+    def _seed_widget(self, widget, field):
+        value = field.value
+        ftype = field.field_type
+        if ftype in (_ff.FieldType.TEXT, _ff.FieldType.MULTILINE):
+            if isinstance(widget, QTextEdit):
+                widget.setPlainText(str(value))
+            else:
+                widget.setText(str(value))
+        elif ftype == _ff.FieldType.CHECKBOX:
+            widget.setChecked(bool(value))
+        elif ftype in (_ff.FieldType.COMBO, _ff.FieldType.LISTBOX):
+            index = widget.findText(str(value))
+            if index >= 0:
+                widget.setCurrentIndex(index)
+
+    def _clear_overlays(self, label):
+        for widget in list(self._widgets.keys()):
+            if widget.parent() is label:
+                widget.setParent(None)
+                widget.deleteLater()
+                self._widgets.pop(widget, None)
+        self._field_widgets = {}
+        for widget, field in self._widgets.items():
+            self._field_widgets.setdefault(field.name, []).append(widget)
+        self._radio_buttons = {
+            rb: pair for rb, pair in self._radio_buttons.items() if rb.parent() is not label
+        }
+        for name, group in list(self._radio_groups.items()):
+            if group.parent() is label:
+                del self._radio_groups[name]
+        if self._button_group is not None and self._button_group.parent() is label:
+            self._button_group = None
+
+    def _set_tab_order(self, page_fields):
+        widgets = []
+        for field in page_fields:
+            widgets.extend(self._field_widgets.get(field.name, []))
+        for a, b in zip(widgets, widgets[1:]):
+            QWidget.setTabOrder(a, b)
+
+    @staticmethod
+    def _overlay_style(dark: bool) -> str:
+        if dark:
+            return (
+                "QLineEdit, QTextEdit, QComboBox { background: rgba(30,34,48,150); color: #e8e8f0;"
+                " border: 1px solid rgba(120,150,255,150); border-radius: 2px; }"
+                "QLineEdit:focus, QTextEdit:focus, QComboBox:focus { border: 1px solid #ff255f; }"
+            )
+        return (
+            "QLineEdit, QTextEdit, QComboBox { background: rgba(255,255,255,175); color: #1a1a1a;"
+            " border: 1px solid rgba(37,99,235,140); border-radius: 2px; }"
+            "QLineEdit:focus, QTextEdit:focus, QComboBox:focus { border: 1px solid #ff255f; }"
+        )
+
+    # ------------------------------------------------------------------
+    # Value handling
+    # ------------------------------------------------------------------
+
+    def current_value(self, field):
+        widgets = self._field_widgets.get(field.name)
+        if not widgets:
+            return field.value
+        widget = widgets[0]
+        ftype = field.field_type
+        if ftype == _ff.FieldType.CHECKBOX:
+            return widget.isChecked()
+        if ftype == _ff.FieldType.RADIO:
+            for rb, (fld, caption) in self._radio_buttons.items():
+                if fld.name == field.name and rb.isChecked():
+                    return caption
+            return ""
+        if ftype in (_ff.FieldType.COMBO, _ff.FieldType.LISTBOX):
+            return widget.currentText()
+        if isinstance(widget, QTextEdit):
+            return widget.toPlainText()
+        return widget.text()
+
+    def _set_widget_value(self, field, value):
+        self._seeding += 1
+        try:
+            widgets = self._field_widgets.get(field.name)
+            if not widgets:
+                return
+            widget = widgets[0]
+            ftype = field.field_type
+            if ftype == _ff.FieldType.CHECKBOX:
+                widget.setChecked(bool(value))
+            elif ftype == _ff.FieldType.RADIO:
+                group = self._radio_groups.get(field.name)
+                if group is not None:
+                    group.setExclusive(False)  # allow clearing the whole group
+                try:
+                    for rb, (fld, caption) in self._radio_buttons.items():
+                        if fld.name == field.name:
+                            rb.setChecked(caption == value)
+                finally:
+                    if group is not None:
+                        group.setExclusive(True)
+            elif ftype in (_ff.FieldType.COMBO, _ff.FieldType.LISTBOX):
+                index = widget.findText(str(value))
+                widget.setCurrentIndex(index if index >= 0 else -1)
+            elif isinstance(widget, QTextEdit):
+                widget.setPlainText(str(value))
+            else:
+                widget.setText(str(value))
+        finally:
+            self._seeding -= 1
+
+    def clear_field(self, field):
+        if not field.is_editable():
+            return
+        empty = False if field.field_type == _ff.FieldType.CHECKBOX else ""
+        self._set_widget_value(field, empty)
+        self._mark_dirty(field)
+
+    def clear_form(self):
+        for field in self.editable_fields:
+            self.clear_field(field)
+
+    # ------------------------------------------------------------------
+    # Editing / focus signals
+    # ------------------------------------------------------------------
+
+    def on_edited(self, field):
+        if self._seeding:
+            return
+        self._mark_dirty(field)
+
+    def on_toggled(self, field, _checked):
+        if self._seeding:
+            return
+        self._mark_dirty(field)
+
+    def on_radio(self, field, _caption):
+        if self._seeding:
+            return
+        self._mark_dirty(field)
+
+    def on_focus(self, field):
+        self._current_index = self._index_of(field)
+        self.window._on_form_focus(field)
+
+    def on_commit(self, field, text):
+        if field.detected_type and text:
+            ok, message = _ff.FormValidator.validate(field, text)
+            field.validation_message = "" if ok else message
+            self.window._on_form_validation(field, field.validation_message)
+        self.window._update_navigator_item(field)
+
+    def _mark_dirty(self, field):
+        self.dirty = True
+        self._dirty_names.add(field.name)
+        self.window._on_form_dirty(self.tab_id)
+        self._autosave_timer.start()
+
+    def _index_of(self, field):
+        for i, candidate in enumerate(self.editable_fields):
+            if candidate.name == field.name:
+                return i
+        return -1
+
+    # ------------------------------------------------------------------
+    # Navigation
+    # ------------------------------------------------------------------
+
+    def focus_next(self, forward: bool = True):
+        fields = self.editable_fields
+        if not fields:
+            return
+        count = len(fields)
+        index = self._current_index
+        index = -1 if index < 0 else index
+        self._current_index = (index + (1 if forward else -1)) % count
+        self.focus_field(fields[self._current_index])
+
+    def focus_field(self, field):
+        self.window._jump_to_page(field.page_index)
+        widgets = self._field_widgets.get(field.name)
+        if widgets:
+            widget = widgets[0]
+            widget.show()
+            widget.setFocus(Qt.OtherFocusReason)
+        self.window._ensure_field_visible(field)
+
+    # ------------------------------------------------------------------
+    # Context menu (type override, clear)
+    # ------------------------------------------------------------------
+
+    def _on_context_menu(self, widget, field, pos):
+        menu = QMenu(self.window)
+        if field.detected_type:
+            marker = " (inferred)" if field.is_inferred else ""
+            menu.addSection(f"Detected: {field.detected_type}{marker}")
+        type_menu = menu.addMenu("Set field type")
+        for label, ftype in [
+            ("Text", None),
+            ("Date", _ff.TYPE_DATE),
+            ("Phone", _ff.TYPE_PHONE),
+            ("ZIP / Postal code", _ff.TYPE_ZIP),
+            ("Email", _ff.TYPE_EMAIL),
+            ("Currency", _ff.TYPE_CURRENCY),
+            ("Number", _ff.TYPE_NUMERIC),
+        ]:
+            action = type_menu.addAction(label)
+            action.triggered.connect(lambda _c, t=ftype, f=field: self._apply_override(f, t))
+        if field.detected_type == _ff.TYPE_DATE and field.is_editable():
+            date_action = menu.addAction("Pick a date…")
+            date_action.triggered.connect(lambda _c, f=field: self._open_date_picker(f))
+        menu.addSeparator()
+        clear_action = menu.addAction("Clear field")
+        clear_action.triggered.connect(lambda: self.clear_field(field))
+        menu.exec(widget.mapToGlobal(pos))
+
+    def _apply_override(self, field, ftype):
+        field.detected_type = ftype
+        field.is_inferred = False
+        field.validation_message = ""
+        key = f"{field.page_index}:{field.name}"
+        if ftype:
+            self._user_overrides[key] = ftype
+        else:
+            self._user_overrides.pop(key, None)
+        self.window._on_form_validation(field, "Field type overridden." if ftype else "Field type cleared.")
+        self.window._update_navigator_item(field)
+        widgets = self._field_widgets.get(field.name)
+        if widgets:
+            widgets[0].setToolTip(self._tooltip_for(field))
+            self.on_commit(field, str(self.current_value(field)))
+
+    # ------------------------------------------------------------------
+    # Tooltips / status helpers
+    # ------------------------------------------------------------------
+
+    def _tooltip_for(self, field) -> str:
+        parts = []
+        if field.label and field.label != field.name:
+            parts.append(field.label)
+        parts.append(field.name)
+        if field.required:
+            parts.append("Required")
+        if field.detected_type:
+            parts.append(f"Type: {field.detected_type}{' (inferred)' if field.is_inferred else ''}")
+        if field.validation_message:
+            parts.append(field.validation_message)
+        return " • ".join(parts)
+
+    # ------------------------------------------------------------------
+    # Persistence
+    # ------------------------------------------------------------------
+
+    def save(self, doc, path) -> bool:
+        """Write dirty field values into the PDF and persist incrementally."""
+        if not self.dirty:
+            return True
+        for name in self._dirty_names:
+            field = self._by_name.get(name)
+            if field is None or not field.is_editable():
+                continue
+            try:
+                _ff.set_field_value(doc, field, self.current_value(field))
+            except Exception:  # nosec B112
+                continue
+        self._persist(doc, path)
+        self.dirty = False
+        self._dirty_names = set()
+        if self._state_store is not None:
+            self._state_store.clear(path)
+        return True
+
+    def save_as(self, doc, new_path):
+        doc.save(str(new_path), garbage=1, deflate=True)
+        self.dirty = False
+        self._dirty_names = set()
+        if self._state_store is not None:
+            self._state_store.clear(new_path)
+
+    @staticmethod
+    def _persist(doc, path):
+        try:
+            doc.save(str(path), incremental=True, encryption=0)
+        except Exception:
+            doc.save(str(path), garbage=1, deflate=True)
+
+    def _autosave_now(self):
+        if not self.dirty or self._state_store is None:
+            return
+        path = getattr(self.window, "current_path", None)
+        if not path:
+            return
+        values = {}
+        for field in self.fields:
+            if field.is_editable():
+                values[f"{field.page_index}:{field.name}"] = self.current_value(field)
+        self._state_store.save(path, values, dict(self._user_overrides))
+
+    def discard_autosave(self, path):
+        if self._state_store is not None:
+            self._state_store.clear(path)
+
+    def _apply_stored_state(self, path):
+        if self._state_store is None or not self._state_store.has_state(path):
+            return
+        data = self._state_store.load(path)
+        values = data.get("values", {})
+        overrides = data.get("overrides", {})
+        for field in self.fields:
+            key = f"{field.page_index}:{field.name}"
+            if overrides.get(key):
+                field.detected_type = overrides[key]
+                field.is_inferred = False
+                self._user_overrides[key] = overrides[key]
+            if key in values:
+                field.value = values[key]
+            elif field.name in values:
+                field.value = values[field.name]
+        # Restored state is unsaved form work → mark the tab dirty.
+        if values:
+            self.dirty = True
+
+    # ------------------------------------------------------------------
+    # Navigator / summary data
+    # ------------------------------------------------------------------
+
+    def field_status(self, field) -> str:
+        if not field.is_editable():
+            return "readonly"
+        value = self.current_value(field)
+        empty = value is None or value == "" or (isinstance(value, bool) and not value)
+        if field.validation_message:
+            return "invalid"
+        if field.required and empty:
+            return "required"
+        if not empty:
+            return "filled"
+        return "empty"
+
+    def _summary_value(self, field) -> str:
+        value = self.current_value(field)
+        if isinstance(value, bool):
+            return "✓" if value else ""
+        text = str(value or "")
+        return text if len(text) <= 40 else text[:37] + "…"
+
+    def navigator_rows(self):
+        rows = []
+        for field in self.fields:
+            rows.append(
+                {
+                    "page": field.page_index,
+                    "name": field.display_name(),
+                    "field_type": field.field_type,
+                    "status": self.field_status(field),
+                    "value": self._summary_value(field),
+                    "validation": field.validation_message,
+                }
+            )
+        return rows
+
+    def completion_summary(self):
+        counts = {"filled": 0, "empty": 0, "required": 0, "invalid": 0}
+        for field in self.fields:
+            status = self.field_status(field)
+            if status == "filled":
+                counts["filled"] += 1
+            elif status == "required":
+                counts["required"] += 1
+            elif status == "invalid":
+                counts["invalid"] += 1
+            elif status == "empty":
+                counts["empty"] += 1
+        return counts
+
+
+# ---------------------------------------------------------------------------
 # Main Window
 # ---------------------------------------------------------------------------
 
@@ -1312,14 +2112,16 @@ class PdfReaderWindow(QMainWindow):
         ("fit_width", "Ctrl+0"),
         ("close_tab", "Ctrl+W"),
         ("new_tab", "Ctrl+T"),
+        ("next_field", "Ctrl+Down"),
+        ("previous_field", "Ctrl+Up"),
     )
 
     def __init__(self, ipc_server: QLocalServer | None = None):
         _perf_start_t = _perf_start()
         super().__init__()
         self.setWindowTitle(self.APP_NAME)
-        self.resize(1100, 820)
-        self.setMinimumSize(720, 480)
+        self.resize(1240, 840)
+        self.setMinimumSize(900, 560)
 
         # ---- IPC server for single-instance tab routing ----
         self._ipc_server = ipc_server
@@ -1374,6 +2176,25 @@ class PdfReaderWindow(QMainWindow):
         self.tabs: dict[int, TabData] = {}
         self.tab_counter = 0
         self.current_tab_id: int | None = None
+
+        # ---- AcroForm controllers (Phase 2) ----
+        self._form_controllers: dict[int, _FormController] = {}
+        _app_data = QStandardPaths.writableLocation(QStandardPaths.AppDataLocation)
+        self._form_store = _ff.FormStateStore(base_dir=Path(_app_data))
+
+        # ---- Editing: Fill / Add Text / Sign / Image (v1.3.0) ----
+        self._edit_controllers: dict[int, edit_ui.EditController] = {}
+        self._edit_tool_buttons: dict[str, QToolButton] = {}
+        self._edit_tool: str | None = None
+        self._context_toolbar = None
+        self._ctx_updating = False
+        self._ctx_color_value = "#000000"
+        self._signed_warning_tabs: set[int] = set()
+        self._signature_store = sig_store.SignatureStore(
+            Path(_app_data) / "signatures"
+        )
+        self._form_menu = None
+        self._navigator_action = None
 
         # ---- Dark mode ----
         self._theme = self.settings.value("theme", self.THEME_AUTO, int)
@@ -1534,6 +2355,31 @@ class PdfReaderWindow(QMainWindow):
         self._content_stack = {None: self.empty_state_widget}
         self._current_content = None
 
+        self._build_navigator_dock()
+
+    def _build_navigator_dock(self):
+        """Right-hand dock listing form fields and their status."""
+        self.form_dock = QDockWidget("Form Navigator", self)
+        self.form_dock.setObjectName("formNavigatorDock")
+        self.form_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
+        self.form_tree = QTreeWidget()
+        self.form_tree.setHeaderLabels(["Field", "Status", "Value"])
+        self.form_tree.setColumnWidth(0, 170)
+        self.form_tree.setColumnWidth(1, 70)
+        self.form_tree.setRootIsDecorated(True)
+        self.form_tree.setUniformRowHeights(True)
+        self.form_tree.itemClicked.connect(self._on_navigator_item_clicked)
+        self.form_tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.form_dock.setWidget(self.form_tree)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.form_dock)
+        self.form_dock.hide()
+
+        # Debounce navigator rebuilds (fires on every keystroke in a field).
+        self._navigator_rebuild_timer = QTimer(self)
+        self._navigator_rebuild_timer.setSingleShot(True)
+        self._navigator_rebuild_timer.setInterval(250)
+        self._navigator_rebuild_timer.timeout.connect(self._rebuild_navigator)
+
     def _build_actions(self):
         """Build the single, unified application toolbar.
 
@@ -1679,6 +2525,39 @@ class PdfReaderWindow(QMainWindow):
         ):
             toolbar.addWidget(annotation_button)
 
+        # ── Edit: Fill / Add Text / Sign / Image (v1.3.0) ──
+        toolbar.addSeparator()
+        self.fill_button = icon_button(
+            "fill", "Fill form fields", "Fill form fields"
+        )
+        self.fill_button.clicked.connect(self._focus_first_form_field)
+        self.text_button = icon_button(
+            "text", "Add text", "Add text", checkable=True
+        )
+        self.text_button.clicked.connect(
+            lambda checked: self._activate_edit_tool("text", checked)
+        )
+        self.sign_button = icon_button(
+            "signature", "Add signature", "Add signature", checkable=True
+        )
+        self.sign_button.clicked.connect(self._choose_signature)
+        self.image_button = icon_button(
+            "image", "Insert image", "Insert image", checkable=True
+        )
+        self.image_button.clicked.connect(self._choose_image)
+        self._edit_tool_buttons = {
+            "text": self.text_button,
+            "sign": self.sign_button,
+            "image": self.image_button,
+        }
+        for edit_button in (
+            self.fill_button,
+            self.text_button,
+            self.sign_button,
+            self.image_button,
+        ):
+            toolbar.addWidget(edit_button)
+
         # Keep search anchored to the right edge of the toolbar.
         spacer = QWidget(toolbar)
         spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
@@ -1751,6 +2630,7 @@ class PdfReaderWindow(QMainWindow):
         toolbar.addWidget(self.semantic_cb)
 
         self._refresh_toolbar_icons()
+        self._build_context_toolbar()
 
     def _refresh_toolbar_icons(self):
         """Re-render every toolbar icon for the active theme."""
@@ -1768,6 +2648,670 @@ class PdfReaderWindow(QMainWindow):
             )
         if getattr(self, "_empty_icon_label", None) is not None:
             self._empty_icon_label.setPixmap(_make_empty_state_icon(self._dark_mode))
+
+    # ------------------------------------------------------------------
+    # Editing: Fill / Add Text / Sign / Image (v1.3.0)
+    # ------------------------------------------------------------------
+
+    def _build_context_toolbar(self):
+        self.addToolBarBreak(Qt.TopToolBarArea)
+        bar = QToolBar("Context Toolbar", self)
+        bar.setObjectName("ContextToolbar")
+        bar.setMovable(False)
+        bar.setFloatable(False)
+        bar.setIconSize(QSize(16, 16))
+        self.addToolBar(Qt.TopToolBarArea, bar)
+        self.context_toolbar = bar
+
+        self._ctx_font = QComboBox(bar)
+        self._ctx_font.setObjectName("CtxCombo")
+        for label, pdf_name in eo.TEXT_FONTS:
+            self._ctx_font.addItem(label, pdf_name)
+        self._ctx_font.setFixedWidth(150)
+        self._ctx_font.currentIndexChanged.connect(self._on_context_style_changed)
+
+        self._ctx_size = QSpinBox(bar)
+        self._ctx_size.setObjectName("CtxSpin")
+        self._ctx_size.setRange(6, 96)
+        self._ctx_size.setValue(14)
+        self._ctx_size.setFixedWidth(58)
+        self._ctx_size.valueChanged.connect(self._on_context_style_changed)
+
+        self._ctx_color = QToolButton(bar)
+        self._ctx_color.setObjectName("CtxButton")
+        self._ctx_color.setText("A")
+        self._ctx_color.setToolTip("Text color")
+        self._ctx_color.clicked.connect(self._choose_text_color)
+        self._update_color_button()
+
+        def toggle(label, tooltip, *, bold=False, italic=False, underline=False):
+            button = QToolButton(bar)
+            button.setObjectName("CtxButton")
+            button.setText(label)
+            button.setToolTip(tooltip)
+            button.setCheckable(True)
+            font = button.font()
+            font.setBold(bold)
+            font.setItalic(italic)
+            font.setUnderline(underline)
+            button.setFont(font)
+            button.clicked.connect(self._on_context_style_changed)
+            return button
+
+        self._ctx_bold = toggle("B", "Bold", bold=True)
+        self._ctx_italic = toggle("I", "Italic", italic=True)
+        self._ctx_underline = toggle("U", "Underline", underline=True)
+
+        self._ctx_align_group = QButtonGroup(self)
+        self._ctx_align_group.setExclusive(True)
+        self._ctx_align_left = toggle("L", "Align left")
+        self._ctx_align_center = toggle("C", "Align center")
+        self._ctx_align_right = toggle("R", "Align right")
+        for button in (
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+        ):
+            self._ctx_align_group.addButton(button)
+        self._ctx_align_left.setChecked(True)
+
+        self._ctx_rotate = QToolButton(bar)
+        self._ctx_rotate.setObjectName("CtxButton")
+        self._ctx_rotate.setText("Rotate 90°")
+        self._ctx_rotate.setToolTip("Rotate the selected object by 90 degrees")
+        self._ctx_rotate.clicked.connect(self._context_rotate)
+
+        self._ctx_duplicate = QToolButton(bar)
+        self._ctx_duplicate.setObjectName("CtxButton")
+        self._ctx_duplicate.setText("Duplicate")
+        self._ctx_duplicate.setToolTip("Duplicate the selected object")
+        self._ctx_duplicate.clicked.connect(self._context_duplicate)
+
+        self._ctx_delete = QToolButton(bar)
+        self._ctx_delete.setObjectName("CtxButton")
+        self._ctx_delete.setText("Delete")
+        self._ctx_delete.setToolTip("Delete the selected object")
+        self._ctx_delete.clicked.connect(self._context_delete)
+
+        self._ctx_done = QToolButton(bar)
+        self._ctx_done.setObjectName("CtxButton")
+        self._ctx_done.setText("Done")
+        self._ctx_done.setToolTip("Finish editing this text")
+        self._ctx_done.clicked.connect(self._context_done)
+
+        self._ctx_hint = QLabel("Select text or an object to format", bar)
+        self._ctx_hint.setObjectName("CtxLabel")
+        self._ctx_hint_action = bar.addWidget(self._ctx_hint)
+
+        self._ctx_text_actions = []
+        text_label = QLabel("Text", bar)
+        text_label.setObjectName("CtxLabel")
+        self._ctx_text_actions.append(bar.addWidget(text_label))
+        for widget in (
+            self._ctx_font,
+            self._ctx_size,
+            self._ctx_color,
+            self._ctx_bold,
+            self._ctx_italic,
+            self._ctx_underline,
+        ):
+            self._ctx_text_actions.append(bar.addWidget(widget))
+        self._ctx_text_actions.append(bar.addSeparator())
+        for widget in (
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+        ):
+            self._ctx_text_actions.append(bar.addWidget(widget))
+        bar.addSeparator()
+        for widget in (
+            self._ctx_rotate,
+            self._ctx_duplicate,
+            self._ctx_delete,
+        ):
+            bar.addWidget(widget)
+        self._ctx_done_action = bar.addWidget(self._ctx_done)
+        self._ctx_text_widgets = [
+            text_label,
+            self._ctx_font,
+            self._ctx_size,
+            self._ctx_color,
+            self._ctx_bold,
+            self._ctx_italic,
+            self._ctx_underline,
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+        ]
+        for control in (
+            self._ctx_font,
+            self._ctx_size,
+            self._ctx_color,
+            self._ctx_bold,
+            self._ctx_italic,
+            self._ctx_underline,
+            self._ctx_align_left,
+            self._ctx_align_center,
+            self._ctx_align_right,
+            self._ctx_rotate,
+            self._ctx_duplicate,
+            self._ctx_delete,
+            self._ctx_done,
+        ):
+            control.setFixedHeight(28)
+        bar.hide()
+
+    def _update_color_button(self):
+        self._ctx_color.setStyleSheet(
+            f"QToolButton#CtxButton {{ color: {self._ctx_color_value}; font-weight: 700; }}"
+        )
+
+    def _on_context_style_changed(self, *args):
+        if self._ctx_updating:
+            return
+        controller = self._edit_for_current()
+        obj = controller.selected_object() if controller else None
+        if obj is None or obj.kind != eo.TEXT_KIND:
+            return
+        align = (
+            "left"
+            if self._ctx_align_left.isChecked()
+            else "center"
+            if self._ctx_align_center.isChecked()
+            else "right"
+        )
+        style = eo.TextStyle(
+            font_family=self._ctx_font.currentData() or "Helvetica",
+            font_size=float(self._ctx_size.value()),
+            color=self._ctx_color_value,
+            bold=self._ctx_bold.isChecked(),
+            italic=self._ctx_italic.isChecked(),
+            underline=self._ctx_underline.isChecked(),
+            align=align,
+        )
+        controller.apply_style(style)
+
+    def _choose_text_color(self):
+        color = QColorDialog.getColor(
+            QColor(self._ctx_color_value), self, "Text Color"
+        )
+        if color.isValid():
+            self._ctx_color_value = color.name()
+            self._update_color_button()
+            self._on_context_style_changed()
+
+    def _context_rotate(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.rotate_selected(90)
+            self._on_edit_selection_changed(controller.selected_object())
+
+    def _context_duplicate(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.duplicate_selected()
+
+    def _context_delete(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.delete_selected()
+
+    def _context_done(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller._finish_text_edit()
+
+    def _on_edit_selection_changed(self, obj):
+        if not getattr(self, "context_toolbar", None):
+            return
+        if obj is None:
+            if self.document is None:
+                self.context_toolbar.hide()
+                return
+            self._ctx_updating = True
+            try:
+                for action in getattr(self, "_ctx_text_actions", []):
+                    action.setVisible(False)
+                for widget in self._ctx_text_widgets:
+                    widget.setVisible(False)
+                if getattr(self, "_ctx_done_action", None) is not None:
+                    self._ctx_done_action.setVisible(False)
+                self._ctx_done.setVisible(False)
+                if getattr(self, "_ctx_hint_action", None) is not None:
+                    self._ctx_hint_action.setVisible(True)
+                self._ctx_hint.setVisible(True)
+                for control in (
+                    self._ctx_rotate,
+                    self._ctx_duplicate,
+                    self._ctx_delete,
+                ):
+                    control.setEnabled(False)
+            finally:
+                self._ctx_updating = False
+            self.context_toolbar.show()
+            return
+        controller = self._edit_for_current()
+        self._ctx_updating = True
+        try:
+            if getattr(self, "_ctx_hint_action", None) is not None:
+                self._ctx_hint_action.setVisible(False)
+            self._ctx_hint.setVisible(False)
+            for control in (
+                self._ctx_rotate,
+                self._ctx_duplicate,
+                self._ctx_delete,
+            ):
+                control.setEnabled(True)
+            is_text = obj.kind == eo.TEXT_KIND
+            for action in getattr(self, "_ctx_text_actions", []):
+                action.setVisible(is_text)
+            for widget in self._ctx_text_widgets:
+                widget.setVisible(is_text)
+            editing = bool(
+                is_text
+                and controller is not None
+                and getattr(controller, "_editor", None) is not None
+            )
+            if getattr(self, "_ctx_done_action", None) is not None:
+                self._ctx_done_action.setVisible(editing)
+            self._ctx_done.setVisible(editing)
+            if is_text:
+                style = obj.style.normalized()
+                index = self._ctx_font.findData(style.font_family)
+                self._ctx_font.setCurrentIndex(index if index >= 0 else 0)
+                self._ctx_size.setValue(int(round(style.font_size)))
+                self._ctx_color_value = style.color
+                self._update_color_button()
+                self._ctx_bold.setChecked(style.bold)
+                self._ctx_italic.setChecked(style.italic)
+                self._ctx_underline.setChecked(style.underline)
+                self._ctx_align_left.setChecked(style.align == "left")
+                self._ctx_align_center.setChecked(style.align == "center")
+                self._ctx_align_right.setChecked(style.align == "right")
+        finally:
+            self._ctx_updating = False
+        self.context_toolbar.show()
+
+    def _on_edit_tool_changed(self, tool):
+        for name, button in getattr(self, "_edit_tool_buttons", {}).items():
+            button.blockSignals(True)
+            button.setChecked(name == tool)
+            button.blockSignals(False)
+        self._edit_tool = tool
+        controller = self._edit_for_current()
+        self._on_edit_selection_changed(
+            controller.selected_object() if controller is not None else None
+        )
+
+    def _init_edit(self):
+        if self.current_tab_id is None or self.document is None or self.current_path is None:
+            return None
+        old = self._edit_controllers.pop(self.current_tab_id, None)
+        if old is not None:
+            old.detach_all()
+        tab_id = self.current_tab_id
+        controller = edit_ui.EditController(self, tab_id)
+        controller.selectionChanged.connect(self._on_edit_selection_changed)
+        controller.statusMessage.connect(
+            lambda message: self.statusBar().showMessage(message, 6000)
+        )
+        controller.dirtyChanged.connect(
+            lambda _dirty, tid=tab_id: self._on_edit_dirty(tid)
+        )
+        controller.toolChanged.connect(self._on_edit_tool_changed)
+        controller.load(self.document, self.current_path)
+        self._edit_controllers[self.current_tab_id] = controller
+        self._edit_tool = None
+        return controller
+
+    def _edit_for_current(self):
+        if self.current_tab_id is None:
+            return None
+        return self._edit_controllers.get(self.current_tab_id)
+
+    def _drop_edit_controller(self, tab_id):
+        controller = self._edit_controllers.pop(tab_id, None)
+        if controller is not None:
+            controller.detach_all()
+        if tab_id == self.current_tab_id:
+            self._edit_tool = None
+            self._on_edit_selection_changed(None)
+
+    def _on_edit_dirty(self, tab_id):
+        self._update_window_title_dirty()
+        self._refresh_tab_dirty(tab_id)
+
+    def _refresh_tab_dirty(self, tab_id):
+        form = self._form_controllers.get(tab_id)
+        edit = self._edit_controllers.get(tab_id)
+        dirty = bool(
+            (form is not None and form.dirty)
+            or (edit is not None and edit.is_dirty())
+        )
+        tab = self.tabs.get(tab_id)
+        if tab is None:
+            return
+        for index in range(self.tab_bar.count()):
+            if self.tab_bar.tabData(index) == tab_id:
+                self.tab_bar.setTabText(
+                    index, ("● " if dirty else "") + tab.name
+                )
+                break
+
+    def _document_dirty(self, tab_id) -> bool:
+        form = self._form_controllers.get(tab_id)
+        edit = self._edit_controllers.get(tab_id)
+        return bool(
+            (form is not None and form.dirty)
+            or (edit is not None and edit.is_dirty())
+        )
+
+    def _current_document_encrypted(self) -> bool:
+        tab = self.tabs.get(self.current_tab_id) if self.current_tab_id else None
+        return bool(getattr(tab, "encrypted", False))
+
+    def _focus_first_form_field(self):
+        form = self._form_for_current()
+        if form is not None:
+            self.form_dock.show()
+            self._rebuild_navigator()
+            if form.editable_fields:
+                form.focus_next(forward=True)
+                self.statusBar().showMessage(
+                    "Form fields are editable — click any field.", 6000
+                )
+                return
+        self.statusBar().showMessage(
+            "This document has no interactive form fields; use Add Text instead.",
+            6000,
+        )
+
+    def _activate_edit_tool(self, tool: str, checked: bool):
+        if not checked:
+            if self._edit_tool == tool:
+                self._deactivate_edit_tool()
+            return
+        controller = self._edit_for_current()
+        if controller is None or self.document is None:
+            self._uncheck_edit_tools()
+            return
+        if not eo.document_allows_editing(self.document):
+            self._uncheck_edit_tools()
+            self.statusBar().showMessage(
+                "This document is read-only or encrypted and cannot be edited.", 6000
+            )
+            return
+        if not self._confirm_edit_on_signed():
+            self._uncheck_edit_tools()
+            return
+        controller.set_tool(tool)
+        self._edit_tool = tool
+        if tool == "text":
+            self.statusBar().showMessage(
+                "Click on the page to add text. Escape to cancel.", 6000
+            )
+
+    def _uncheck_edit_tools(self):
+        for button in self._edit_tool_buttons.values():
+            button.blockSignals(True)
+            button.setChecked(False)
+            button.blockSignals(False)
+        self._edit_tool = None
+
+    def _deactivate_edit_tool(self):
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller.set_tool(None)
+        self._uncheck_edit_tools()
+        self._edit_tool = None
+        self._on_edit_selection_changed(None)
+
+    def _choose_signature(self):
+        controller = self._edit_for_current()
+        if controller is None or self.document is None:
+            self.sign_button.setChecked(False)
+            return
+        if not eo.document_allows_editing(self.document):
+            self.sign_button.setChecked(False)
+            self.statusBar().showMessage(
+                "This document cannot be edited.", 5000
+            )
+            return
+        if not self._confirm_edit_on_signed():
+            self.sign_button.setChecked(False)
+            return
+        dialog = edit_ui.SignatureDialog(self._signature_store, self)
+        if dialog.exec() and dialog.result_png:
+            controller.set_pending_image(
+                "signature", dialog.result_png, dialog.result_name
+            )
+            self._edit_tool = "sign"
+            self.statusBar().showMessage(
+                "Click on the page to place the signature. Escape to cancel.",
+                6000,
+            )
+        else:
+            self._uncheck_edit_tools()
+            controller.set_tool(None)
+
+    def _choose_image(self):
+        controller = self._edit_for_current()
+        if controller is None or self.document is None:
+            self.image_button.setChecked(False)
+            return
+        if not eo.document_allows_editing(self.document):
+            self.image_button.setChecked(False)
+            self.statusBar().showMessage("This document cannot be edited.", 5000)
+            return
+        if not self._confirm_edit_on_signed():
+            self.image_button.setChecked(False)
+            return
+        path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Insert Image",
+            str(Path.home()),
+            "Images (*.png *.jpg *.jpeg *.bmp *.webp *.gif)",
+        )
+        if not path:
+            self._uncheck_edit_tools()
+            return
+        image = QImage(path)
+        if image.isNull():
+            self.image_button.setChecked(False)
+            self.statusBar().showMessage("That image could not be read.", 5000)
+            return
+        image = image.convertToFormat(QImage.Format_RGBA8888)
+        buffer = QBuffer()
+        buffer.open(QBuffer.OpenModeFlag.WriteOnly)
+        image.save(buffer, "PNG")
+        png = bytes(buffer.data())
+        buffer.close()
+        controller.set_pending_image("image", png, Path(path).name)
+        self._edit_tool = "image"
+        self.statusBar().showMessage(
+            "Click on the page to place the image. Escape to cancel.", 6000
+        )
+
+    def _confirm_edit_on_signed(self) -> bool:
+        if self.document is None or not eo.document_has_signatures(self.document):
+            return True
+        if self.current_tab_id in self._signed_warning_tabs:
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle("Digital Signature Detected")
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText(
+            "This PDF contains a digital signature.\n\n"
+            "Editing it will invalidate the existing signature. "
+            "OpenReader uses visual electronic signatures only and does not "
+            "create certificate-based digital signatures."
+        )
+        continue_button = box.addButton("Continue Editing", QMessageBox.ButtonRole.DestructiveRole)
+        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is continue_button:
+            self._signed_warning_tabs.add(self.current_tab_id)
+            return True
+        return False
+
+    def _confirm_save_signed(self) -> bool:
+        if not self._document_dirty(self.current_tab_id):
+            return True
+        if self.document is None or not eo.document_has_signatures(self.document):
+            return True
+        box = QMessageBox(self)
+        box.setWindowTitle("Signed Document")
+        box.setIcon(QMessageBox.Icon.Warning)
+        box.setText(
+            "Saving changes to this signed document will invalidate its "
+            "existing digital signature."
+        )
+        save_button = box.addButton("Save Anyway", QMessageBox.ButtonRole.DestructiveRole)
+        copy_button = box.addButton("Save As Copy…", QMessageBox.ButtonRole.ActionRole)
+        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        if box.clickedButton() is save_button:
+            return True
+        if box.clickedButton() is copy_button:
+            self._save_document_as()
+            return False
+        return False
+
+    def _edit_undo(self) -> bool:
+        controller = self._edit_for_current()
+        if controller is not None:
+            focus = QApplication.focusWidget()
+            if controller._editor is not None and focus is controller._editor:
+                controller._editor.undo()
+                return True
+            if controller.undo():
+                return True
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit)):
+            focus.undo()
+            return True
+        return False
+
+    def _edit_redo(self) -> bool:
+        controller = self._edit_for_current()
+        if controller is not None:
+            focus = QApplication.focusWidget()
+            if controller._editor is not None and focus is controller._editor:
+                controller._editor.redo()
+                return True
+            if controller.redo():
+                return True
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit)):
+            focus.redo()
+            return True
+        return False
+
+    def _edit_escape(self) -> bool:
+        controller = self._edit_for_current()
+        if controller is None:
+            return False
+        if controller._editor is not None:
+            controller._cancel_text_edit()
+            return True
+        if controller.tool is not None:
+            self._deactivate_edit_tool()
+            return True
+        if controller.selected_object() is not None:
+            controller.select(None)
+            controller.set_tool(None)
+            return True
+        return False
+
+    def _edit_delete_key(self) -> bool:
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit, QSpinBox, QComboBox)):
+            return False
+        controller = self._edit_for_current()
+        if controller is not None and controller.selected_object() is not None:
+            controller.delete_selected()
+            return True
+        return False
+
+    def _edit_paste_shortcut(self) -> bool:
+        focus = QApplication.focusWidget()
+        if isinstance(focus, (QLineEdit, QTextEdit)):
+            return False
+        controller = self._edit_for_current()
+        return bool(controller is not None and controller.paste())
+
+    def _page_index_for_label(self, obj):
+        if obj is self.page_label:
+            return self.current_page
+        labels = getattr(self, "_continuous_pages", [])
+        try:
+            return labels.index(obj)
+        except ValueError:
+            return None
+
+    def _export_flattened(self):
+        if self.document is None or self.current_path is None:
+            self.statusBar().showMessage("No document open", 3000)
+            return
+        controller = self._edit_for_current()
+        if controller is not None:
+            controller._finish_text_edit()
+        form = self._form_for_current()
+        if form is not None:
+            self._write_dirty_form_values(form)
+        default_name = f"{Path(self.current_path).stem}_flattened.pdf"
+        target, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Flattened PDF",
+            str(Path(self.current_path).with_name(default_name)),
+            "PDF files (*.pdf)",
+        )
+        if not target:
+            return
+        if not target.lower().endswith(".pdf"):
+            target += ".pdf"
+        try:
+            eo.export_flattened(self.document, target)
+            self.statusBar().showMessage(
+                f"Flattened copy saved as {Path(target).name}", 5000
+            )
+        except Exception as exc:
+            self.statusBar().showMessage(f"Export failed: {exc}", 6000)
+
+    def _save_tab(self, tab_id) -> bool:
+        tab = self.tabs.get(tab_id)
+        if tab is None or tab.document is None or not tab.path:
+            return False
+        form = self._form_controllers.get(tab_id)
+        edit = self._edit_controllers.get(tab_id)
+        try:
+            if form is not None and form.dirty:
+                for name in form._dirty_names:
+                    field = form._by_name.get(name)
+                    if field is None or not field.is_editable():
+                        continue
+                    try:
+                        _ff.set_field_value(
+                            tab.document, field, form.current_value(field)
+                        )
+                    except Exception:  # nosec B112
+                        continue
+            if edit is not None:
+                edit._finish_text_edit()
+            eo.save_document(tab.document, tab.path)
+            if edit is not None:
+                edit.mark_saved()
+            if form is not None:
+                form.dirty = False
+                form._dirty_names = set()
+                if getattr(form, "_state_store", None) is not None:
+                    form._state_store.clear(tab.path)
+            self._refresh_tab_dirty(tab_id)
+            self._update_window_title_dirty()
+            return True
+        except Exception as exc:
+            self.statusBar().showMessage(f"Save failed: {exc}", 6000)
+            return False
 
     @staticmethod
     def _menu_label(label: str, shortcut: str) -> str:
@@ -1787,6 +3331,8 @@ class PdfReaderWindow(QMainWindow):
             "fit_width": self._fit_width_shortcut,
             "close_tab": self._close_current_tab,
             "new_tab": self.new_tab,
+            "next_field": self._form_next_field,
+            "previous_field": self._form_previous_field,
         }
         for shortcut_id, sequence in self.REGISTERED_SHORTCUTS:
             shortcut = QShortcut(QKeySequence(sequence), self)
@@ -1795,6 +3341,21 @@ class PdfReaderWindow(QMainWindow):
             self._app_shortcuts.append(shortcut)
 
     def eventFilter(self, obj, event):
+        # Editing tools capture a click on a rendered page to place an object.
+        if event.type() == QEvent.MouseButtonPress and event.button() == Qt.LeftButton:
+            if self._edit_tool in ("text", "sign", "image"):
+                page_index = self._page_index_for_label(obj)
+                if page_index is not None:
+                    edit = self._edit_for_current()
+                    zoom = (
+                        self._continuous_layout_zoom
+                        if self._continuous_mode
+                        else self.current_render_zoom
+                    )
+                    if edit is not None and edit.handle_page_click(
+                        page_index, obj, event.position().toPoint(), zoom or 1.0
+                    ):
+                        return True
         # Ctrl + Mouse Wheel zoom on the scroll area viewport
         if (event.type() == QEvent.Wheel
                 and obj is self.scroll_area.viewport()
@@ -1821,9 +3382,26 @@ class PdfReaderWindow(QMainWindow):
             if key == Qt.Key_PageDown:
                 self.next_page()
                 return True
+            if key == Qt.Key_Escape:
+                return self._edit_escape()
+            if key in (Qt.Key_Delete, Qt.Key_Backspace):
+                return self._edit_delete_key()
+            return False
+        if modifiers == (Qt.ControlModifier | Qt.ShiftModifier):
+            if key == Qt.Key_Z:
+                return self._edit_redo()
             return False
         if modifiers != Qt.ControlModifier:
             return False
+
+        if key in (Qt.Key_Z, Qt.Key_Y):
+            return self._edit_undo() if key == Qt.Key_Z else self._edit_redo()
+        if key == Qt.Key_V:
+            focus = QApplication.focusWidget()
+            if isinstance(focus, (QLineEdit, QTextEdit)):
+                return False
+            controller = self._edit_for_current()
+            return bool(controller is not None and controller.paste())
 
         ctrl_handlers = {
             Qt.Key_O: self.open_pdf,
@@ -1858,6 +3436,14 @@ class PdfReaderWindow(QMainWindow):
         if isinstance(focus, QTextEdit) and focus.textCursor().hasSelection():
             focus.copy()
             return
+        if not isinstance(focus, (QLineEdit, QTextEdit)):
+            controller = self._edit_for_current()
+            if (
+                controller is not None
+                and controller.selected_object() is not None
+                and controller.copy_selected()
+            ):
+                return
         self.copy_selected_text()
 
     def _fit_width_shortcut(self):
@@ -1909,6 +3495,14 @@ class PdfReaderWindow(QMainWindow):
         file_save = QAction(self._menu_label("Save PDF", "Ctrl+S"), self)
         file_save.triggered.connect(self._save_document)
         file_menu.addAction(file_save)
+
+        file_save_as = QAction(self._menu_label("Save As…", "Ctrl+Shift+S"), self)
+        file_save_as.triggered.connect(self._save_document_as)
+        file_menu.addAction(file_save_as)
+
+        file_export = QAction("Export Flattened PDF…", self)
+        file_export.triggered.connect(self._export_flattened)
+        file_menu.addAction(file_export)
 
         file_menu.addSeparator()
 
@@ -2007,6 +3601,27 @@ class PdfReaderWindow(QMainWindow):
         tools_menu.addSeparator()
         tools_menu.addAction("Compare PDFs", self._open_compare_dialog)
         tools_menu.addAction("Library Search", self._open_library_dialog)
+
+        # ── Form (Phase 2 — PDF Form Intelligence) ──
+        form_menu = menubar.addMenu("Form")
+        self._form_menu = form_menu
+
+        self.navigator_action = QAction("Form Navigator", self, checkable=True)
+        self.navigator_action.triggered.connect(self._toggle_navigator)
+        form_menu.addAction(self.navigator_action)
+
+        form_menu.addSeparator()
+        form_menu.addAction(self._menu_label("Next Field", "Ctrl+Down"), self._form_next_field)
+        form_menu.addAction(self._menu_label("Previous Field", "Ctrl+Up"), self._form_previous_field)
+        form_menu.addSeparator()
+        form_menu.addAction("Clear Field", self._form_clear_field)
+        form_menu.addAction("Clear Form", self._form_clear_all)
+        form_menu.addSeparator()
+        form_menu.addAction("Review & Complete…", self._form_review_complete)
+        self._form_menu_actions = []
+        for action in form_menu.actions():
+            self._form_menu_actions.append(action)
+        self._update_form_menu_state()
 
         # ── Help ──
         help_menu = menubar.addMenu("Help")
@@ -2138,6 +3753,9 @@ class PdfReaderWindow(QMainWindow):
             label = entry.name
             if len(label) > 50:
                 label = label[:47] + "..."
+            # Mark documents that contain fillable AcroForm fields (Phase 2).
+            if self._is_recent_form_doc(p):
+                label = f"📝 {label}"
             action = self._recent_menu.addAction(label)
             action.setToolTip(str(entry))
             action.triggered.connect(lambda _=False, path=p: self._open_recent(path))
@@ -2220,14 +3838,28 @@ class PdfReaderWindow(QMainWindow):
         new_tab_id = self.tab_bar.tabData(index)
         if new_tab_id is None or new_tab_id == self.current_tab_id:
             return
+        old_edit = self._edit_for_current()
+        if old_edit is not None:
+            old_edit.detach_all()
         self._save_current_state()
         self._save_current_tab_controls()
         self._restore_state(new_tab_id)
         self._restore_current_tab_controls()
+        if (
+            self.current_tab_id not in self._edit_controllers
+            and self.document is not None
+            and self.current_path is not None
+        ):
+            self._init_edit()
         self.clear_text_selection(render=False)
         self.statusBar().clearMessage()
         self.render_page()
         self._update_controls()
+        self._refresh_tab_dirty(new_tab_id)
+        # Refresh form-related chrome for the newly selected tab (Phase 2).
+        self._update_window_title_dirty()
+        self._update_form_menu_state()
+        self._navigator_rebuild_timer.start()
 
     def _save_current_tab_controls(self):
         pass
@@ -2305,6 +3937,9 @@ class PdfReaderWindow(QMainWindow):
     def _close_tab(self, tab_id: int):
         if tab_id not in self.tabs:
             return
+        # Warn before discarding unsaved form work (Phase 2).
+        if not self._confirm_discard_form(tab_id):
+            return
         tab = self.tabs[tab_id]
         was_current = tab_id == self.current_tab_id
         if was_current:
@@ -2316,6 +3951,8 @@ class PdfReaderWindow(QMainWindow):
                 fallback_id = remaining_ids[-1]
         if tab.document is not None:
             tab.document.close()
+        self._drop_form_controller(tab_id)
+        self._drop_edit_controller(tab_id)
         self.tab_bar.blockSignals(True)
         try:
             for i in range(self.tab_bar.count()):
@@ -2376,12 +4013,24 @@ class PdfReaderWindow(QMainWindow):
 
     def _close_all_tabs(self):
         tab_ids = list(self.tabs.keys())
+        for tab_id in tab_ids:
+            if not self._confirm_discard_form(tab_id):
+                return
+        for controller in getattr(self, "_form_controllers", {}).values():
+            controller.detach_all()
+        for controller in getattr(self, "_edit_controllers", {}).values():
+            controller.detach_all()
         for tid in tab_ids:
             if tid in self.tabs:
                 tab = self.tabs[tid]
                 if tab.document is not None:
                     tab.document.close()
         self.tabs.clear()
+        self._form_controllers.clear()
+        self._edit_controllers.clear()
+        self._edit_tool = None
+        if getattr(self, "context_toolbar", None):
+            self.context_toolbar.hide()
         self.tab_bar.clear()
         self._sync_tab_strip()
         self.current_tab_id = None
@@ -2529,6 +4178,12 @@ class PdfReaderWindow(QMainWindow):
         if self.current_tab_id is not None and self.current_tab_id in self.tabs:
             self.tabs[self.current_tab_id].document = document
             self.tabs[self.current_tab_id].path = file_name
+            try:
+                self.tabs[self.current_tab_id].encrypted = bool(
+                    document.needs_pass or document.is_encrypted
+                )
+            except Exception:
+                self.tabs[self.current_tab_id].encrypted = False
 
         self.document = document
         self.current_path = file_name
@@ -2565,6 +4220,11 @@ class PdfReaderWindow(QMainWindow):
                     break
 
         self.setWindowTitle(f"{self.APP_NAME} - {name}")
+
+        # Build AcroForm overlays (Phase 2) before the first render.
+        self._init_form()
+        self._init_edit()
+
         self.render_page()
         self._update_controls()
         self.statusBar().showMessage(f"Opened {name}", 5000)
@@ -2635,15 +4295,15 @@ class PdfReaderWindow(QMainWindow):
     def _do_render(self):
         """Perform the actual page render (called by debounce timer)."""
         _t = _perf_start()
-        if self.document is None:
-            self._teardown_continuous_layout()
-            # Show empty state if not already
-            if self.scroll_area.widget() is not self.empty_state_widget:
-                self.scroll_area.takeWidget()
-                empty_parent = self.empty_state_widget.parent()
-                self.scroll_area.setWidget(self.empty_state_widget)
-                self.scroll_area.setWidgetResizable(True)
-            self._update_controls()
+        if self.document is None or getattr(self.document, "is_closed", False):
+            if self.document is None:
+                self._teardown_continuous_layout()
+                # Show empty state if not already
+                if self.scroll_area.widget() is not self.empty_state_widget:
+                    self.scroll_area.takeWidget()
+                    self.scroll_area.setWidget(self.empty_state_widget)
+                    self.scroll_area.setWidgetResizable(True)
+                self._update_controls()
             return
 
         # Switch to page label if showing empty state
@@ -2686,6 +4346,7 @@ class PdfReaderWindow(QMainWindow):
                 self._paint_highlights(image, page, highlight_rects, render_zoom)
             if self.selected_rects:
                 self._paint_selection(image, page, self.selected_rects, render_zoom)
+            self._paint_form_highlights(image, page, self.current_page, render_zoom)
         except Exception as exc:
             self._show_error("Render Error", "Unable to render this page.", exc)
             return
@@ -2699,6 +4360,15 @@ class PdfReaderWindow(QMainWindow):
         qp = QPixmap.fromImage(image)
         qp.setDevicePixelRatio(dpr)
         self.page_label.setPixmap(qp)
+        # Drop overlay widgets left over from continuous mode, then attach
+        # this page's native form controls.
+        current_form = self._form_for_current()
+        if current_form is not None:
+            current_form.detach_all()
+        self._attach_form_overlays(self.page_label, self.current_page, zoom)
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit.attach_page(self.page_label, self.current_page, zoom)
         self.page_label.adjustSize()
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
@@ -2807,6 +4477,12 @@ class PdfReaderWindow(QMainWindow):
     def _teardown_continuous_layout(self):
         self._continuous_render_timer.stop()
         self._pending_scroll_page = None
+        form = self._form_for_current()
+        if form is not None:
+            form.detach_all()
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit.detach_all()
         # Clear the page list before detaching the widget so scroll events
         # raised by the swap are ignored.
         self._continuous_pages = []
@@ -2828,6 +4504,12 @@ class PdfReaderWindow(QMainWindow):
             self._release_pixmap(index)
 
     def _release_pixmap(self, page_index: int):
+        form = self._form_for_current()
+        if form is not None and 0 <= page_index < len(self._continuous_pages):
+            form.detach_page(self._continuous_pages[page_index])
+        edit = self._edit_for_current()
+        if edit is not None and 0 <= page_index < len(self._continuous_pages):
+            edit.detach_page(self._continuous_pages[page_index])
         if 0 <= page_index < len(self._continuous_pages):
             self._continuous_pages[page_index].clear()
         self._continuous_rendered.discard(page_index)
@@ -2906,6 +4588,7 @@ class PdfReaderWindow(QMainWindow):
                 pixmap.stride,
                 QImage.Format_RGB888,
             )
+            self._paint_form_highlights(image, page, page_index, render_zoom)
             if page_index == self.current_page:
                 highlight_rects = self._active_highlight_rects()
                 if highlight_rects:
@@ -2914,6 +4597,14 @@ class PdfReaderWindow(QMainWindow):
             qp.setDevicePixelRatio(dpr)
             self._continuous_pages[page_index].setPixmap(qp)
             self._continuous_rendered.add(page_index)
+            self._attach_form_overlays(
+                self._continuous_pages[page_index], page_index, layout_zoom
+            )
+            edit = self._edit_for_current()
+            if edit is not None:
+                edit.attach_page(
+                    self._continuous_pages[page_index], page_index, layout_zoom
+                )
         except Exception:
             # Leave the placeholder in place — one unrenderable page must not
             # take the rest of the document down with it.
@@ -2924,7 +4615,11 @@ class PdfReaderWindow(QMainWindow):
     def _on_continuous_scrolled(self, value: int):
         if not self._continuous_mode:
             return
-        if self.document is None or not self._continuous_pages:
+        if (
+            self.document is None
+            or getattr(self.document, "is_closed", False)
+            or not self._continuous_pages
+        ):
             return
         if self._continuous_syncing_scroll or self._pending_scroll_page is not None:
             return
@@ -2955,6 +4650,9 @@ class PdfReaderWindow(QMainWindow):
 
     def _apply_pending_scroll(self):
         page_index = self._pending_scroll_page
+        if self.document is None or getattr(self.document, "is_closed", False):
+            self._pending_scroll_page = None
+            return
         if page_index is None or not self._continuous_pages:
             return
         if page_index >= len(self._continuous_pages):
@@ -2975,7 +4673,7 @@ class PdfReaderWindow(QMainWindow):
         self._update_page_controls()
 
     def _update_page_controls(self):
-        if self.document is None:
+        if self.document is None or getattr(self.document, "is_closed", False):
             return
         self.page_spin.blockSignals(True)
         self.page_spin.setValue(self.current_page + 1)
@@ -3323,16 +5021,457 @@ class PdfReaderWindow(QMainWindow):
             except Exception as exc:
                 self.statusBar().showMessage(f"Could not save annotations: {exc}", 5000)
 
-    def _save_document(self):
-        """Explicit full save via File > Save."""
+    def _save_document(self) -> bool:
+        """Explicit save via File > Save (form values, edits, annotations)."""
         if self.current_path is None or self.document is None:
             self.statusBar().showMessage("No document open", 3000)
+            return False
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit._finish_text_edit()
+        if not self._confirm_save_signed():
+            return False
+        form = self._form_for_current()
+        try:
+            if form is not None and form.dirty:
+                self._write_dirty_form_values(form)
+            eo.save_document(self.document, self.current_path)
+        except Exception as exc:
+            self.statusBar().showMessage(f"Save failed: {exc}", 6000)
+            return False
+        if edit is not None:
+            edit.mark_saved()
+        if form is not None:
+            form.dirty = False
+            form._dirty_names = set()
+            if getattr(form, "_state_store", None) is not None:
+                form._state_store.clear(self.current_path)
+        self._update_window_title_dirty()
+        self._refresh_tab_dirty(self.current_tab_id)
+        self._update_navigator_item_for_tab(self.current_tab_id)
+        self.statusBar().showMessage("Document saved", 3000)
+        return True
+
+    def _save_document_as(self) -> bool:
+        """Save As — atomic full save to a new path, updating the tab."""
+        if self.document is None or self.current_path is None:
+            self.statusBar().showMessage("No document open", 3000)
+            return False
+        edit = self._edit_for_current()
+        if edit is not None:
+            edit._finish_text_edit()
+        default_name = f"{Path(self.current_path).stem}_completed.pdf"
+        new_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save As",
+            str(Path(self.current_path).with_name(default_name)),
+            "PDF files (*.pdf)",
+        )
+        if not new_path:
+            return False
+        if not new_path.lower().endswith(".pdf"):
+            new_path += ".pdf"
+        form = self._form_for_current()
+        try:
+            if form is not None:
+                self._write_dirty_form_values(form)
+            eo.save_document(self.document, new_path)
+        except Exception as exc:
+            self.statusBar().showMessage(f"Save As failed: {exc}", 6000)
+            return False
+        if edit is not None:
+            edit.mark_saved()
+            edit.path = new_path
+        if form is not None:
+            form.dirty = False
+            form._dirty_names = set()
+            if getattr(form, "_state_store", None) is not None:
+                form._state_store.clear(new_path)
+        self.current_path = new_path
+        if self.current_tab_id in self.tabs:
+            self.tabs[self.current_tab_id].path = new_path
+            self.tabs[self.current_tab_id].name = Path(new_path).name
+        self._add_recent_file(new_path)
+        self._update_window_title_dirty()
+        self._refresh_tab_dirty(self.current_tab_id)
+        self.statusBar().showMessage(f"Saved as {Path(new_path).name}", 4000)
+        return True
+
+    def _write_dirty_form_values(self, form):
+        for name in form._dirty_names:
+            field = form._by_name.get(name)
+            if field is None or not field.is_editable():
+                continue
+            try:
+                _ff.set_field_value(self.document, field, form.current_value(field))
+            except Exception:  # nosec B112
+                continue
+
+    # ------------------------------------------------------------------
+    # AcroForm — Phase 2 (v1.3.0 / 1.3.1 / 1.3.2)
+    # ------------------------------------------------------------------
+
+    def _init_form(self):
+        """Build the FormController for the current tab if the doc has fields."""
+        if self.current_tab_id is None or self.document is None or self.current_path is None:
+            return None
+        controllers = getattr(self, "_form_controllers", {})
+        stale = controllers.pop(self.current_tab_id, None)
+        if stale is not None:
+            stale.detach_all()
+        controller = _FormController(self, self.current_tab_id)
+        controller.load(self.document, self.current_path)
+        controller.readonly = not eo.document_allows_editing(
+            self.document, encrypted=self._current_document_encrypted()
+        )
+        controllers[self.current_tab_id] = controller
+        count = len(controller.fields)
+        if controller.readonly and count:
+            self.statusBar().showMessage(
+                "This document is read-only; form fields are displayed but cannot be edited.",
+                7000,
+            )
+        if count and _ff.has_form_fields(self.document):
+            self._mark_recent_form_doc(self.current_path)
+            self.statusBar().showMessage(
+                f"Form detected — {len(controller.editable_fields)} fillable field(s). "
+                "Click a field to complete it.",
+                7000,
+            )
+        self._rebuild_navigator()
+        self._update_form_menu_state()
+        return controller
+
+    def _form_for_current(self):
+        if self.current_tab_id is None:
+            return None
+        return getattr(self, "_form_controllers", {}).get(self.current_tab_id)
+
+    def _drop_form_controller(self, tab_id):
+        controller = getattr(self, "_form_controllers", {}).pop(tab_id, None)
+        if controller is not None:
+            controller.detach_all()
+
+    def _on_form_dirty(self, tab_id):
+        self._update_window_title_dirty()
+        self._update_form_menu_state()
+        self._update_navigator_item_for_tab(tab_id)
+        self._refresh_tab_dirty(tab_id)
+
+    def _update_window_title_dirty(self):
+        if self.current_path:
+            base = f"{self.APP_NAME} - {Path(self.current_path).name}"
+        else:
+            base = self.APP_NAME
+        form = self._form_for_current()
+        edit = self._edit_for_current()
+        dirty = bool(
+            (form is not None and form.dirty)
+            or (edit is not None and edit.is_dirty())
+        )
+        self.setWindowTitle(("● " if dirty else "") + base)
+
+    def _on_form_focus(self, field):
+        if field.validation_message:
+            self.statusBar().showMessage(field.validation_message, 6000)
+        else:
+            hint = field.display_name()
+            if field.detected_type:
+                hint += f" ({field.detected_type}{' inferred' if field.is_inferred else ''})"
+            if field.required:
+                hint += " [Required]"
+            self.statusBar().showMessage(hint, 6000)
+        self._select_navigator_field(field)
+
+    def _on_form_validation(self, field, message):
+        if message:
+            self.statusBar().showMessage(message, 6000)
+
+    # -- highlight painting ------------------------------------------------
+
+    def _paint_form_highlights(self, image, page, page_index, zoom):
+        form = self._form_for_current()
+        if form is None or not form.fields:
+            return
+        painter = QPainter(image)
+        try:
+            for field in form.fields:
+                if field.page_index != page_index:
+                    continue
+                self._paint_field_highlight(painter, field, page, zoom)
+        finally:
+            painter.end()
+
+    def _paint_field_highlight(self, painter, field, page, zoom):
+        if field.field_type == _ff.FieldType.RADIO:
+            for opt in field.option_rects:
+                x = int((opt[0] - page.rect.x0) * zoom)
+                y = int((opt[1] - page.rect.y0) * zoom)
+                w = int((opt[2] - opt[0]) * zoom)
+                h = int((opt[3] - opt[1]) * zoom)
+                if w > 0 and h > 0:
+                    painter.setPen(QColor(*_FORM_FILLABLE_BORDER))
+                    painter.setBrush(QColor(*_FORM_FILLABLE_FILL))
+                    painter.drawRect(x, y, w, h)
+            return
+        rx = field.rect
+        x = int((rx[0] - page.rect.x0) * zoom)
+        y = int((rx[1] - page.rect.y0) * zoom)
+        w = int((rx[2] - rx[0]) * zoom)
+        h = int((rx[3] - rx[1]) * zoom)
+        if w <= 0 or h <= 0:
+            return
+        if field.is_editable():
+            painter.setPen(QColor(*_FORM_FILLABLE_BORDER))
+            painter.setBrush(QColor(*_FORM_FILLABLE_FILL))
+        else:
+            painter.setPen(QPen(QColor(*_FORM_READONLY_BORDER), 1, Qt.DashLine))
+            painter.setBrush(Qt.NoBrush)
+        painter.drawRect(x, y, w, h)
+        # Required-but-empty (or invalid) fields get an amber outline.
+        if field.required and field.is_editable():
+            status = self._form_for_current().field_status(field)
+            if status in ("required", "invalid"):
+                painter.setPen(QColor(*_FORM_REQUIRED_EMPTY_BORDER))
+                painter.setBrush(Qt.NoBrush)
+                painter.drawRect(x - 1, y - 1, w + 2, h + 2)
+
+    def _attach_form_overlays(self, label, page_index, zoom):
+        form = self._form_for_current()
+        if form is None:
             return
         try:
-            self.document.save(self.current_path, garbage=1, deflate=True)
-            self.statusBar().showMessage("Document saved", 3000)
-        except Exception as exc:
-            self.statusBar().showMessage(f"Save failed: {exc}", 5000)
+            page = self.document.load_page(page_index)
+        except Exception:
+            return
+        form.attach_page(label, page_index, zoom, page.rect)
+
+    # -- field navigation -------------------------------------------------
+
+    def _form_next_field(self):
+        form = self._form_for_current()
+        if form is not None:
+            form.focus_next(forward=True)
+
+    def _form_previous_field(self):
+        form = self._form_for_current()
+        if form is not None:
+            form.focus_next(forward=False)
+
+    def _jump_to_page(self, page_index):
+        if self.document is None:
+            return
+        target = max(0, min(page_index, self.document.page_count - 1))
+        if target != self.current_page:
+            self.current_page = target
+            self.clear_text_selection(render=False)
+            self._sync_search_result_to_page()
+            self.render_page()
+        else:
+            self.render_page()  # re-attach overlays for this page window
+
+    def _ensure_field_visible(self, field):
+        controller = self._form_for_current()
+        if controller is None:
+            return
+        widgets = controller._field_widgets.get(field.name)
+        if widgets:
+            self.scroll_area.ensureWidgetVisible(widgets[0], 40, 40)
+
+    # -- Form Navigator ----------------------------------------------------
+
+    def _toggle_navigator(self, checked=None):
+        if self.navigator_action.isChecked():
+            self.form_dock.show()
+            self._rebuild_navigator()
+        else:
+            self.form_dock.hide()
+
+    def _rebuild_navigator(self):
+        if not hasattr(self, "form_tree"):
+            return
+        form = self._form_for_current()
+        self.form_tree.clear()
+        if form is None or not form.fields:
+            self.form_dock.hide()
+            if self.navigator_action.isChecked():
+                self.navigator_action.setChecked(False)
+            return
+        pages: dict = {}
+        for row in form.navigator_rows():
+            pages.setdefault(row["page"], []).append(row)
+        for page_index in sorted(pages):
+            page_item = QTreeWidgetItem(self.form_tree)
+            page_item.setText(0, f"Page {page_index + 1}")
+            page_item.setData(0, Qt.UserRole, None)
+            for row in pages[page_index]:
+                item = QTreeWidgetItem(page_item)
+                item.setText(0, row["name"])
+                item.setText(1, row["status"].capitalize())
+                item.setText(2, row["value"])
+                item.setData(0, Qt.UserRole, {"page": page_index, "name": row["name"]})
+                if row["validation"]:
+                    item.setToolTip(0, f"{row['name']}\n{row['validation']}")
+                status = row["status"]
+                if status == "required":
+                    item.setForeground(0, QColor(245, 158, 11))
+                elif status == "invalid":
+                    item.setForeground(0, QColor(220, 38, 38))
+            page_item.setExpanded(True)
+        self.form_tree.expandAll()
+
+    def _update_navigator_item_for_tab(self, tab_id):
+        if tab_id == self.current_tab_id:
+            self._navigator_rebuild_timer.start()
+
+    def _update_navigator_item(self, field):
+        self._navigator_rebuild_timer.start()
+
+    def _select_navigator_field(self, field):
+        if not hasattr(self, "form_tree"):
+            return
+        root = self.form_tree.invisibleRootItem()
+        for i in range(root.childCount()):
+            page_item = root.child(i)
+            for j in range(page_item.childCount()):
+                item = page_item.child(j)
+                if item.data(0, Qt.UserRole) == {"page": field.page_index, "name": field.name}:
+                    self.form_tree.setCurrentItem(item)
+                    self.form_tree.scrollToItem(item)
+                    return
+
+    def _on_navigator_item_clicked(self, item, _column):
+        data = item.data(0, Qt.UserRole)
+        if not data:
+            return
+        form = self._form_for_current()
+        if form is None:
+            return
+        for field in form.fields:
+            if field.page_index == data["page"] and field.name == data["name"]:
+                form.focus_field(field)
+                break
+
+    # -- completion workflow ------------------------------------------------
+
+    def _form_clear_field(self):
+        form = self._form_for_current()
+        if form is None or not form.fields:
+            self.statusBar().showMessage("No form fields open", 3000)
+            return
+        editable = form.editable_fields
+        if 0 <= form._current_index < len(editable):
+            form.clear_field(editable[form._current_index])
+            self._update_navigator_item_for_tab(self.current_tab_id)
+        else:
+            self.statusBar().showMessage("Focus a field first, then clear it", 3000)
+
+    def _form_clear_all(self):
+        form = self._form_for_current()
+        if form is None or not form.fields:
+            self.statusBar().showMessage("No form fields open", 3000)
+            return
+        answer = QMessageBox.question(
+            self,
+            "Clear Form",
+            "Clear all fillable fields? Read-only fields are kept.",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+        if answer == QMessageBox.Yes:
+            form.clear_form()
+            self._update_navigator_item_for_tab(self.current_tab_id)
+            self.statusBar().showMessage("Form cleared", 3000)
+
+    def _form_review_complete(self):
+        form = self._form_for_current()
+        if form is None or not form.fields:
+            self.statusBar().showMessage("No form fields open", 3000)
+            return
+        counts = form.completion_summary()
+        problems = [row for row in form.navigator_rows() if row["status"] in ("required", "invalid")]
+        lines = [
+            f"Fields filled:      {counts['filled']}",
+            f"Fields empty:       {counts['empty']}",
+            f"Required missing:   {counts['required']}",
+            f"Invalid values:     {counts['invalid']}",
+        ]
+        if problems:
+            lines.append("")
+            lines.append("Needs attention:")
+            for row in problems[:10]:
+                tag = "required" if row["status"] == "required" else "invalid"
+                lines.append(f"  • {tag} — {row['name']} (page {row['page'] + 1})")
+            if len(problems) > 10:
+                lines.append(f"  … and {len(problems) - 10} more")
+        box = QMessageBox(self)
+        box.setWindowTitle("Review & Complete")
+        box.setText("\n".join(lines))
+        box.setStandardButtons(QMessageBox.Ok | QMessageBox.Save)
+        box.button(QMessageBox.Save).setText("Save Form")
+        if box.exec() == QMessageBox.Save:
+            self._save_document()
+
+    # -- close warning ------------------------------------------------------
+
+    def _confirm_discard_form(self, tab_id) -> bool:
+        """If the tab has unsaved form or edit changes, ask. True to proceed."""
+        form = getattr(self, "_form_controllers", {}).get(tab_id)
+        edit = getattr(self, "_edit_controllers", {}).get(tab_id)
+        form_dirty = form is not None and form.dirty
+        edit_dirty = edit is not None and edit.is_dirty()
+        if not form_dirty and not edit_dirty:
+            return True
+        tab = self.tabs.get(tab_id)
+        answer = QMessageBox.question(
+            self,
+            "Unsaved Changes",
+            "This document has unsaved changes. Save before closing?",
+            QMessageBox.Save | QMessageBox.Discard | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+        if answer == QMessageBox.Save:
+            return self._save_tab(tab_id)
+        if answer == QMessageBox.Discard:
+            path = (
+                tab.path
+                if tab is not None and tab.path
+                else getattr(self, "current_path", None)
+            )
+            if (
+                path
+                and form is not None
+                and getattr(form, "_state_store", None) is not None
+            ):
+                form._state_store.clear(path)
+            return True
+        return False
+
+    # -- recent-file form markers --------------------------------------------
+
+    def _mark_recent_form_doc(self, path):
+        try:
+            current = set(self.settings.value("formDocs", [], list))
+            current.add(str(Path(path).resolve()))
+            self.settings.setValue("formDocs", list(current))
+        except Exception:  # nosec B110
+            pass
+
+    def _is_recent_form_doc(self, path) -> bool:
+        try:
+            return str(Path(path).resolve()) in set(self.settings.value("formDocs", [], list))
+        except Exception:
+            return False
+
+    def _update_form_menu_state(self):
+        if not self._form_menu:
+            return
+        form = self._form_for_current()
+        has_form = form is not None and bool(form.fields)
+        for action in self._form_menu_actions:
+            if action is self.navigator_action:
+                continue  # navigator toggle always available
+            action.setEnabled(has_form)
 
     # ------------------------------------------------------------------
     # Navigation
@@ -3756,7 +5895,10 @@ class PdfReaderWindow(QMainWindow):
     # ------------------------------------------------------------------
 
     def _update_controls(self):
-        has_document = self.document is not None
+        has_document = bool(
+            self.document is not None
+            and not getattr(self.document, "is_closed", False)
+        )
         can_go_previous = has_document and self.current_page > 0
         can_go_next = has_document and self.current_page < self.document.page_count - 1
         has_matches = bool(self.search_results)
@@ -3779,12 +5921,38 @@ class PdfReaderWindow(QMainWindow):
         self.search_prev_button.setEnabled(has_document and has_matches)
         self.search_next_button.setEnabled(has_document and has_matches)
         self.semantic_cb.setEnabled(has_document and HAS_LIB_MODULES)
+        can_edit = bool(
+            has_document
+            and self.document is not None
+            and eo.document_allows_editing(
+                self.document, encrypted=self._current_document_encrypted()
+            )
+        )
+        for edit_button in (
+            getattr(self, "fill_button", None),
+            getattr(self, "text_button", None),
+            getattr(self, "sign_button", None),
+            getattr(self, "image_button", None),
+        ):
+            if edit_button is not None:
+                edit_button.setEnabled(can_edit)
         if hasattr(self, "zoom_label"):
             if has_document:
                 self.zoom_label.setText(f"{int(round(self.current_render_zoom * 100))}%")
             else:
                 self.zoom_label.setText("—")
             self.zoom_label.setEnabled(has_document)
+        if getattr(self, "context_toolbar", None) is not None:
+            if has_document:
+                self.context_toolbar.show()
+                controller = self._edit_for_current()
+                self._on_edit_selection_changed(
+                    controller.selected_object()
+                    if controller is not None
+                    else None
+                )
+            else:
+                self.context_toolbar.hide()
 
     # ------------------------------------------------------------------
     # Events
@@ -4302,6 +6470,13 @@ class PdfReaderWindow(QMainWindow):
         self.settings.setValue("autoRestore", checked)
 
     def closeEvent(self, event):
+        # A debounced render must not fire after the docs are closed below.
+        self._render_timer.stop()
+        # Warn before discarding unsaved form work (Phase 2).
+        for tab_id in list(self.tabs.keys()):
+            if not self._confirm_discard_form(tab_id):
+                event.ignore()
+                return
         try:
             self._save_current_state()
         except Exception:
@@ -4315,6 +6490,17 @@ class PdfReaderWindow(QMainWindow):
             self.settings.setValue("session", session)
         except Exception:
             pass  # best-effort session save  # nosec B110
+        # Flush form autosaves + detach overlays before closing docs.
+        for tab_id, controller in getattr(self, "_form_controllers", {}).items():
+            try:
+                controller.detach_all()
+            except Exception:  # nosec B110
+                pass
+        for controller in getattr(self, "_edit_controllers", {}).values():
+            try:
+                controller.detach_all()
+            except Exception:  # nosec B110
+                pass
         # Close docs
         for tab_id, tab in self.tabs.items():
             if tab.document is not None:
@@ -4323,6 +6509,9 @@ class PdfReaderWindow(QMainWindow):
                 except Exception:
                     pass  # best-effort document close  # nosec B110
         self.tabs.clear()
+        self._form_controllers.clear()
+        self._edit_controllers.clear()
+        self._edit_tool = None
         super().closeEvent(event)
 
     # ------------------------------------------------------------------
